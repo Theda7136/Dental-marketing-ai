@@ -1,0 +1,564 @@
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
+import {
+  ClinicalGuardrailWarning,
+  clinicalGuardrails,
+} from "../../../config/clinicalGuardrails";
+import { prisma } from "../../../lib/prisma";
+import {
+  GrokServiceError,
+  generateDentalPost,
+} from "../../../services/grokService";
+import {
+  ImageServiceError,
+  overlayOnClinicTemplate,
+  removeClinicalBackground,
+} from "../../../services/imageService";
+import {
+  VideoServiceError,
+  overlayKaraokeSubtitles,
+  renderVerticalClinicalVideo,
+  type TranscriptWord,
+} from "../../../services/videoService";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 180;
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
+
+type MediaKind = "image" | "video";
+
+class RequestInputError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = "RequestInputError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+interface CreatePostInput {
+  procedureName: string;
+  media: Uint8Array;
+  transcript?: TranscriptWord[];
+  notes?: string;
+}
+
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveProcedureName(procedureName: string): string {
+  const canonical = clinicalGuardrails.allowedDentalTerms.find(
+    (term) => normalize(term) === normalize(procedureName),
+  );
+
+  if (!canonical) {
+    throw new RequestInputError(
+      400,
+      "INVALID_PROCEDURE",
+      `El procedimiento "${procedureName.trim()}" no está en los términos odontológicos permitidos.`,
+    );
+  }
+
+  clinicalGuardrails.validate(canonical);
+  return canonical;
+}
+
+function detectMediaKind(bytes: Uint8Array): MediaKind {
+  if (bytes.byteLength < 12) {
+    throw new RequestInputError(
+      400,
+      "UNSUPPORTED_FORMAT",
+      "El archivo está incompleto. Envía una imagen JPEG, PNG o WebP, o un video MP4, MOV o WebM.",
+    );
+  }
+
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const isPng =
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47;
+  const isWebp =
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    Buffer.from(bytes.subarray(8, 12)).toString("ascii") === "WEBP";
+
+  if (isJpeg || isPng || isWebp) {
+    return "image";
+  }
+
+  const isWebm =
+    bytes[0] === 0x1a &&
+    bytes[1] === 0x45 &&
+    bytes[2] === 0xdf &&
+    bytes[3] === 0xa3;
+  const isIsoBmff = Buffer.from(bytes.subarray(4, 8)).toString("ascii") === "ftyp";
+
+  if (isWebm || isIsoBmff) {
+    return "video";
+  }
+
+  throw new RequestInputError(
+    400,
+    "UNSUPPORTED_FORMAT",
+    "El formato no es compatible. Usa una imagen JPEG, PNG o WebP, o un video MP4, MOV o WebM.",
+  );
+}
+
+function decodeBase64Media(value: string): Uint8Array {
+  const trimmed = value.trim();
+  const payload = trimmed.startsWith("data:")
+    ? trimmed.slice(trimmed.indexOf(",") + 1)
+    : trimmed;
+  const compact = payload.replace(/\s/g, "");
+
+  if (compact.length === 0 || !/^[A-Za-z0-9+/=]+$/.test(compact)) {
+    throw new RequestInputError(
+      400,
+      "INVALID_MEDIA",
+      "El archivo en base64 no es válido.",
+    );
+  }
+
+  const bytes = Buffer.from(compact, "base64");
+  if (bytes.byteLength === 0) {
+    throw new RequestInputError(400, "INVALID_MEDIA", "El archivo está vacío.");
+  }
+
+  return new Uint8Array(bytes);
+}
+
+function readNotes(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  if (trimmed.length > 800) {
+    throw new RequestInputError(
+      400,
+      "INVALID_NOTES",
+      "Las notas de la consulta superan los 800 caracteres.",
+    );
+  }
+
+  clinicalGuardrails.validate(trimmed);
+  return trimmed;
+}
+
+function parseTranscript(value: unknown): TranscriptWord[] | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new RequestInputError(
+        400,
+        "INVALID_TRANSCRIPT",
+        "La transcripción del video no es un JSON válido.",
+      );
+    }
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new RequestInputError(
+      400,
+      "INVALID_TRANSCRIPT",
+      "La transcripción debe ser una lista de palabras con tiempos.",
+    );
+  }
+
+  return parsed as TranscriptWord[];
+}
+
+async function readUpload(file: FormDataEntryValue | null): Promise<Uint8Array> {
+  if (!(file instanceof File) || file.size === 0) {
+    throw new RequestInputError(
+      400,
+      "INVALID_MEDIA",
+      "Adjunta la imagen o el video en el campo media.",
+    );
+  }
+
+  if (file.size > MAX_VIDEO_BYTES) {
+    throw new RequestInputError(
+      400,
+      "FILE_TOO_LARGE",
+      "El archivo supera el máximo de 80 MB.",
+    );
+  }
+
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+async function readRequestInput(request: Request): Promise<CreatePostInput> {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      throw new RequestInputError(
+        400,
+        "INVALID_BODY",
+        "No se pudo leer el formulario con el archivo y el procedimiento.",
+      );
+    }
+
+    const procedureName = form.get("procedureName");
+    if (typeof procedureName !== "string" || procedureName.trim().length === 0) {
+      throw new RequestInputError(
+        400,
+        "INVALID_PROCEDURE",
+        "El campo procedureName es obligatorio.",
+      );
+    }
+
+    const media = await readUpload(
+      form.get("media") ?? form.get("image") ?? form.get("photo") ?? form.get("video"),
+    );
+
+    return {
+      procedureName: procedureName.trim(),
+      media,
+      transcript: parseTranscript(form.get("transcript")),
+      notes: readNotes(form.get("notes")),
+    };
+  }
+
+  if (contentType.includes("application/json")) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      throw new RequestInputError(
+        400,
+        "INVALID_BODY",
+        "El cuerpo JSON de la petición no es válido.",
+      );
+    }
+
+    if (typeof body !== "object" || body === null) {
+      throw new RequestInputError(
+        400,
+        "INVALID_BODY",
+        "El cuerpo debe incluir procedureName y el archivo multimedia.",
+      );
+    }
+
+    const record = body as Record<string, unknown>;
+    if (typeof record.procedureName !== "string" || record.procedureName.trim().length === 0) {
+      throw new RequestInputError(
+        400,
+        "INVALID_PROCEDURE",
+        "El campo procedureName es obligatorio.",
+      );
+    }
+
+    const encoded = record.mediaBase64 ?? record.imageBase64 ?? record.videoBase64;
+    if (typeof encoded !== "string") {
+      throw new RequestInputError(
+        400,
+        "INVALID_MEDIA",
+        "Envía el archivo en mediaBase64, imageBase64 o videoBase64.",
+      );
+    }
+
+    const media = decodeBase64Media(encoded);
+    if (media.byteLength > MAX_VIDEO_BYTES) {
+      throw new RequestInputError(
+        400,
+        "FILE_TOO_LARGE",
+        "El archivo supera el máximo de 80 MB.",
+      );
+    }
+
+    return {
+      procedureName: record.procedureName.trim(),
+      media,
+      transcript: parseTranscript(record.transcript),
+      notes: readNotes(record.notes),
+    };
+  }
+
+  throw new RequestInputError(
+    415,
+    "UNSUPPORTED_MEDIA_TYPE",
+    "Envía multipart/form-data o JSON con el procedimiento y el archivo multimedia.",
+  );
+}
+
+function consultationNotes(notes: string | undefined): string | undefined {
+  if (!notes) {
+    return undefined;
+  }
+
+  return `Notas confirmadas en la consulta. Úsalas solo como contexto y no agregues hallazgos que no estén escritos: ${notes}`;
+}
+
+function imageContextFor(procedureName: string, notes?: string): string {
+  return [
+    "Foto clínica preparada para Instagram y TikTok.",
+    `El odontólogo indicó el procedimiento ${procedureName}.`,
+    "La imagen se recorta y se monta en la plantilla de la clínica.",
+    consultationNotes(notes),
+    "No inventes hallazgos, medidas ni resultados que no hayan sido confirmados en consulta.",
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join(" ");
+}
+
+function videoContextFor(
+  procedureName: string,
+  hasTranscript: boolean,
+  notes?: string,
+): string {
+  return [
+    "Guion y copy para un Reel o TikTok vertical de un caso clínico.",
+    `El odontólogo indicó el procedimiento ${procedureName}.`,
+    hasTranscript
+      ? "El video incluye una conversación entre el doctor y el paciente. No cites diálogos que no estén confirmados."
+      : "El video es un clip corto del caso, sin una transcripción adjunta.",
+    "Escribe el texto que acompaña al video, no la descripción de una foto fija.",
+    consultationNotes(notes),
+    "No inventes hallazgos, medidas ni resultados que no hayan sido confirmados en consulta.",
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join(" ");
+}
+
+function buildCaption(draft: {
+  caption: string;
+  hashtags: readonly string[];
+  suggestedCallToAction: string;
+}): string {
+  return [draft.caption, draft.hashtags.join(" "), draft.suggestedCallToAction].join(
+    "\n\n",
+  );
+}
+
+function postMediaPath(id: string, kind: MediaKind): string {
+  const extension = kind === "video" ? "mp4" : "png";
+  return path.join(process.cwd(), "storage", "posts", `${id}.${extension}`);
+}
+
+async function savePostMedia(filePath: string, media: Uint8Array): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, media);
+}
+
+async function prepareImage(
+  procedureName: string,
+  media: Uint8Array,
+  notes?: string,
+) {
+  if (media.byteLength > MAX_IMAGE_BYTES) {
+    throw new RequestInputError(
+      400,
+      "FILE_TOO_LARGE",
+      "La imagen supera el máximo de 20 MB.",
+    );
+  }
+
+  const cleanImage = await removeClinicalBackground(media);
+  const draft = await generateDentalPost(
+    procedureName,
+    imageContextFor(procedureName, notes),
+  );
+  const generatedCaption = buildCaption(draft);
+  clinicalGuardrails.validate(generatedCaption);
+  const composed = await overlayOnClinicTemplate({
+    cleanImage,
+    procedureName,
+  });
+
+  return { media: composed, generatedCaption, mediaType: "IMAGE" as const };
+}
+
+async function prepareVideo(
+  procedureName: string,
+  media: Uint8Array,
+  transcript: TranscriptWord[] | undefined,
+  notes?: string,
+) {
+  const vertical = await renderVerticalClinicalVideo(media);
+  const rendered = transcript
+    ? await overlayKaraokeSubtitles(vertical, transcript)
+    : vertical;
+  const draft = await generateDentalPost(
+    procedureName,
+    videoContextFor(procedureName, transcript !== undefined, notes),
+  );
+  const generatedCaption = buildCaption(draft);
+  clinicalGuardrails.validate(generatedCaption);
+
+  return { media: rendered, generatedCaption, mediaType: "VIDEO" as const };
+}
+
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  details?: readonly string[],
+) {
+  return NextResponse.json(
+    {
+      error: {
+        code,
+        message,
+        ...(details && details.length > 0 ? { details } : {}),
+      },
+    },
+    { status },
+  );
+}
+
+function toErrorResponse(error: unknown) {
+  if (error instanceof RequestInputError) {
+    return errorResponse(error.status, error.code, error.message);
+  }
+
+  if (error instanceof ClinicalGuardrailWarning) {
+    return errorResponse(422, "CLINICAL_GUARDRAIL", error.message, error.matches);
+  }
+
+  if (error instanceof ImageServiceError) {
+    const status =
+      error.code === "INVALID_IMAGE" || error.code === "INVALID_PROCEDURE"
+        ? 400
+        : 422;
+    return errorResponse(status, error.code, error.message);
+  }
+
+  if (error instanceof VideoServiceError) {
+    const status = error.code === "RENDER_FAILED" ? 422 : 400;
+    return errorResponse(status, error.code, error.message);
+  }
+
+  if (error instanceof GrokServiceError) {
+    if (error.message.includes("XAI_API_KEY")) {
+      return errorResponse(
+        503,
+        "GROK_NOT_CONFIGURED",
+        "No se pudo redactar la propuesta porque la conexión con Grok no está configurada.",
+      );
+    }
+
+    return errorResponse(502, "GROK_ERROR", error.message);
+  }
+
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return errorResponse(
+      503,
+      "DATABASE_UNAVAILABLE",
+      "No se pudo conectar con la base de datos. Revisa DATABASE_URL.",
+    );
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return errorResponse(
+      500,
+      "DATABASE_ERROR",
+      "No se pudo guardar el post en estado pendiente de aprobación.",
+    );
+  }
+
+  if (error instanceof TypeError) {
+    return errorResponse(400, "INVALID_INPUT", error.message);
+  }
+
+  return errorResponse(500, "UNEXPECTED_ERROR", "No se pudo crear el post.");
+}
+
+export async function POST(request: Request) {
+  let mediaPath: string | undefined;
+  let createdId: string | undefined;
+
+  try {
+    const input = await readRequestInput(request);
+    const procedureName = resolveProcedureName(input.procedureName);
+    const kind = detectMediaKind(input.media);
+
+    if (kind === "image" && input.transcript) {
+      throw new RequestInputError(
+        400,
+        "INVALID_TRANSCRIPT",
+        "La transcripción solo se acepta cuando el archivo es un video.",
+      );
+    }
+
+    const prepared =
+      kind === "image"
+        ? await prepareImage(procedureName, input.media, input.notes)
+        : await prepareVideo(
+            procedureName,
+            input.media,
+            input.transcript,
+            input.notes,
+          );
+
+    const id = crypto.randomUUID();
+    const mediaUrl = `/api/media/${id}`;
+    mediaPath = postMediaPath(id, kind);
+    await savePostMedia(mediaPath, prepared.media);
+
+    const post = await prisma.scheduledPost.create({
+      data: {
+        id,
+        procedureName,
+        mediaType: prepared.mediaType,
+        mediaUrl,
+        generatedCaption: prepared.generatedCaption,
+        status: "PENDING_APPROVAL",
+      },
+    });
+    createdId = post.id;
+
+    return NextResponse.json(
+      {
+        post: {
+          id: post.id,
+          procedureName: post.procedureName,
+          mediaType: post.mediaType,
+          mediaUrl: post.mediaUrl,
+          generatedCaption: post.generatedCaption,
+          status: post.status,
+          createdAt: post.createdAt.toISOString(),
+          approvedAt: post.approvedAt?.toISOString() ?? null,
+        },
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    if (mediaPath && !createdId) {
+      await rm(mediaPath, { force: true }).catch(() => undefined);
+    }
+
+    return toErrorResponse(error);
+  }
+}

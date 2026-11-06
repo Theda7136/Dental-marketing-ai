@@ -1,0 +1,39 @@
+// Publicaciones de la clínica que pasan por revisión humana
+// antes de programarse. El caption lo genera Grok y no se publica
+// mientras el estado sea PENDING_APPROVAL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum PostStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  provider          String
+  providerAccountId String
+  name              String?  // Nombre del usuario de Meta
+  accessToken       String   // Token de acceso (de usuario o de página)
+  pageName          String?  // Nombre de la página de Facebook
+  pageId            String?  // ID de la página de Facebook
+  instagramId       String?  // ID de la cuenta de Instagram Business
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+}
