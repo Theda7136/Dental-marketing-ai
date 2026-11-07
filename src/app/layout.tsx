@@ -8,9 +8,9 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Panel clínico",
+  title: "Dental Studio | Panel clínico",
   description:
-    "Prepara fotos de casos dentales y revisa el texto antes de publicarlo.",
+    "Organiza y revisa el contenido de la clínica antes de publicarlo.",
 };
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${sourceSans.className} bg-stone-100 text-stone-900 antialiased`}>
+      <body className={`${sourceSans.className} text-stone-900 antialiased`}>
         {children}
       </body>
     </html>

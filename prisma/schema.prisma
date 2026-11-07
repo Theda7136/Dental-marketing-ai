@@ -37,3 +37,15 @@ model Account {
 
   @@unique([provider, providerAccountId])
 }
+model ScheduledPost {
+  id               String     @id @default(cuid())
+  procedureName    String
+  mediaType        MediaType  @default(IMAGE)
+  mediaUrl         String
+  generatedCaption String
+  status           PostStatus @default(PENDING_APPROVAL)
+  createdAt        DateTime   @default(now())
+  approvedAt       DateTime?
+
+  @@index([status, createdAt])
+}

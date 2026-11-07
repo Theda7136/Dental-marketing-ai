@@ -93,44 +93,61 @@ export function ApprovalQueue({
   }
 
   return (
-    <section aria-labelledby="approval-queue-title" className="mx-auto w-full max-w-3xl">
-      <header className="mb-6">
-        <p className="text-sm font-medium tracking-wide text-teal-800">
+    <section aria-labelledby="approval-queue-title" className="w-full min-w-0">
+      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8f4f0] text-xs font-bold text-[#176c63]">02</span>
+          <div>
+        <p className="eyebrow mb-1">
           Revisión clínica
         </p>
         <h2
           id="approval-queue-title"
-          className="mt-1 text-2xl font-semibold text-stone-900"
+          className="text-xl font-semibold tracking-tight text-[#173b3a] sm:text-2xl"
         >
-          Posts pendientes de aprobación
+          Pendientes de aprobación
         </h2>
-        <p className="mt-2 text-sm text-stone-600">
+        <p className="mt-1 text-sm text-[#637773]">
           {pendingPosts.length === 0
-            ? "No hay publicaciones esperando revisión."
-            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "publicación espera" : "publicaciones esperan"} tu decisión.`}
+            ? "Revisa aquí cada propuesta antes de compartirla."
+            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta espera" : "propuestas esperan"} tu revisión.`}
         </p>
+          </div>
+        </div>
+        <span className="ml-12 inline-flex w-fit items-center rounded-full border border-[#d7e5df] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#55716b] sm:ml-0">
+          {pendingPosts.length} {pendingPosts.length === 1 ? "pendiente" : "pendientes"}
+        </span>
       </header>
 
       {pendingPosts.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center text-stone-600">
-          Cuando Grok genere un post, aparecerá aquí en estado pendiente.
-        </p>
+        <div className="app-card flex min-h-64 flex-col items-center justify-center rounded-3xl border-dashed px-6 py-10 text-center">
+          <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#edf5f1] text-[#398e82]" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="1.6"><path d="M7 3.75h7l4 4V20a.75.75 0 0 1-.75.75h-10.5A.75.75 0 0 1 6 20V4.5a.75.75 0 0 1 1-.75Z" strokeLinejoin="round"/><path d="M14 4v4h4M9 13h6M9 16.5h6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+          <h3 className="text-base font-semibold text-[#29433f]">Tu bandeja está al día</h3>
+          <p className="mt-1 max-w-xs text-sm leading-6 text-[#778984]">
+            Las nuevas propuestas aparecerán aquí para que puedas revisarlas con calma.
+          </p>
+        </div>
       ) : (
         <ul className="flex flex-col gap-4">
           {pendingPosts.map((post) => {
             const isBusy = busyId === post.id;
+            const isTextIdea = post.mediaKind === "text" || post.mediaUrl.length === 0;
+            const isVideo = post.mediaKind === "video" || isVideoUrl(post.mediaUrl);
             const error = errors[post.id];
 
             return (
               <li
                 key={post.id}
-                className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
+                className="app-card overflow-hidden rounded-3xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_52px_-32px_rgba(24,58,52,0.45)]"
               >
                 <article className="grid gap-0 sm:grid-cols-[220px_1fr]">
-                  <div className="bg-stone-100">
+                  <div className="min-h-48 bg-[#edf3ef] sm:min-h-64">
                     {post.mediaKind === "text" || post.mediaUrl.length === 0 ? (
-                      <div className="flex h-56 items-center justify-center px-6 text-center text-sm font-medium text-teal-900 sm:h-full">
-                        Guion
+                      <div className="flex h-56 flex-col items-center justify-center gap-3 px-6 text-center text-sm font-semibold text-[#356e66] sm:h-full">
+                        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/80 shadow-sm" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.7"><path d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v12A1.25 1.25 0 0 1 17 19.25H7A1.25 1.25 0 0 1 5.75 18V6A1.25 1.25 0 0 1 7 4.75Z"/><path d="M9 9h6M9 12h6M9 15h4" strokeLinecap="round"/></svg></span>
+                        Idea de contenido
                       </div>
                     ) : post.mediaKind === "video" || isVideoUrl(post.mediaUrl) ? (
                       <video
@@ -148,17 +165,17 @@ export function ApprovalQueue({
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-4 p-5">
+                  <div className="flex min-w-0 flex-col gap-4 p-5 sm:p-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-stone-900">
+                      <h3 className="text-lg font-semibold tracking-tight text-[#173b3a]">
                         {post.procedureName}
                       </h3>
-                      <p className="mt-1 text-sm text-stone-500">
+                      <p className="mt-1 text-xs font-medium text-[#8a9994]">
                         Creado el {formatCreatedAt(post.createdAt)}
                       </p>
                     </div>
 
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-stone-700">
+                    <p className="whitespace-pre-wrap text-sm leading-7 text-[#526762]">
                       {post.generatedCaption}
                     </p>
 
@@ -171,19 +188,19 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy}
+                        disabled={isBusy || isTextIdea}
                         onClick={() => runAction(post.id, onApprove)}
-                        className="rounded-full bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Aprobar y Programar
+                        {isTextIdea ? "Idea guardada" : "Aprobar y publicar"}
                       </button>
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => onEdit(post)}
-                        className="rounded-full border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-full border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Editar y Regenerar
+                        Editar y regenerar
                       </button>
                     </div>
                   </div>

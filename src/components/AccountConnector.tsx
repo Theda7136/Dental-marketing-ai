@@ -8,8 +8,19 @@ export function AccountConnector() {
     userName?: string;
     pageName?: string;
   } | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    const messages: Record<string, string> = {
+      no_page: "Meta no encontró una Página que puedas administrar. Revisa que tu usuario tenga acceso a la Página de la clínica e inténtalo otra vez.",
+      pages_failed: "Meta no pudo consultar tus Páginas. Revisa los permisos concedidos e inténtalo otra vez.",
+      token_failed: "Meta no pudo completar la autorización. Inténtalo de nuevo.",
+      token_exchange_failed: "Meta no pudo completar la autorización de larga duración. Reconecta la Página e inténtalo otra vez.",
+      invalid_state: "La autorización de Meta caducó o no coincide. Inténtalo de nuevo.",
+    };
+    if (error && messages[error]) setConnectionMessage(messages[error]);
+
     fetch("/api/social/accounts", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -22,6 +33,9 @@ export function AccountConnector() {
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8 flex items-center justify-between">
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Cuentas de Redes Sociales</h2>
+        {connectionMessage ? (
+          <p role="alert" className="mt-2 max-w-xl text-sm text-red-700">{connectionMessage}</p>
+        ) : null}
         <p className="text-sm text-gray-500">
           {account?.connected
             ? `Página vinculada: ${account.pageName || "Página Principal"}`

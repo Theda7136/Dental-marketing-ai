@@ -13,7 +13,7 @@ import ffmpegStatic from "ffmpeg-static";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
-const MAX_DURATION_MS = 90_000;
+const MAX_DURATION_MS = 60_000;
 const MAX_EDGE_PX = 4_096;
 const MAX_TRANSCRIPT_WORDS = 400;
 const VERTICAL_WIDTH = 1_080;
@@ -204,7 +204,7 @@ function parseProbe(stderr: string): VideoProbe {
 
   if (durationMs > MAX_DURATION_MS) {
     throw new VideoServiceError(
-      "El video supera los 90 segundos permitidos para un Reel.",
+      "El video supera los 60 segundos permitidos para un Reel.",
       "INVALID_VIDEO",
     );
   }
@@ -288,6 +288,8 @@ async function renderToMp4(
     "23",
     "-pix_fmt",
     "yuv420p",
+    "-r",
+    "30",
     "-c:a",
     "aac",
     "-b:a",

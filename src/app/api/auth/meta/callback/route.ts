@@ -1,41 +1,105 @@
-import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const receivedState = searchParams.get("state") || "";
+  const storedState = request.cookies.get("meta_oauth_state")?.value || "";
+  const validState =
+    receivedState.length === storedState.length &&
+    receivedState.length > 0 &&
+    timingSafeEqual(Buffer.from(receivedState), Buffer.from(storedState));
+
+  const redirectWithError = (error: string) => {
+    const response = NextResponse.redirect(new URL(`/dashboard?error=${error}`, request.url));
+    response.cookies.set("meta_oauth_state", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth/meta/callback",
+      maxAge: 0,
+    });
+    return response;
+  };
+
+  if (!validState) {
+    return redirectWithError("invalid_state");
+  }
 
   if (!code) {
-    return NextResponse.redirect(new URL("/dashboard?error=no_code", request.url));
+    return redirectWithError("no_code");
   }
 
   try {
     const appId = process.env.META_CLIENT_ID;
     const appSecret = process.env.META_CLIENT_SECRET;
-    const redirectUri = "http://localhost:3000/api/auth/meta/callback";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const redirectUri = process.env.META_REDIRECT_URI || new URL("/api/auth/meta/callback", baseUrl).toString();
 
     // 1. Canjear el código por el token de acceso
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(
+      `https://graph.facebook.com/v26.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(
         redirectUri
       )}&client_secret=${appSecret}&code=${code}`
     );
     const tokenData = await tokenRes.json();
-    const userAccessToken = tokenData.access_token;
+    const shortLivedUserToken = tokenData.access_token as string | undefined;
 
-    if (!userAccessToken) {
-      console.error("Error al obtener token de Meta:", tokenData);
-      return NextResponse.redirect(new URL("/dashboard?error=token_failed", request.url));
+    if (!tokenRes.ok || !shortLivedUserToken) {
+      console.error("Meta no devolvió un token de acceso.");
+      return redirectWithError("token_failed");
     }
 
-    // 2. Obtener datos del usuario y de su página de Facebook
-    const userRes = await fetch(
-      `https://graph.facebook.com/v19.0/me?fields=id,name,accounts{name,access_token,instagram_business_account}&access_token=${userAccessToken}`
-    );
-    const userData = await userRes.json();
+    // 2. Intercambiar el token temporal antes de solicitar el token de la Página.
+    const exchangeUrl = new URL("https://graph.facebook.com/v26.0/oauth/access_token");
+    exchangeUrl.searchParams.set("grant_type", "fb_exchange_token");
+    exchangeUrl.searchParams.set("client_id", appId || "");
+    exchangeUrl.searchParams.set("client_secret", appSecret || "");
+    exchangeUrl.searchParams.set("fb_exchange_token", shortLivedUserToken);
+    const exchangeRes = await fetch(exchangeUrl, { signal: AbortSignal.timeout(30_000) });
+    const exchangeData = await exchangeRes.json();
+    const userAccessToken = exchangeData.access_token as string | undefined;
 
-    const page = userData.accounts?.data?.[0];
-    const providerAccountId = userData.id || "meta_user_id";
+    if (!exchangeRes.ok || !userAccessToken) {
+      console.error("Meta no permitió extender el token temporal.");
+      return redirectWithError("token_exchange_failed");
+    }
+
+    // 3. Consultar el perfil del usuario y, por separado, las Páginas que administra.
+    const userUrl = new URL("https://graph.facebook.com/v26.0/me");
+    userUrl.searchParams.set("fields", "id,name");
+    userUrl.searchParams.set("access_token", userAccessToken);
+    const userRes = await fetch(userUrl, { signal: AbortSignal.timeout(30_000) });
+    const userData = await userRes.json();
+    if (!userRes.ok || userData.error || !userData.id) {
+      console.error("Meta no permitió consultar el perfil de la cuenta.");
+      return redirectWithError("pages_failed");
+    }
+
+    const pagesUrl = new URL("https://graph.facebook.com/v26.0/me/accounts");
+    pagesUrl.searchParams.set("fields", "id,name,access_token,tasks,instagram_business_account");
+    pagesUrl.searchParams.set("access_token", userAccessToken);
+    const pagesRes = await fetch(pagesUrl, { signal: AbortSignal.timeout(30_000) });
+    const pagesData = await pagesRes.json();
+    if (!pagesRes.ok || pagesData.error) {
+      console.error("Meta no permitió consultar las páginas de la cuenta.");
+      return redirectWithError("pages_failed");
+    }
+
+    const pages = Array.isArray(pagesData.data) ? pagesData.data : [];
+    const configuredPageId = process.env.META_PAGE_ID?.trim();
+    if (pages.length > 1 && !configuredPageId) {
+      return redirectWithError("multiple_pages");
+    }
+    const page = configuredPageId
+      ? pages.find((candidate: { id?: string }) => candidate.id === configuredPageId)
+      : pages[0];
+    if (!page?.id || !page?.access_token) {
+      return redirectWithError(configuredPageId ? "page_not_found" : "no_page");
+    }
+    const providerAccountId = userData.id;
 
     // 3. Guardar o actualizar de forma segura usando el índice único de Prisma
     await prisma.account.upsert({
@@ -46,26 +110,28 @@ export async function GET(request: Request) {
         },
       },
       update: {
-        accessToken: page ? page.access_token : userAccessToken,
+        accessToken: page.access_token,
         name: userData.name || "Usuario Meta",
-        pageName: page ? page.name : "Clínica Dental",
-        pageId: page ? page.id : null,
+        pageName: page.name || "Página de Facebook",
+        pageId: page.id,
         instagramId: page?.instagram_business_account?.id || null,
       },
       create: {
         provider: "facebook",
         providerAccountId: providerAccountId,
-        accessToken: page ? page.access_token : userAccessToken,
+        accessToken: page.access_token,
         name: userData.name || "Usuario Meta",
-        pageName: page ? page.name : "Clínica Dental",
-        pageId: page ? page.id : null,
+        pageName: page.name || "Página de Facebook",
+        pageId: page.id,
         instagramId: page?.instagram_business_account?.id || null,
       },
     });
 
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const response = NextResponse.redirect(new URL("/dashboard", request.url));
+    response.cookies.set("meta_oauth_state", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
+    return response;
   } catch (error: any) {
-    console.error("ERROR CRÍTICO EN CALLBACK:", error?.message || error);
-    return NextResponse.redirect(new URL("/dashboard?error=db_error", request.url));
+    console.error("ERROR EN CALLBACK DE META:", error?.message || "Error desconocido");
+    return redirectWithError("db_error");
   }
 }

@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { isClinicAuthorized } from "@/lib/clinicAuth";
 
 interface GeneratePostParams {
   procedure: string;
@@ -9,6 +11,10 @@ interface GeneratePostParams {
 }
 
 export async function generateClinicalPost({ procedure, imageUrl, notes }: GeneratePostParams) {
+  if (!isClinicAuthorized((await headers()).get("authorization"))) {
+    throw new Error("Inicia sesión para usar el panel.");
+  }
+
   const apiKey = process.env.XAI_API_KEY;
 
   if (!apiKey) {

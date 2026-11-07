@@ -1,8 +1,9 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
+import { isClinicAuthorized } from "../../../../lib/clinicAuth";
+import { isValidMediaSignature } from "../../../../lib/mediaSignature";
+import { readPostMedia } from "../../../../services/mediaStorage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,10 +24,14 @@ function notFound() {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
+  const url = new URL(request.url);
+  const authorized = isClinicAuthorized(request.headers.get("authorization")) ||
+    isValidMediaSignature(id, url.searchParams.get("expires"), url.searchParams.get("signature"));
+  if (!authorized) return new Response("Autenticación requerida.", { status: 401 });
 
   if (!POST_ID.test(id)) {
     return notFound();
@@ -42,16 +47,9 @@ export async function GET(
       return notFound();
     }
 
-    const extension = post.mediaType === "VIDEO" ? "mp4" : "png";
-    const contentType = post.mediaType === "VIDEO" ? "video/mp4" : "image/png";
-    const storageDir = path.resolve(process.cwd(), "storage", "posts");
-    const filePath = path.resolve(storageDir, `${id}.${extension}`);
-
-    if (!filePath.startsWith(`${storageDir}${path.sep}`)) {
-      return notFound();
-    }
-
-    const bytes = await readFile(filePath);
+    const kind = post.mediaType === "VIDEO" ? "video" : "image";
+    const contentType = kind === "video" ? "video/mp4" : "image/png";
+    const bytes = await readPostMedia(id, kind);
     return new NextResponse(new Uint8Array(bytes), {
       status: 200,
       headers: {

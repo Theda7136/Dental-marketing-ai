@@ -104,7 +104,7 @@ function readApiKey(): string {
       process?: { env?: Record<string, string | undefined> };
     }
   ).process?.env;
-  const apiKey = env?.GROK_API_KEY?.trim();
+  const apiKey = env?.XAI_API_KEY?.trim() || env?.GROK_API_KEY?.trim();
 
   if (!apiKey) {
     throw new GrokServiceError(

@@ -1,7 +1,14 @@
 "use server";
 
+import { headers } from "next/headers";
+import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { prisma } from "@/lib/prisma";
+import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
+
+async function hasClinicAccess(): Promise<boolean> {
+  return isClinicAuthorized((await headers()).get("authorization"));
+}
 
 // Función para generar texto con Grok (xAI)
 async function generateCaptionWithGrok(procedureName: string, notes: string) {
@@ -43,6 +50,10 @@ async function generateCaptionWithGrok(procedureName: string, notes: string) {
 }
 
 export async function createMarketingProposal(formData: FormData) {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para usar el panel." };
+  }
+
   try {
     const procedureName = formData.get("procedureName") as string;
     const notes = formData.get("notes") as string;
@@ -81,6 +92,10 @@ export async function createMarketingProposal(formData: FormData) {
 }
 
 export async function createTextProposal(formData: FormData) {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para usar el panel." };
+  }
+
   try {
     const procedureName = formData.get("procedureName") as string;
     const notes = formData.get("notes") as string;
@@ -89,35 +104,99 @@ export async function createTextProposal(formData: FormData) {
       return { ok: false, message: "El procedimiento es obligatorio." };
     }
 
+    if (!clinicalGuardrails.allowedDentalTerms.some((term) => term === procedureName)) {
+      return { ok: false, message: "Elige un procedimiento odontológico permitido." };
+    }
+
+    clinicalGuardrails.validate(notes);
+
     const generatedCaption = await generateCaptionWithGrok(procedureName, notes);
+    clinicalGuardrails.validate(generatedCaption);
 
-    const newPost = {
-      id: Math.random().toString(36).substring(2, 9),
-      procedureName,
-      generatedCaption: `Guion / Idea: \n\n${generatedCaption}`,
-      mediaUrl: "",
-      status: "PENDING_APPROVAL" as const,
-      createdAt: new Date().toISOString(),
+    const post = await prisma.scheduledPost.create({
+      data: {
+        procedureName,
+        mediaType: "IMAGE",
+        generatedCaption: `Guion / Idea: \n\n${generatedCaption}`,
+        mediaUrl: "",
+        status: "PENDING_APPROVAL",
+      },
+    });
+
+    return {
+      ok: true,
+      post: {
+        ...post,
+        createdAt: post.createdAt.toISOString(),
+        approvedAt: post.approvedAt?.toISOString() ?? null,
+        mediaKind: "text" as const,
+      },
     };
-
-    return { ok: true, post: newPost };
   } catch (error: any) {
     console.error("Error al crear texto:", error);
     return { ok: false, message: error.message || "Error al generar el texto." };
   }
 }
 
-export async function approveAndPublishPost(postData: {
-  id: string;
-  mediaUrl: string;
-  generatedCaption: string;
-  mediaKind: string;
-}) {
+type ApproveAndPublishResult =
+  | { ok: true; approvedAt: string; warnings?: string[]; instagramId?: string; facebookId?: string }
+  | { ok: false; message: string };
+
+export async function approveAndPublishPost(
+  postId: string,
+): Promise<ApproveAndPublishResult> {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para usar el panel." };
+  }
+
   try {
-    const result = await publishToMeta(postData);
-    return { ok: true, ...result };
+    const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+    if (!post || post.status !== "PENDING_APPROVAL") {
+      return { ok: false, message: "La publicación ya no está pendiente de aprobación." };
+    }
+    if (!post.mediaUrl) {
+      return { ok: false, message: "Las ideas de texto no se pueden publicar como una imagen." };
+    }
+    const result = await publishToMeta({
+      id: post.id,
+      mediaUrl: post.mediaUrl,
+      generatedCaption: post.generatedCaption,
+      mediaKind: post.mediaType === "VIDEO" ? "video" : "image",
+    });
+    const approvedAt = new Date();
+    await prisma.scheduledPost.update({
+      where: { id: post.id },
+      data: { status: "PUBLISHED", approvedAt },
+    });
+
+    return {
+      ok: true,
+      approvedAt: approvedAt.toISOString(),
+      ...(result.instagramId ? { instagramId: result.instagramId } : {}),
+      ...(result.facebookId ? { facebookId: result.facebookId } : {}),
+      ...(result.warnings?.length ? { warnings: result.warnings } : {}),
+    };
   } catch (error: any) {
     console.error("Error al publicar en redes:", error);
     return { ok: false, message: error.message || "Error desconocido al publicar." };
+  }
+}
+
+export async function rejectPost(postId: string) {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para usar el panel." };
+  }
+
+  try {
+    const result = await prisma.scheduledPost.updateMany({
+      where: { id: postId, status: "PENDING_APPROVAL" },
+      data: { status: "REJECTED" },
+    });
+    return result.count === 1
+      ? { ok: true }
+      : { ok: false, message: "La publicación ya no está pendiente de aprobación." };
+  } catch (error: any) {
+    console.error("Error al rechazar publicación:", error);
+    return { ok: false, message: "No se pudo actualizar la publicación." };
   }
 }

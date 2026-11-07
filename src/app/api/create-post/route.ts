@@ -1,12 +1,12 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { isClinicAuthorized, unauthorizedResponse } from "../../../lib/clinicAuth";
 import {
   ClinicalGuardrailWarning,
   clinicalGuardrails,
 } from "../../../config/clinicalGuardrails";
 import { prisma } from "../../../lib/prisma";
+import { deletePostMedia, storePostMedia } from "../../../services/mediaStorage";
 import {
   GrokServiceError,
   generateDentalPost,
@@ -362,16 +362,6 @@ function buildCaption(draft: {
   );
 }
 
-function postMediaPath(id: string, kind: MediaKind): string {
-  const extension = kind === "video" ? "mp4" : "png";
-  return path.join(process.cwd(), "storage", "posts", `${id}.${extension}`);
-}
-
-async function savePostMedia(filePath: string, media: Uint8Array): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, media);
-}
-
 async function prepareImage(
   procedureName: string,
   media: Uint8Array,
@@ -496,7 +486,11 @@ function toErrorResponse(error: unknown) {
 }
 
 export async function POST(request: Request) {
-  let mediaPath: string | undefined;
+  if (!isClinicAuthorized(request.headers.get("authorization"))) {
+    return unauthorizedResponse(true);
+  }
+
+  let storedMedia: { id: string; kind: MediaKind } | undefined;
   let createdId: string | undefined;
 
   try {
@@ -523,9 +517,10 @@ export async function POST(request: Request) {
           );
 
     const id = crypto.randomUUID();
-    const mediaUrl = `/api/media/${id}`;
-    mediaPath = postMediaPath(id, kind);
-    await savePostMedia(mediaPath, prepared.media);
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
+    const mediaUrl = new URL(`/api/media/${id}`, appBaseUrl).toString();
+    await storePostMedia(id, kind, prepared.media);
+    storedMedia = { id, kind };
 
     const post = await prisma.scheduledPost.create({
       data: {
@@ -555,8 +550,8 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    if (mediaPath && !createdId) {
-      await rm(mediaPath, { force: true }).catch(() => undefined);
+    if (storedMedia && !createdId) {
+      await deletePostMedia(storedMedia.id, storedMedia.kind).catch(() => undefined);
     }
 
     return toErrorResponse(error);
