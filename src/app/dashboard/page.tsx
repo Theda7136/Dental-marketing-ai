@@ -217,6 +217,10 @@ export default function DashboardPage() {
     const targetPost = posts.find((p) => p.id === postId);
     if (!targetPost) return;
 
+    if (!window.confirm("La aprobación publicará este contenido inmediatamente en las redes conectadas. ¿Confirmas que el material y el texto están autorizados para publicar?")) {
+      return;
+    }
+
     startTransition(async () => {
       const result = await approveAndPublishPost(targetPost.id);
 
