@@ -582,13 +582,51 @@ export function ApprovalQueue({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold text-[#173b3a]">{post.procedureName}</p>
-                    <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · · {publishingSummary(post)}</p>
+                    <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {publishingSummary(post)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {networkStatus("Facebook", post.facebookStatus)}
                     {networkStatus("Instagram", post.instagramStatus)}
                   </div>
                 </div>
+                {(post.facebookPostId || post.instagramPostId) && (
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {(["facebook", "instagram"] as const).map((network) => {
+                      const objectId = network === "facebook" ? post.facebookPostId : post.instagramPostId;
+                      if (!objectId) return null;
+                      const lookupKey = `${post.id}:${network}`;
+                      return (
+                        <div key={lookupKey}>
+                          <p className="max-w-xs break-all text-xs text-[#657873]">
+                            {network === "facebook" ? "Facebook" : "Instagram"} · ID: {objectId}
+                          </p>
+                          <button
+                            type="button"
+                            disabled={busyId === post.id}
+                            className="mt-2 rounded-lg border border-[#cbdcd4] bg-white px-3 py-2 text-xs font-medium text-[#176c63] disabled:opacity-50"
+                            onClick={() => {
+                              void runAction(post.id, async () => {
+                                const lookup = await onLookup(post.id, network);
+                                setLookupMessages((current) => ({ ...current, [lookupKey]: lookup.message }));
+                              });
+                            }}
+                          >
+                            Comprobar ID en {network === "facebook" ? "Facebook" : "Instagram"}
+                          </button>
+                          {lookupMessages[lookupKey] && (
+                            <p role="status" className="mt-1 max-w-sm text-xs text-[#526762]">{lookupMessages[lookupKey]}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {post.status === "PUBLISHED" && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {retryButton(post, "facebook")}
+                    {retryButton(post, "instagram")}
+                  </div>
+                )}
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
