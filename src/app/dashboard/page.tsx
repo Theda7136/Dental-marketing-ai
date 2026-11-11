@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption } from "./actions";
+import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -270,6 +270,10 @@ export default function DashboardPage() {
     setNotice(result.message);
   }
 
+  async function lookupMetaId(postId: string, network: "facebook" | "instagram") {
+    return verifyMetaObject(postId, network);
+  }
+
   async function verifyNetwork(
     postId: string,
     network: "facebook" | "instagram",
@@ -460,6 +464,7 @@ export default function DashboardPage() {
           onEdit={handleEditPost}
           onRetry={retryNetwork}
           onVerify={verifyNetwork}
+          onLookup={lookupMetaId}
         />
       </div>
     </main>
