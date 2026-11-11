@@ -41,6 +41,7 @@ interface ApprovalQueueProps {
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
   onVerify: (postId: string, network: "facebook" | "instagram", outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN", evidence: string) => Promise<void>;
   onLookup: (postId: string, network: "facebook" | "instagram") => Promise<{ ok: boolean; message: string }>;
+  onCheckMedia: (postId: string) => Promise<{ ok: boolean; message: string }>;
 }
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -120,6 +121,7 @@ export function ApprovalQueue({
   onRetry,
   onVerify,
   onLookup,
+  onCheckMedia,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export function ApprovalQueue({
   const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
   const [reviewEvidence, setReviewEvidence] = useState("");
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
+  const [mediaChecks, setMediaChecks] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const reviewedPosts = useMemo(
@@ -424,6 +427,29 @@ export function ApprovalQueue({
                           >
                             {expandedPosts.includes(post.id) ? "Ver menos" : "Leer texto completo"}
                           </button>
+                        )}
+                      </div>
+                    )}
+
+                    {post.mediaUrl && post.mediaKind !== "text" && post.mediaKind !== "video" && (
+                      <div>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => {
+                            void runAction(post.id, async () => {
+                              const check = await onCheckMedia(post.id);
+                              setMediaChecks((current) => ({ ...current, [post.id]: check }));
+                            });
+                          }}
+                          className="rounded-xl border border-[#b7d7ce] bg-white px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
+                        >
+                          Comprobar acceso HTTPS de imagen
+                        </button>
+                        {mediaChecks[post.id] && (
+                          <p role="status" className={`mt-2 text-xs leading-5 ${mediaChecks[post.id].ok ? "text-[#176c63]" : "text-amber-800"}`}>
+                            {mediaChecks[post.id].message}
+                          </p>
                         )}
                       </div>
                     )}
