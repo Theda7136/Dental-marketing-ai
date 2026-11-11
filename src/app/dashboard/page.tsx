@@ -238,7 +238,16 @@ export default function DashboardPage() {
             : "¡Publicado en las redes conectadas!",
         );
       } else {
-        setErrorMessage(`Error al publicar: ${result.message}`);
+        setErrorMessage(`No se pudo confirmar la publicación: ${result.message}. Revisa el estado de cada red antes de volver a intentar.`);
+      }
+
+      try {
+        const response = await fetch("/api/posts", { cache: "no-store" });
+        if (!response.ok) throw new Error("No se pudo actualizar el estado de las publicaciones.");
+        const payload = await response.json();
+        setPosts(payload.posts as ApprovalQueuePost[]);
+      } catch {
+        setErrorMessage("Actualiza la página para consultar los estados guardados antes de volver a publicar.");
       }
     });
   }
