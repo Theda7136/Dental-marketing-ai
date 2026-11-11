@@ -78,3 +78,14 @@ npm run dev
 ```
 
 No uses `prisma migrate reset`. El registro manual **no ejecuta solicitudes de lectura contra Meta**; documenta únicamente la revisión realizada por la clínica.
+
+## Cuarta fase: consulta de solo lectura a Meta
+
+Desde el historial, cuando existe un identificador confirmado de publicación (`facebookPostId` o `instagramPostId`), el personal puede pulsar «Comprobar ID en Facebook/Instagram». El servidor consulta `GET /{object-id}?fields=id` utilizando el token privado de Meta y un tiempo límite de 15 segundos.
+
+- Solo indica si Meta devuelve el mismo ID bajo los permisos actuales; **no demuestra visibilidad pública ni procesamiento completo de un Reel**.
+- Respuestas 403, 404, errores de permisos, fallos de red o tokens vencidos se consideran **inconclusos**, nunca prueba de ausencia.
+- No se generan publicaciones ni se modifican los estados de entrega de ninguna red.
+- Los registros históricos sin ID de Meta permanecen en revisión manual, con el envío bloqueado.
+
+Para validar: `git pull origin feature/safe-content-review`, `npm run build`, `npm run dev`. No hace falta ejecutar una migración adicional para esta consulta. Verifica en «Historial de publicaciones» los botones únicamente en registros con ID de Meta.
