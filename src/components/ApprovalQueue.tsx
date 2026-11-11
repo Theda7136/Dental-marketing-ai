@@ -20,6 +20,8 @@ export interface ApprovalQueuePost {
   status: PostStatus;
   facebookStatus?: string;
   instagramStatus?: string;
+  facebookPostId?: string | null;
+  instagramPostId?: string | null;
   createdAt: Date | string;
   approvedAt?: Date | string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
@@ -314,7 +316,13 @@ export function ApprovalQueue({
                       </div>
                     )}
 
-                    {post.status === "PUBLISHED" && (
+                    {(post.facebookPostId || post.instagramPostId) && (
+                  <div className="mt-3 space-y-1 break-all font-mono text-xs text-[#657873]">
+                    {post.facebookPostId && <p>Facebook · ID: {post.facebookPostId}</p>}
+                    {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
+                  </div>
+                )}
+                {post.status === "PUBLISHED" && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {retryButton(post, "facebook")}
                     {retryButton(post, "instagram")}
