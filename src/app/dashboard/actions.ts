@@ -208,6 +208,65 @@ export async function approveAndPublishPost(
   }
 }
 
+export async function retryPendingNetwork(
+  postId: string,
+  network: "facebook" | "instagram",
+): Promise<{ ok: boolean; message: string }> {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para publicar." };
+  }
+
+  try {
+    const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+    if (!post || !["PENDING_APPROVAL", "PUBLISHED"].includes(post.status)) {
+      return { ok: false, message: "La propuesta ya no admite publicaciones." };
+    }
+    if (!post.mediaUrl) {
+      return { ok: false, message: "Las ideas de texto no se pueden enviar como imágenes." };
+    }
+
+    const networkStatus = network === "facebook" ? post.facebookStatus : post.instagramStatus;
+    if (networkStatus !== "PENDING") {
+      return {
+        ok: false,
+        message: "Esta red ya fue utilizada o tiene un resultado incierto. Verifica el estado en Meta antes de continuar.",
+      };
+    }
+
+    const result = await publishToMeta({
+      id: post.id,
+      mediaUrl: post.mediaUrl,
+      generatedCaption: post.generatedCaption,
+      mediaKind: post.mediaType === "VIDEO" ? "video" : "image",
+    }, network);
+
+    const publishedId = network === "facebook" ? result.facebookId : result.instagramId;
+    if (!publishedId) {
+      return { ok: false, message: "Meta no confirmó el envío. Verifica la red antes de otro intento." };
+    }
+
+    if (post.status === "PENDING_APPROVAL") {
+      await prisma.scheduledPost.update({
+        where: { id: post.id },
+        data: { status: "PUBLISHED", approvedAt: new Date() },
+      });
+    }
+
+    const platform = network === "facebook" ? "Facebook" : "Instagram";
+    return {
+      ok: true,
+      message: `Publicación confirmada en ${platform}.` +
+        (result.warnings?.length ? " " + result.warnings.join(" ") : ""),
+    };
+  } catch (error) {
+    console.error("Error al publicar en la red pendiente:", error);
+    return {
+      ok: false,
+      message: "No se confirmó la publicación. Revisa la cuenta de Meta antes de intentar nuevamente.",
+    };
+  }
+}
+
 export async function rejectPost(postId: string) {
   if (!(await hasClinicAccess())) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
