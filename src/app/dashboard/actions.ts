@@ -151,13 +151,13 @@ export async function updatePendingCaption(postId: string, caption: string) {
   try {
     clinicalGuardrails.validate(revisedCaption);
     const updated = await prisma.scheduledPost.updateMany({
-      where: { id: postId, status: "PENDING_APPROVAL" },
+      where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING" },
       data: { generatedCaption: revisedCaption },
     });
 
     return updated.count === 1
       ? { ok: true, caption: revisedCaption }
-      : { ok: false, message: "Esta propuesta ya no está pendiente de aprobación." };
+      : { ok: false, message: "La propuesta ya fue enviada a publicación o dejó de estar pendiente. No puedes modificar el texto." };
   } catch (error) {
     console.error("Error al guardar el texto de la propuesta:", error);
     return { ok: false, message: "No se pudo guardar el texto. Revisa el contenido e inténtalo nuevamente." };
