@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
+import { canSendToNetwork } from "@/lib/metaDeliveryPolicy.mjs";
 
 const GRAPH = "https://graph.facebook.com/v26.0";
 type PublishPost = { id: string; mediaUrl: string; generatedCaption: string; mediaKind: string };
@@ -56,7 +57,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   // The state is claimed before contacting Meta. An interrupted call remains blocked,
   // since Meta could have accepted a post even when our server lost its response.
-  if (onlyNetwork !== "facebook" && account.instagramId && savedPost.instagramStatus === "PENDING") {
+  if (onlyNetwork !== "facebook" && account.instagramId && canSendToNetwork(savedPost.instagramStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
       where: { id: post.id, instagramStatus: "PENDING" },
       data: { instagramStatus: "IN_PROGRESS", instagramError: null },
@@ -91,7 +92,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     warnings.push("Instagram Business no está vinculado; no se intentó publicar allí.");
   }
 
-  if (onlyNetwork !== "instagram" && savedPost.facebookStatus === "PENDING") {
+  if (onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
       where: { id: post.id, facebookStatus: "PENDING" },
       data: { facebookStatus: "IN_PROGRESS", facebookError: null },
