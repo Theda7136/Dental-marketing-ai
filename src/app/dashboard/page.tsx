@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { createTextProposal, approveAndPublishPost, retryPendingNetwork, updatePendingCaption } from "./actions";
+import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -270,6 +270,22 @@ export default function DashboardPage() {
     setNotice(result.message);
   }
 
+  async function verifyNetwork(
+    postId: string,
+    network: "facebook" | "instagram",
+    outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN",
+    evidence: string,
+  ) {
+    const review = await recordDeliveryReview(postId, network, outcome, evidence);
+    if (!review.ok) throw new Error(review.message);
+
+    const response = await fetch("/api/posts", { cache: "no-store" });
+    if (!response.ok) throw new Error("La verificación se guardó, pero no se pudo recargar el historial. Actualiza la página.");
+    const payload = await response.json();
+    setPosts(payload.posts as ApprovalQueuePost[]);
+    setNotice(review.message);
+  }
+
   async function handleEditPost(post: ApprovalQueuePost, caption: string) {
     const revised = await updatePendingCaption(post.id, caption);
     if (!revised.ok || !revised.caption) {
@@ -443,6 +459,7 @@ export default function DashboardPage() {
           onApprove={approvePost}
           onEdit={handleEditPost}
           onRetry={retryNetwork}
+          onVerify={verifyNetwork}
         />
       </div>
     </main>
