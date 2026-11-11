@@ -171,7 +171,15 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   if (!instagramId && !facebookId) {
-    throw new Error(warnings.join(" ") || "No se confirmó ninguna publicación. Revisa el estado de Meta antes de reintentar.");
+    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
+    const unconfirmed = currentPost && [currentPost.facebookStatus, currentPost.instagramStatus]
+      .some((status) => status === "UNKNOWN" || status === "IN_PROGRESS");
+
+    if (unconfirmed) {
+      throw new Error("No se confirmó la publicación. Hay un envío con resultado incierto; revisa Meta antes de volver a intentar.");
+    }
+
+    throw new Error(warnings.join(" ") || "No hay publicaciones confirmadas. Revisa el estado de las redes antes de continuar.");
   }
 
   return {
