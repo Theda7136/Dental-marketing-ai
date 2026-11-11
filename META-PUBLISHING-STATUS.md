@@ -166,3 +166,16 @@ Los túneles rápidos no son aptos para producción y cualquiera con el enlace c
 **No cambies ni desbloquees a mano** publicaciones anteriores con `UNKNOWN`: primero revisa los registros y confirma el estado real. Un intento previo podría haberse procesado aunque la interfaz no lo muestre. La nueva validación aplica únicamente a solicitudes futuras.
 
 `npm test` ahora también cubre el rechazo de URL local antes de reclamar el estado.
+
+## Verificación previa de descarga HTTPS
+
+El dashboard muestra «Comprobar acceso HTTPS de imagen» en las propuestas de fotografía. Esta acción no publica nada en Facebook ni altera estados de entrega.
+
+Requisitos:
+- `META_PUBLIC_MEDIA_URL=https://<subdominio>.trycloudflare.com` en `.env` (solo para el túnel de pruebas).
+- `DENTAL_MEDIA_SIGNING_SECRET` de al menos 32 caracteres.
+- Next.js y el túnel activos, apuntando al mismo puerto.
+
+El servidor genera una URL firmada, solicita la imagen por HTTPS y verifica HTTP 200, `Content-Type: image/*` y presencia de bytes. No revela la firma en el navegador, no sigue redirecciones y usa un tiempo límite de 12 segundos. Solo admite hosts `.trycloudflare.com` para esta comprobación local; no debe reutilizarse tal cual como mecanismo genérico de publicación en producción.
+
+Que esta comprobación sea correcta **no garantiza** que Meta acepte la publicación, ni autoriza repetir una publicación anterior con resultado `UNKNOWN`. Para el ensayo de Meta utiliza una fotografía ficticia nueva, con la página de pruebas correctamente conectada.
