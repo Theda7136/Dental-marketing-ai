@@ -24,12 +24,16 @@ export async function GET(request: Request) {
         createdAt: Date;
         approvedAt: Date | null;
         mediaType: string;
+        facebookStatus: string;
+        instagramStatus: string;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
         mediaUrl: post.mediaUrl,
         generatedCaption: post.generatedCaption,
         status: post.status,
+        facebookStatus: post.facebookStatus,
+        instagramStatus: post.instagramStatus,
         createdAt: post.createdAt.toISOString(),
         approvedAt: post.approvedAt?.toISOString() ?? null,
         mediaKind: post.mediaUrl.length === 0
