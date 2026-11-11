@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { createRequire } from "node:module";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 
-const require = createRequire(import.meta.url);
 const publisherFile = new URL("../src/lib/metaPublish.ts", import.meta.url);
 const compiledPublisher = ts.transpileModule(readFileSync(publisherFile, "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
