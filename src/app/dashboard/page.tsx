@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { createTextProposal, approveAndPublishPost, rejectPost } from "./actions";
+import { createTextProposal, approveAndPublishPost, updatePendingCaption } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -239,26 +239,18 @@ export default function DashboardPage() {
     });
   }
 
-  async function handleEditPost(post: ApprovalQueuePost) {
-    const rejected = await rejectPost(post.id);
-    if (!rejected.ok) {
-      setErrorMessage(rejected.message || "No se pudo actualizar la publicación.");
-      return;
+  async function handleEditPost(post: ApprovalQueuePost, caption: string) {
+    const revised = await updatePendingCaption(post.id, caption);
+    if (!revised.ok || !revised.caption) {
+      throw new Error(revised.message || "No se pudo actualizar la propuesta.");
     }
 
-    setProcedureName(post.procedureName);
-    const baseNote = post.generatedCaption.split("\n\n")[0] || "";
-    setNotes(baseNote);
-
-    if (post.mediaKind === "text") {
-      setFormat("text");
-    } else {
-      setFormat("photo");
-    }
-
-    setPosts((current) => current.filter((p) => p.id !== post.id));
-    setNotice("Post cargado en el formulario. Edítalo y vuelve a generar.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setPosts((current) => current.map((savedPost) =>
+      savedPost.id === post.id
+        ? { ...savedPost, generatedCaption: revised.caption! }
+        : savedPost,
+    ));
+    setNotice("Texto actualizado. La propuesta conserva su archivo y sigue pendiente de aprobación.");
   }
 
   return (
