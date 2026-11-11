@@ -32,6 +32,28 @@ interface ApprovalQueueProps {
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
 }
 
+const NETWORK_LABELS: Record<string, string> = {
+  PENDING: "Sin enviar",
+  IN_PROGRESS: "En proceso",
+  SUCCEEDED: "Confirmado",
+  UNKNOWN: "Por verificar",
+};
+
+function networkStatus(label: string, status?: string) {
+  if (!status) return null;
+  const isConfirmed = status === "SUCCEEDED";
+  const needsReview = status === "UNKNOWN" || status === "IN_PROGRESS";
+  return (
+    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+      isConfirmed ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : needsReview ? "border-amber-200 bg-amber-50 text-amber-800"
+          : "border-[#d7e5df] bg-[#f4f7f5] text-[#657873]"
+    }`}>
+      {label}: {NETWORK_LABELS[status] || status}
+    </span>
+  );
+}
+
 const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -57,7 +79,16 @@ export function ApprovalQueue({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftCaption, setDraftCaption] = useState("");
+  const [expandedPosts, setExpandedPosts] = useState<string[]>([]);
+  const [showPublished, setShowPublished] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const reviewedPosts = useMemo(
+    () => posts.filter((post) => post.status !== "PENDING_APPROVAL")
+      .slice()
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+    [posts],
+  );
 
   const pendingPosts = useMemo(
     () =>
@@ -147,15 +178,15 @@ export function ApprovalQueue({
                 className="app-card overflow-hidden rounded-3xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_52px_-32px_rgba(24,58,52,0.45)]"
               >
                 <article className="grid gap-0 sm:grid-cols-[220px_1fr]">
-                  <div className="min-h-48 bg-[#edf3ef] sm:min-h-64">
+                  <div className="h-44 overflow-hidden bg-[#edf3ef] sm:h-52">
                     {post.mediaKind === "text" || post.mediaUrl.length === 0 ? (
-                      <div className="flex h-56 flex-col items-center justify-center gap-3 px-6 text-center text-sm font-semibold text-[#356e66] sm:h-full">
+                      <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
                         <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/80 shadow-sm" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.7"><path d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v12A1.25 1.25 0 0 1 17 19.25H7A1.25 1.25 0 0 1 5.75 18V6A1.25 1.25 0 0 1 7 4.75Z"/><path d="M9 9h6M9 12h6M9 15h4" strokeLinecap="round"/></svg></span>
                         Idea de contenido
                       </div>
                     ) : post.mediaKind === "video" || isVideoUrl(post.mediaUrl) ? (
                       <video
-                        className="h-56 w-full object-cover sm:h-full"
+                        className="h-full w-full object-contain"
                         src={post.mediaUrl}
                         controls
                         preload="metadata"
@@ -169,7 +200,7 @@ export function ApprovalQueue({
                     )}
                   </div>
 
-                  <div className="flex min-w-0 flex-col gap-4 p-5 sm:p-6">
+                  <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5">
                     <div>
                       <h3 className="text-lg font-semibold tracking-tight text-[#173b3a]">
                         {post.procedureName}
@@ -225,10 +256,33 @@ export function ApprovalQueue({
                         </div>
                       </form>
                     ) : (
-                      <p className="whitespace-pre-wrap text-sm leading-7 text-[#526762]">
-                        {post.generatedCaption}
-                      </p>
+                      <div>
+                        <p className={expandedPosts.includes(post.id)
+                          ? "whitespace-pre-wrap text-sm leading-6 text-[#526762]"
+                          : "line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-[#526762]"}>
+                          {post.generatedCaption}
+                        </p>
+                        {post.generatedCaption.length > 170 && (
+                          <button
+                            type="button"
+                            aria-expanded={expandedPosts.includes(post.id)}
+                            onClick={() => setExpandedPosts((current) =>
+                              current.includes(post.id)
+                                ? current.filter((id) => id !== post.id)
+                                : [...current, post.id],
+                            )}
+                            className="mt-2 text-sm font-semibold text-[#176c63] underline-offset-4 hover:underline"
+                          >
+                            {expandedPosts.includes(post.id) ? "Ver menos" : "Leer texto completo"}
+                          </button>
+                        )}
+                      </div>
                     )}
+
+                    <div className="flex flex-wrap gap-2" aria-label="Estado por red social">
+                      {networkStatus("Facebook", post.facebookStatus)}
+                      {networkStatus("Instagram", post.instagramStatus)}
+                    </div>
 
                     {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
@@ -276,6 +330,45 @@ export function ApprovalQueue({
           })}
         </ul>
       )}
+
+      <section className="mt-8 border-t border-[#d7e5df] pt-6" aria-labelledby="published-history-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 id="published-history-title" className="text-lg font-semibold text-[#173b3a]">Historial de publicaciones</h3>
+            <p className="mt-1 text-sm text-[#637773]">{reviewedPosts.length} propuestas publicadas o retiradas de la cola.</p>
+          </div>
+          <button
+            type="button"
+            aria-expanded={showPublished}
+            onClick={() => setShowPublished((current) => !current)}
+            className="rounded-xl border border-[#d7e5df] bg-white px-4 py-2 text-sm font-medium text-[#176c63]"
+          >
+            {showPublished ? "Ocultar historial" : "Ver historial"}
+          </button>
+        </div>
+        {showPublished && (
+          <ul className="mt-4 space-y-3">
+            {reviewedPosts.length ? reviewedPosts.map((post) => (
+              <li key={post.id} className="rounded-2xl border border-[#d7e5df] bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-[#173b3a]">{post.procedureName}</p>
+                    <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {post.status === "PUBLISHED" ? "Publicación registrada" : post.status === "REJECTED" ? "Descartada" : "Revisada"}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {networkStatus("Facebook", post.facebookStatus)}
+                    {networkStatus("Instagram", post.instagramStatus)}
+                  </div>
+                </div>
+                {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
+                  post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
+                    <p className="mt-3 text-sm text-amber-800">Estado sin confirmar: verifica directamente en Meta antes de cualquier nuevo envío.</p>
+                  )}
+              </li>
+            )) : <li className="text-sm text-[#637773]">Todavía no hay publicaciones en el historial.</li>}
+          </ul>
+        )}
+      </section>
     </section>
   );
 }
