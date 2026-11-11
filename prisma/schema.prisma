@@ -52,6 +52,12 @@ model ScheduledPost {
   instagramStatus  String     @default("PENDING")
   instagramPostId  String?
   instagramError   String?
+  facebookReviewOutcome  String?
+  facebookReviewEvidence String?
+  facebookReviewedAt     DateTime?
+  instagramReviewOutcome  String?
+  instagramReviewEvidence String?
+  instagramReviewedAt     DateTime?
 
   @@index([status, createdAt])
 }
