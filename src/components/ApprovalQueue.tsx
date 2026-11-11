@@ -40,6 +40,7 @@ interface ApprovalQueueProps {
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
   onVerify: (postId: string, network: "facebook" | "instagram", outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN", evidence: string) => Promise<void>;
+  onLookup: (postId: string, network: "facebook" | "instagram") => Promise<{ ok: boolean; message: string }>;
 }
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -87,6 +88,7 @@ export function ApprovalQueue({
   onEdit,
   onRetry,
   onVerify,
+  onLookup,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export function ApprovalQueue({
   const [reviewKey, setReviewKey] = useState<string | null>(null);
   const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
   const [reviewEvidence, setReviewEvidence] = useState("");
+  const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const reviewedPosts = useMemo(
@@ -399,6 +402,35 @@ export function ApprovalQueue({
                     )}
 
                     {(post.facebookPostId || post.instagramPostId) && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["facebook", "instagram"] as const).map((network) => {
+                      const objectId = network === "facebook" ? post.facebookPostId : post.instagramPostId;
+                      if (!objectId) return null;
+                      const lookupKey = `${post.id}:${network}`;
+                      return (
+                        <div key={lookupKey} className="min-w-0">
+                          <button
+                            type="button"
+                            disabled={busyId === post.id}
+                            className="rounded-lg border border-[#cbdcd4] bg-white px-3 py-2 text-xs font-medium text-[#176c63] disabled:opacity-50"
+                            onClick={() => {
+                              void runAction(post.id, async () => {
+                                const lookup = await onLookup(post.id, network);
+                                setLookupMessages((messages) => ({ ...messages, [lookupKey]: lookup.message }));
+                              });
+                            }}
+                          >
+                            Comprobar ID en {network === "facebook" ? "Facebook" : "Instagram"}
+                          </button>
+                          {lookupMessages[lookupKey] && (
+                            <p role="status" className="mt-2 max-w-sm text-xs leading-5 text-[#526762]">{lookupMessages[lookupKey]}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 space-y-1 break-all font-mono text-xs text-[#657873]">
                     {post.facebookPostId && <p>Facebook · ID: {post.facebookPostId}</p>}
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
