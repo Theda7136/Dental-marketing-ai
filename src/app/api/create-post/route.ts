@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+
 import { NextResponse } from "next/server";
 import { isClinicAuthorized, unauthorizedResponse } from "../../../lib/clinicAuth";
 import {
@@ -462,7 +462,7 @@ function toErrorResponse(error: unknown) {
     return errorResponse(502, "GROK_ERROR", error.message);
   }
 
-  if (error instanceof Prisma.PrismaClientInitializationError) {
+  if (error instanceof Error && error.name === "PrismaClientInitializationError") {
     return errorResponse(
       503,
       "DATABASE_UNAVAILABLE",
@@ -470,7 +470,7 @@ function toErrorResponse(error: unknown) {
     );
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  if (error instanceof Error && error.name === "PrismaClientKnownRequestError") {
     return errorResponse(
       500,
       "DATABASE_ERROR",
