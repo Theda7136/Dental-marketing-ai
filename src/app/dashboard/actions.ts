@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
 import { inspectMetaObject } from "@/lib/metaVerification";
+import { canEditUnsentProposal, canSendToNetwork, canStartInitialPublication } from "@/lib/metaDeliveryPolicy.mjs";
 
 async function hasClinicAccess(): Promise<boolean> {
   return isClinicAuthorized((await headers()).get("authorization"));
@@ -153,6 +154,13 @@ export async function updatePendingCaption(postId: string, caption: string) {
 
   try {
     clinicalGuardrails.validate(revisedCaption);
+    const currentPost = await prisma.scheduledPost.findUnique({
+      where: { id: postId },
+      select: { facebookStatus: true, instagramStatus: true },
+    });
+    if (!currentPost || !canEditUnsentProposal(currentPost)) {
+      return { ok: false, message: "No puedes modificar el texto después de iniciar la publicación." };
+    }
     const updated = await prisma.scheduledPost.updateMany({
       where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING" },
       data: { generatedCaption: revisedCaption },
@@ -185,6 +193,9 @@ export async function approveAndPublishPost(
     }
     if (!post.mediaUrl) {
       return { ok: false, message: "Las ideas de texto no se pueden publicar como una imagen." };
+    }
+    if (!canStartInitialPublication(post)) {
+      return { ok: false, message: "Una red ya tiene un envío iniciado o confirmado. Consulta el historial; solo es seguro enviar a una red pendiente." };
     }
     const result = await publishToMeta({
       id: post.id,
@@ -229,7 +240,7 @@ export async function retryPendingNetwork(
     }
 
     const networkStatus = network === "facebook" ? post.facebookStatus : post.instagramStatus;
-    if (networkStatus !== "PENDING") {
+    if (!canSendToNetwork(networkStatus)) {
       return {
         ok: false,
         message: "Esta red ya fue utilizada o tiene un resultado incierto. Verifica el estado en Meta antes de continuar.",
