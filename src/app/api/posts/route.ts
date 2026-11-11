@@ -15,7 +15,16 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      posts: posts.map((post) => ({
+      posts: posts.map((post: {
+        id: string;
+        procedureName: string;
+        mediaUrl: string;
+        generatedCaption: string;
+        status: string;
+        createdAt: Date;
+        approvedAt: Date | null;
+        mediaType: string;
+      }) => ({
         id: post.id,
         procedureName: post.procedureName,
         mediaUrl: post.mediaUrl,
