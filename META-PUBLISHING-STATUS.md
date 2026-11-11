@@ -56,3 +56,25 @@ La interfaz vuelve a consultar `/api/posts` después de cada intento, incluso cu
 3. Abre «Historial de publicaciones» y comprueba que aparecen los identificadores de publicaciones confirmadas.
 4. Revisa que los registros con `UNKNOWN` o `IN_PROGRESS` no tengan botones de reenvío para esa misma red.
 5. No hagas pruebas de publicación real con fotos clínicas sin consentimiento ni contenido autorizado.
+
+## Tercera fase: verificación manual documentada
+
+Las publicaciones con estado `UNKNOWN` o `IN_PROGRESS` permiten registrar una comprobación manual por cada red desde el Historial de publicaciones.
+
+Se guardan por separado:
+- Resultado observado: `FOUND` (encontrada), `NOT_FOUND` (no encontrada), `UNCERTAIN` (sin conclusión).
+- Evidencia o descripción breve de la consulta, hasta 1000 caracteres, sin información personal de pacientes.
+- Fecha de la comprobación.
+
+**Importante:** una comprobación manual, incluso `NOT_FOUND`, **no modifica** `facebookStatus`/`instagramStatus` ni habilita un reintento. No encontrar una publicación en una búsqueda manual no garantiza que Meta no la haya recibido. El desbloqueo requiere un futuro procedimiento de conciliación más robusto.
+
+Antes de iniciar la app después del pull, respalda SQLite y aplica la nueva migración:
+
+```powershell
+if (Test-Path prisma/dev.db) { Copy-Item prisma/dev.db prisma/dev.db.backup }
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npm run build
+npm run dev
+```
+
+No uses `prisma migrate reset`. El registro manual **no ejecuta solicitudes de lectura contra Meta**; documenta únicamente la revisión realizada por la clínica.
