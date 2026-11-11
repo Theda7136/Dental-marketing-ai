@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { createTextProposal, approveAndPublishPost, updatePendingCaption } from "./actions";
+import { createTextProposal, approveAndPublishPost, retryPendingNetwork, updatePendingCaption } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -252,6 +252,24 @@ export default function DashboardPage() {
     });
   }
 
+  async function retryNetwork(postId: string, network: "facebook" | "instagram") {
+    setErrorMessage(null);
+    setNotice(null);
+
+    const result = await retryPendingNetwork(postId, network);
+    try {
+      const response = await fetch("/api/posts", { cache: "no-store" });
+      if (!response.ok) throw new Error("No se pudo consultar el estado de las publicaciones.");
+      const payload = await response.json();
+      setPosts(payload.posts as ApprovalQueuePost[]);
+    } catch {
+      throw new Error("El estado de publicación puede haber cambiado. Recarga el panel y verifica Meta antes de intentar nuevamente.");
+    }
+
+    if (!result.ok) throw new Error(result.message);
+    setNotice(result.message);
+  }
+
   async function handleEditPost(post: ApprovalQueuePost, caption: string) {
     const revised = await updatePendingCaption(post.id, caption);
     if (!revised.ok || !revised.caption) {
@@ -424,6 +442,7 @@ export default function DashboardPage() {
           posts={posts}
           onApprove={approvePost}
           onEdit={handleEditPost}
+          onRetry={retryNetwork}
         />
       </div>
     </main>
