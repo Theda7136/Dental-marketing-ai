@@ -65,6 +65,37 @@ function networkStatus(label: string, status?: string) {
   );
 }
 
+function publishingSummary(post: ApprovalQueuePost): string {
+  if (post.status === "REJECTED") return "Propuesta descartada";
+  if (post.status === "APPROVED") return "Aprobación registrada";
+
+  const statuses = [post.facebookStatus, post.instagramStatus];
+  if (statuses.some((status) => status === "UNKNOWN" || status === "IN_PROGRESS")) {
+    return "Publicación con estado por verificar";
+  }
+  if (statuses.every((status) => status === "SUCCEEDED")) return "Confirmada en ambas redes";
+  if (statuses.some((status) => status === "SUCCEEDED")) return "Confirmada parcialmente";
+  return "Publicación sin confirmación por red";
+}
+
+function matchesHistoryStatus(post: ApprovalQueuePost, status: string): boolean {
+  const networkStatuses = [post.facebookStatus, post.instagramStatus];
+  switch (status) {
+    case "confirmed":
+      return networkStatuses.some((value) => value === "SUCCEEDED") &&
+        !networkStatuses.some((value) => value === "UNKNOWN" || value === "IN_PROGRESS");
+    case "partial":
+      return networkStatuses.some((value) => value === "SUCCEEDED") &&
+        networkStatuses.some((value) => value !== "SUCCEEDED");
+    case "review":
+      return networkStatuses.some((value) => value === "UNKNOWN" || value === "IN_PROGRESS");
+    case "rejected":
+      return post.status === "REJECTED";
+    default:
+      return true;
+  }
+}
+
 const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -95,6 +126,8 @@ export function ApprovalQueue({
   const [draftCaption, setDraftCaption] = useState("");
   const [expandedPosts, setExpandedPosts] = useState<string[]>([]);
   const [showPublished, setShowPublished] = useState(false);
+  const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram">("all");
+  const [historyStatus, setHistoryStatus] = useState("all");
   const [reviewKey, setReviewKey] = useState<string | null>(null);
   const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
   const [reviewEvidence, setReviewEvidence] = useState("");
@@ -107,6 +140,12 @@ export function ApprovalQueue({
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
     [posts],
   );
+
+  const filteredHistory = useMemo(() => reviewedPosts.filter((post) => {
+    if (historyNetwork === "facebook" && post.facebookStatus === "PENDING") return false;
+    if (historyNetwork === "instagram" && post.instagramStatus === "PENDING") return false;
+    return matchesHistoryStatus(post, historyStatus);
+  }), [reviewedPosts, historyNetwork, historyStatus]);
 
   const pendingPosts = useMemo(
     () =>
@@ -505,13 +544,45 @@ export function ApprovalQueue({
           </button>
         </div>
         {showPublished && (
-          <ul className="mt-4 space-y-3">
-            {reviewedPosts.length ? reviewedPosts.map((post) => (
+          <>
+            <div className="mt-4 grid gap-3 rounded-xl bg-[#f2f7f4] p-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#46615b]">
+                Plataforma
+                <select
+                  value={historyNetwork}
+                  onChange={(event) => setHistoryNetwork(event.target.value as "all" | "facebook" | "instagram")}
+                  className="min-h-10 rounded-lg border border-[#d1dfd6] bg-white px-3 text-sm"
+                >
+                  <option value="all">Todas las plataformas</option>
+                  <option value="facebook">Con actividad en Facebook</option>
+                  <option value="instagram">Con actividad en Instagram</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#46615b]">
+                Estado
+                <select
+                  value={historyStatus}
+                  onChange={(event) => setHistoryStatus(event.target.value)}
+                  className="min-h-10 rounded-lg border border-[#d1dfd6] bg-white px-3 text-sm"
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="confirmed">Al menos una red confirmada, sin incertidumbre</option>
+                  <option value="partial">Publicación parcial</option>
+                  <option value="review">Requiere verificación</option>
+                  <option value="rejected">Propuesta descartada</option>
+                </select>
+              </label>
+            </div>
+            <p role="status" className="mt-3 text-xs text-[#637773]">
+              {filteredHistory.length} de {reviewedPosts.length} registros
+            </p>
+            <ul className="mt-3 space-y-3">
+            {filteredHistory.length ? filteredHistory.map((post) => (
               <li key={post.id} className="rounded-2xl border border-[#d7e5df] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold text-[#173b3a]">{post.procedureName}</p>
-                    <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {post.status === "PUBLISHED" ? "Publicación registrada" : post.status === "REJECTED" ? "Descartada" : "Revisada"}</p>
+                    <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · · {publishingSummary(post)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {networkStatus("Facebook", post.facebookStatus)}
@@ -525,8 +596,9 @@ export function ApprovalQueue({
                     <p className="mt-3 text-sm text-amber-800">Estado sin confirmar: verifica directamente en Meta antes de cualquier nuevo envío.</p>
                   )}
               </li>
-            )) : <li className="text-sm text-[#637773]">Todavía no hay publicaciones en el historial.</li>}
+            )) : <li className="text-sm text-[#637773]">No hay registros que coincidan con los filtros.</li>}
           </ul>
+          </>
         )}
       </section>
     </section>
