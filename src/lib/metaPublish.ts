@@ -49,7 +49,22 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   const token = account.accessToken;
-  const mediaUrl = createSignedMediaUrl(post.id, process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
+  const publicBaseUrl = process.env.META_PUBLIC_MEDIA_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const publicOrigin = new URL(publicBaseUrl);
+  const blockedHost = publicOrigin.hostname === "localhost" ||
+    publicOrigin.hostname.endsWith(".localhost") ||
+    publicOrigin.hostname === "127.0.0.1" ||
+    publicOrigin.hostname === "::1" ||
+    publicOrigin.hostname === "[::1]" ||
+    publicOrigin.hostname === "0.0.0.0";
+
+  if (publicOrigin.protocol !== "https:" || blockedHost) {
+    throw new Error(
+      "Meta necesita una URL HTTPS pública para descargar la imagen. Configura META_PUBLIC_MEDIA_URL con una dirección HTTPS accesible desde Internet antes de publicar.",
+    );
+  }
+
+  const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
   const isVideo = post.mediaKind === "video";
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
