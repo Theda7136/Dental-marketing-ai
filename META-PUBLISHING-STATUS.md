@@ -97,3 +97,23 @@ El Historial de publicaciones puede filtrarse en el navegador por plataforma con
 Estos filtros **no consultan ni modifican Meta**, no cambian la base de datos y no habilitan un reenvío de publicaciones ya confirmadas. Los controles de verificación manual, consulta de identificador y envío explícito a una red `PENDING` permanecen en el historial.
 
 Verificación local: `git pull origin feature/safe-content-review`, `npm run build` y `npm run dev`. No hay migración de datos en esta fase.
+
+## Sexta fase: pruebas automatizadas de política de envío
+
+La política conservadora se centralizó en `src/lib/metaDeliveryPolicy.mjs`. Las acciones del dashboard y el publicador de Meta usan esa política para determinar si una plataforma sigue elegible antes de intentar el envío.
+
+Ejecuta:
+
+```powershell
+npm test
+npm run build
+```
+
+Los tests (`tests/meta-delivery-policy.test.mjs`) verifican que:
+- Solo `PENDING` permite envíos.
+- `SUCCEEDED` no se puede reenviar aunque la otra red esté pendiente.
+- `UNKNOWN` y `IN_PROGRESS` requieren conciliación y bloquean reintentos.
+- La publicación inicial y la edición de texto exigen que ambas redes sigan sin intentos.
+- Los estados inesperados se bloquean por defecto.
+
+Son **pruebas unitarias de las decisiones de seguridad**, no una simulación de todas las llamadas de Meta, ni una garantía de ausencia de duplicados ante caídas externas o carreras complejas. Todavía hacen falta pruebas con dobles de `fetch`, simulación de concurrencia SQLite y pruebas de integración en entorno de Meta separado antes de producción.
