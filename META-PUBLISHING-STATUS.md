@@ -89,3 +89,11 @@ Desde el historial, cuando existe un identificador confirmado de publicación (`
 - Los registros históricos sin ID de Meta permanecen en revisión manual, con el envío bloqueado.
 
 Para validar: `git pull origin feature/safe-content-review`, `npm run build`, `npm run dev`. No hace falta ejecutar una migración adicional para esta consulta. Verifica en «Historial de publicaciones» los botones únicamente en registros con ID de Meta.
+
+## Quinta fase: filtros de historial
+
+El Historial de publicaciones puede filtrarse en el navegador por plataforma con actividad (Facebook, Instagram o todas) y resultado (al menos una red confirmada sin estados inciertos, parcial, requiere verificación, descartada o todos). La pantalla muestra el número de registros filtrados y un resumen por propuesta que distingue confirmación total, parcial y resultados inciertos.
+
+Estos filtros **no consultan ni modifican Meta**, no cambian la base de datos y no habilitan un reenvío de publicaciones ya confirmadas. Los controles de verificación manual, consulta de identificador y envío explícito a una red `PENDING` permanecen en el historial.
+
+Verificación local: `git pull origin feature/safe-content-review`, `npm run build` y `npm run dev`. No hay migración de datos en esta fase.
