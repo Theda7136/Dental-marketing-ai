@@ -27,7 +27,7 @@ export interface ApprovalQueuePost {
 interface ApprovalQueueProps {
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
-  onEdit: (post: ApprovalQueuePost) => void | Promise<void>;
+  onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("es-CO", {
@@ -53,6 +53,8 @@ export function ApprovalQueue({
   onEdit,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftCaption, setDraftCaption] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const pendingPosts = useMemo(
@@ -175,9 +177,56 @@ export function ApprovalQueue({
                       </p>
                     </div>
 
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-[#526762]">
-                      {post.generatedCaption}
-                    </p>
+                    {editingId === post.id ? (
+                      <form
+                        className="flex flex-col gap-3"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (!draftCaption.trim()) return;
+                          void (async () => {
+                            setBusyId(post.id);
+                            try {
+                              await onEdit(post, draftCaption);
+                              setEditingId(null);
+                            } catch (error) {
+                              setErrors((current) => ({
+                                ...current,
+                                [post.id]: error instanceof Error ? error.message : "No se pudo guardar el texto.",
+                              }));
+                            } finally {
+                              setBusyId(null);
+                            }
+                          })();
+                        }}
+                      >
+                        <label htmlFor={`caption-${post.id}`} className="text-sm font-semibold text-[#173b3a]">
+                          Texto de la publicación
+                        </label>
+                        <textarea
+                          id={`caption-${post.id}`}
+                          value={draftCaption}
+                          maxLength={2200}
+                          required
+                          rows={7}
+                          disabled={isBusy}
+                          onChange={(event) => setDraftCaption(event.target.value)}
+                          className="w-full rounded-xl border border-[#cddbd4] bg-white p-3 text-sm leading-6 text-[#29433f] focus:outline-2 focus:outline-offset-2 focus:outline-[#176c63]"
+                        />
+                        <p className="text-xs text-[#72847d]">{draftCaption.length} / 2200 caracteres</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="submit" disabled={isBusy || !draftCaption.trim()} className="rounded-xl bg-[#176c63] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                            {isBusy ? "Guardando..." : "Guardar cambios"}
+                          </button>
+                          <button type="button" disabled={isBusy} onClick={() => setEditingId(null)} className="rounded-xl border border-[#cddbd4] px-4 py-2 text-sm text-[#46615b]">
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm leading-7 text-[#526762]">
+                        {post.generatedCaption}
+                      </p>
+                    )}
 
                     {error ? (
                       <p role="alert" className="text-sm text-red-700">
@@ -188,7 +237,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea}
+                        disabled={isBusy || isTextIdea || editingId === post.id}
                         onClick={() => runAction(post.id, onApprove)}
                         className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -197,10 +246,18 @@ export function ApprovalQueue({
                       <button
                         type="button"
                         disabled={isBusy}
-                        onClick={() => onEdit(post)}
+                        onClick={() => {
+                          setErrors((current) => {
+                            const next = { ...current };
+                            delete next[post.id];
+                            return next;
+                          });
+                          setDraftCaption(post.generatedCaption);
+                          setEditingId(post.id);
+                        }}
                         className="rounded-full border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Editar y regenerar
+                        Editar texto
                       </button>
                     </div>
                   </div>
