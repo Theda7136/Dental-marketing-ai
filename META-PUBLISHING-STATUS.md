@@ -132,3 +132,17 @@ Escenarios cubiertos:
 - Dos solicitudes simultáneas por una publicación pendiente solo reclaman un envío.
 
 Ejecuta `npm test` y `npm run build`. Estas pruebas simulan la semántica de la actualización condicional de Prisma en memoria; no sustituyen pruebas con SQLite real, reinicios de proceso ni verificaciones de extremo a extremo en una cuenta de prueba de Meta.
+
+## Octava fase: SQLite real y recuperación tras reconexión
+
+`npm test` incorpora `tests/meta-sqlite-persistence.test.mjs`, que crea una base **SQLite temporal aislada** con un esquema de publicación equivalente al modelo Prisma utilizado por el módulo. No abre ni modifica `prisma/dev.db` de la clínica.
+
+Se prueban cuatro escenarios:
+- Dos clientes de Prisma intentan reclamar a la vez la misma publicación: solo una actualización condicional puede ganar.
+- Un estado `IN_PROGRESS` sigue bloqueado al cerrar y volver a conectar un cliente Prisma.
+- Un identificador `SUCCEEDED` de Facebook persiste mientras Instagram permanece elegible si está `PENDING`.
+- Una comprobación manual `NOT_FOUND` no desbloquea un estado `UNKNOWN`.
+
+La base temporal se elimina después de las pruebas. No se realizan llamadas a Meta ni se usan tokens reales.
+
+Comprobación: `npm test` seguido de `npm run build`. Estas pruebas validan SQLite real y reconexión, **no** simulan la terminación forzada de un proceso del sistema operativo ni todas las variantes de errores de SQLite. Antes de un piloto comercial siguen siendo necesarias pruebas de Meta en un entorno separado y un plan de copias de seguridad.
