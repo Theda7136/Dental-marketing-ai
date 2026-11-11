@@ -28,6 +28,12 @@ export async function GET(request: Request) {
         instagramStatus: string;
         facebookPostId: string | null;
         instagramPostId: string | null;
+        facebookReviewOutcome: string | null;
+        facebookReviewEvidence: string | null;
+        facebookReviewedAt: Date | null;
+        instagramReviewOutcome: string | null;
+        instagramReviewEvidence: string | null;
+        instagramReviewedAt: Date | null;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
@@ -38,6 +44,12 @@ export async function GET(request: Request) {
         instagramStatus: post.instagramStatus,
         facebookPostId: post.facebookPostId,
         instagramPostId: post.instagramPostId,
+        facebookReviewOutcome: post.facebookReviewOutcome,
+        facebookReviewEvidence: post.facebookReviewEvidence,
+        facebookReviewedAt: post.facebookReviewedAt?.toISOString() ?? null,
+        instagramReviewOutcome: post.instagramReviewOutcome,
+        instagramReviewEvidence: post.instagramReviewEvidence,
+        instagramReviewedAt: post.instagramReviewedAt?.toISOString() ?? null,
         createdAt: post.createdAt.toISOString(),
         approvedAt: post.approvedAt?.toISOString() ?? null,
         mediaKind: post.mediaUrl.length === 0
