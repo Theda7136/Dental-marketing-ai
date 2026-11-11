@@ -138,6 +138,32 @@ export async function createTextProposal(formData: FormData) {
   }
 }
 
+export async function updatePendingCaption(postId: string, caption: string) {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para editar propuestas." };
+  }
+
+  const revisedCaption = caption.trim();
+  if (!revisedCaption || revisedCaption.length > 2200) {
+    return { ok: false, message: "El texto debe tener entre 1 y 2200 caracteres." };
+  }
+
+  try {
+    clinicalGuardrails.validate(revisedCaption);
+    const updated = await prisma.scheduledPost.updateMany({
+      where: { id: postId, status: "PENDING_APPROVAL" },
+      data: { generatedCaption: revisedCaption },
+    });
+
+    return updated.count === 1
+      ? { ok: true, caption: revisedCaption }
+      : { ok: false, message: "Esta propuesta ya no está pendiente de aprobación." };
+  } catch (error) {
+    console.error("Error al guardar el texto de la propuesta:", error);
+    return { ok: false, message: "No se pudo guardar el texto. Revisa el contenido e inténtalo nuevamente." };
+  }
+}
+
 type ApproveAndPublishResult =
   | { ok: true; approvedAt: string; warnings?: string[]; instagramId?: string; facebookId?: string }
   | { ok: false; message: string };
