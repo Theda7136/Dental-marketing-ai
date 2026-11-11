@@ -5,6 +5,7 @@ import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
+import { inspectMetaObject } from "@/lib/metaVerification";
 
 async function hasClinicAccess(): Promise<boolean> {
   return isClinicAuthorized((await headers()).get("authorization"));
@@ -266,6 +267,19 @@ export async function retryPendingNetwork(
       ok: false,
       message: "No se confirmó la publicación. Revisa la cuenta de Meta antes de intentar nuevamente.",
     };
+  }
+}
+
+export async function verifyMetaObject(postId: string, network: "facebook" | "instagram") {
+  if (!(await hasClinicAccess())) {
+    return { ok: false as const, message: "Inicia sesión para consultar Meta." };
+  }
+
+  try {
+    return await inspectMetaObject(postId, network);
+  } catch (error) {
+    console.error("Error consultando objeto de Meta:", error);
+    return { ok: false as const, message: "No se pudo comprobar el identificador de publicación." };
   }
 }
 
