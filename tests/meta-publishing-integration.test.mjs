@@ -23,6 +23,7 @@ function harness({
   facebookPostId = null,
   instagramPostId = null,
   respond,
+  publicMediaUrl = "https://demo.example.test",
 } = {}) {
   const saved = {
     id: draft.id,
@@ -67,7 +68,7 @@ function harness({
   const module = { exports: {} };
   const loaded = runInNewContext(
     `(function(require, module, exports) { ${compiledPublisher} })`,
-    { fetch: fetchMock, AbortSignal, URL, URLSearchParams, process, setTimeout, console },
+    { fetch: fetchMock, AbortSignal, URL, URLSearchParams, process: { env: { ...process.env, META_PUBLIC_MEDIA_URL: publicMediaUrl } }, setTimeout, console },
     { filename: "metaPublish.compiled.js" },
   );
   loaded((name) => {
@@ -169,6 +170,24 @@ test("concurrent requests can claim a pending Facebook publication only once", a
 
   assert.equal(duplicateResult[0].status, "rejected");
   assert.equal(primaryResult.facebookId, "123_999");
+  assert.equal(saved.facebookStatus, "SUCCEEDED");
+  assert.equal(requests.length, 1);
+});
+
+test("localhost media URL fails before claiming a network or calling Meta", async () => {
+  const { publishToMeta, saved, requests } = harness({ publicMediaUrl: "http://localhost:3000" });
+
+  await assert.rejects(publishToMeta(draft), /URL HTTPS pública/);
+  assert.equal(saved.facebookStatus, "PENDING");
+  assert.equal(saved.instagramStatus, "PENDING");
+  assert.equal(requests.length, 0);
+});
+
+test("a public HTTPS media URL is accepted without changing the OAuth callback", async () => {
+  const { publishToMeta, saved, requests } = harness({ publicMediaUrl: "https://sample.trycloudflare.com" });
+  const outcome = await publishToMeta(draft, "facebook");
+
+  assert.equal(outcome.facebookId, "123_999");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
   assert.equal(requests.length, 1);
 });
