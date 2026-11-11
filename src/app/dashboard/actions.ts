@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
 import { inspectMetaObject } from "@/lib/metaVerification";
+import { createSignedMediaUrl } from "@/lib/mediaSignature";
 import { canEditUnsentProposal, canSendToNetwork, canStartInitialPublication } from "@/lib/metaDeliveryPolicy.mjs";
 
 async function hasClinicAccess(): Promise<boolean> {
@@ -277,6 +278,73 @@ export async function retryPendingNetwork(
     return {
       ok: false,
       message: "No se confirmó la publicación. Revisa la cuenta de Meta antes de intentar nuevamente.",
+    };
+  }
+}
+
+export async function checkPublicMediaAccess(postId: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para comprobar el archivo." };
+  }
+
+  const baseUrl = process.env.META_PUBLIC_MEDIA_URL;
+  if (!baseUrl) {
+    return { ok: false, message: "Configura META_PUBLIC_MEDIA_URL con el túnel HTTPS de Cloudflare." };
+  }
+
+  let origin: URL;
+  try {
+    origin = new URL(baseUrl);
+  } catch {
+    return { ok: false, message: "META_PUBLIC_MEDIA_URL no es una dirección válida." };
+  }
+
+  if (origin.protocol !== "https:" || !origin.hostname.endsWith(".trycloudflare.com")) {
+    return { ok: false, message: "Para esta comprobación local utiliza una URL HTTPS de trycloudflare.com." };
+  }
+
+  const post = await prisma.scheduledPost.findUnique({
+    where: { id: postId },
+    select: { mediaUrl: true, mediaType: true, status: true },
+  });
+
+  if (!post?.mediaUrl || post.status !== "PENDING_APPROVAL" || post.mediaType !== "IMAGE") {
+    return { ok: false, message: "Selecciona una propuesta de fotografía pendiente para comprobar el acceso." };
+  }
+
+  try {
+    const response = await fetch(createSignedMediaUrl(postId, origin.origin), {
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+    const contentType = response.headers.get("content-type") || "";
+    if (response.status !== 200 || !contentType.startsWith("image/")) {
+      await response.body?.cancel();
+      return {
+        ok: false,
+        message: `Cloudflare devolvió HTTP ${response.status} (${contentType || "sin tipo de archivo"}). Comprueba que el túnel y Next.js estén activos.`,
+      };
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) return { ok: false, message: "La respuesta no contiene una imagen descargable." };
+
+    const firstChunk = await reader.read();
+    await reader.cancel();
+    if (firstChunk.done || !firstChunk.value.length) {
+      return { ok: false, message: "El servidor devolvió una imagen vacía." };
+    }
+
+    return {
+      ok: true,
+      message: "Acceso HTTPS comprobado: la imagen respondió correctamente sin autenticación Basic. Aún falta validar la publicación con Meta.",
+    };
+  } catch (error) {
+    console.error("Fallo comprobando la URL pública de medios:", error);
+    return {
+      ok: false,
+      message: "No fue posible descargar la imagen por HTTPS. Comprueba que Cloudflare siga activo y que META_PUBLIC_MEDIA_URL coincida con su dirección.",
     };
   }
 }
