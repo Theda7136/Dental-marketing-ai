@@ -267,6 +267,48 @@ export async function retryPendingNetwork(
   }
 }
 
+export async function recordDeliveryReview(
+  postId: string,
+  network: "facebook" | "instagram",
+  outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN",
+  evidence: string,
+): Promise<{ ok: boolean; message: string }> {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, message: "Inicia sesión para registrar verificaciones." };
+  }
+
+  const note = evidence.trim();
+  if (!note || note.length > 1000) {
+    return { ok: false, message: "Describe la comprobación realizada (1 a 1000 caracteres)." };
+  }
+
+  if (!["facebook", "instagram"].includes(network) || !["FOUND", "NOT_FOUND", "UNCERTAIN"].includes(outcome)) {
+    return { ok: false, message: "El resultado de verificación no es válido." };
+  }
+
+  try {
+    const statusField = network === "facebook" ? "facebookStatus" : "instagramStatus";
+    const where = { id: postId, [statusField]: { in: ["UNKNOWN", "IN_PROGRESS"] } };
+    const reviewedAt = new Date();
+    const data = network === "facebook"
+      ? { facebookReviewOutcome: outcome, facebookReviewEvidence: note, facebookReviewedAt: reviewedAt }
+      : { instagramReviewOutcome: outcome, instagramReviewEvidence: note, instagramReviewedAt: reviewedAt };
+
+    const updated = await prisma.scheduledPost.updateMany({ where, data });
+    if (updated.count !== 1) {
+      return { ok: false, message: "Esta red ya no requiere verificación manual o el registro no existe." };
+    }
+
+    return {
+      ok: true,
+      message: "Verificación registrada. El envío permanece bloqueado hasta completar una conciliación segura con Meta.",
+    };
+  } catch (error) {
+    console.error("No se pudo guardar la revisión de publicación:", error);
+    return { ok: false, message: "No se pudo guardar la verificación. Inténtalo nuevamente." };
+  }
+}
+
 export async function rejectPost(postId: string) {
   if (!(await hasClinicAccess())) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
