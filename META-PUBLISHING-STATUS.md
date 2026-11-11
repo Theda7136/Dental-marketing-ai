@@ -37,3 +37,22 @@ No ejecutes `prisma migrate reset`: borra registros. La migración añade column
 - Una confirmación de recepción de Reel por Meta no demuestra que haya terminado su procesamiento.
 - El estado general `PUBLISHED` se conserva cuando al menos una red confirma la publicación; el detalle por red permite distinguir resultados parciales.
 - No hay pruebas automatizadas de integración con Meta todavía.
+
+## Segunda fase: publicación selectiva
+
+El panel permite publicar **únicamente en una red cuyo estado siga siendo `PENDING`** mediante el botón «Publicar solo en Facebook» o «Publicar solo en Instagram». Está disponible en la cola cuando hay una entrega parcial y, para propuestas publicadas, en «Historial de publicaciones».
+
+- `SUCCEEDED`: nunca se reenvía automáticamente; el identificador de Meta aparece en el historial.
+- `IN_PROGRESS` o `UNKNOWN`: bloqueado. Debe comprobarse directamente en Meta antes de decidir cualquier recuperación manual.
+- `PENDING`: puede enviarse explícitamente a esa red con confirmación previa. No activa el envío a otras plataformas.
+- Si Instagram no está vinculado, no podrá publicarse hasta conectarlo, aunque la propuesta conserve `PENDING` en esa red.
+
+La interfaz vuelve a consultar `/api/posts` después de cada intento, incluso cuando falle, para mostrar los estados persistidos. No existe todavía conciliación automática ni un botón para convertir estados inciertos a pendientes; esa operación requiere definir una verificación segura de Meta.
+
+### Comprobaciones recomendadas
+
+1. Ejecuta `npm run build` antes de probar la pantalla.
+2. Verifica que los estados de Facebook e Instagram aparecen en los registros.
+3. Abre «Historial de publicaciones» y comprueba que aparecen los identificadores de publicaciones confirmadas.
+4. Revisa que los registros con `UNKNOWN` o `IN_PROGRESS` no tengan botones de reenvío para esa misma red.
+5. No hagas pruebas de publicación real con fotos clínicas sin consentimiento ni contenido autorizado.
