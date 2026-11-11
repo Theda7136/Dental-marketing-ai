@@ -18,6 +18,8 @@ export interface ApprovalQueuePost {
   mediaUrl: string;
   generatedCaption: string;
   status: PostStatus;
+  facebookStatus?: string;
+  instagramStatus?: string;
   createdAt: Date | string;
   approvedAt?: Date | string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
@@ -228,6 +230,13 @@ export function ApprovalQueue({
                       </p>
                     )}
 
+                    {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
+                      post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
+                      <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        El resultado de publicación de una red no está confirmado. Comprueba la publicación directamente en Meta antes de intentar de nuevo.
+                      </p>
+                    )}
+
                     {error ? (
                       <p role="alert" className="text-sm text-red-700">
                         {error}
@@ -237,7 +246,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id}
+                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookStatus !== undefined && post.facebookStatus !== "PENDING" && post.instagramStatus !== "PENDING")}
                         onClick={() => runAction(post.id, onApprove)}
                         className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -245,7 +254,7 @@ export function ApprovalQueue({
                       </button>
                       <button
                         type="button"
-                        disabled={isBusy}
+                        disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
                         onClick={() => {
                           setErrors((current) => {
                             const next = { ...current };
