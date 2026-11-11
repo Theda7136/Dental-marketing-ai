@@ -30,7 +30,7 @@ async function waitForInstagramContainer(id: string, token: string): Promise<voi
   throw new Error("Meta sigue procesando el video. Intenta aprobar la publicación de nuevo más tarde.");
 }
 
-export async function publishToMeta(post: PublishPost) {
+export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" | "instagram") {
   if (post.mediaKind !== "image" && post.mediaKind !== "video") {
     throw new Error("El tipo de archivo no se puede publicar en Meta.");
   }
@@ -43,6 +43,10 @@ export async function publishToMeta(post: PublishPost) {
   const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
 
+  if (onlyNetwork === "instagram" && !account.instagramId) {
+    throw new Error("Conecta una cuenta profesional de Instagram antes de publicarla allí.");
+  }
+
   const token = account.accessToken;
   const mediaUrl = createSignedMediaUrl(post.id, process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
   const isVideo = post.mediaKind === "video";
@@ -52,7 +56,7 @@ export async function publishToMeta(post: PublishPost) {
 
   // The state is claimed before contacting Meta. An interrupted call remains blocked,
   // since Meta could have accepted a post even when our server lost its response.
-  if (account.instagramId && savedPost.instagramStatus === "PENDING") {
+  if (onlyNetwork !== "facebook" && account.instagramId && savedPost.instagramStatus === "PENDING") {
     const claim = await prisma.scheduledPost.updateMany({
       where: { id: post.id, instagramStatus: "PENDING" },
       data: { instagramStatus: "IN_PROGRESS", instagramError: null },
@@ -83,11 +87,11 @@ export async function publishToMeta(post: PublishPost) {
         warnings.push("No se confirmó el resultado de Instagram. Comprueba la cuenta antes de otro intento.");
       }
     }
-  } else if (!account.instagramId) {
+  } else if (onlyNetwork !== "facebook" && !account.instagramId) {
     warnings.push("Instagram Business no está vinculado; no se intentó publicar allí.");
   }
 
-  if (savedPost.facebookStatus === "PENDING") {
+  if (onlyNetwork !== "instagram" && savedPost.facebookStatus === "PENDING") {
     const claim = await prisma.scheduledPost.updateMany({
       where: { id: post.id, facebookStatus: "PENDING" },
       data: { facebookStatus: "IN_PROGRESS", facebookError: null },
@@ -156,6 +160,13 @@ export async function publishToMeta(post: PublishPost) {
         warnings.push("No se confirmó el resultado de Facebook. Comprueba la Página antes de otro intento.");
       }
     }
+  }
+
+  if (onlyNetwork === "instagram" && !instagramId) {
+    throw new Error("Instagram no confirmó la publicación. Comprueba el estado en Meta antes de volver a intentar.");
+  }
+  if (onlyNetwork === "facebook" && !facebookId) {
+    throw new Error("Facebook no confirmó la publicación. Comprueba el estado en Meta antes de volver a intentar.");
   }
 
   if (!instagramId && !facebookId) {
