@@ -117,3 +117,18 @@ Los tests (`tests/meta-delivery-policy.test.mjs`) verifican que:
 - Los estados inesperados se bloquean por defecto.
 
 Son **pruebas unitarias de las decisiones de seguridad**, no una simulación de todas las llamadas de Meta, ni una garantía de ausencia de duplicados ante caídas externas o carreras complejas. Todavía hacen falta pruebas con dobles de `fetch`, simulación de concurrencia SQLite y pruebas de integración en entorno de Meta separado antes de producción.
+
+## Séptima fase: pruebas de integración simuladas
+
+`npm test` ejecuta ahora dos conjuntos: política de envío e integración simulada del publicador real.
+
+La segunda batería (`tests/meta-publishing-integration.test.mjs`) transpila `src/lib/metaPublish.ts` en memoria con TypeScript y sustituye sus dependencias de Prisma, URL de medios y `fetch` mediante dobles de prueba. No realiza ninguna solicitud de red ni utiliza tokens de la clínica.
+
+Escenarios cubiertos:
+- Un envío de Facebook confirmado no se repite en una segunda llamada.
+- Una conexión interrumpida después del intento deja `UNKNOWN` y bloquea nuevas publicaciones.
+- Un fallo en Instagram permite que Facebook continúe y conserva el resultado parcial.
+- El envío selectivo a Instagram no repite una publicación anterior de Facebook.
+- Dos solicitudes simultáneas por una publicación pendiente solo reclaman un envío.
+
+Ejecuta `npm test` y `npm run build`. Estas pruebas simulan la semántica de la actualización condicional de Prisma en memoria; no sustituyen pruebas con SQLite real, reinicios de proceso ni verificaciones de extremo a extremo en una cuenta de prueba de Meta.
