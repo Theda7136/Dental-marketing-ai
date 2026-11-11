@@ -26,6 +26,8 @@ export async function GET(request: Request) {
         mediaType: string;
         facebookStatus: string;
         instagramStatus: string;
+        facebookPostId: string | null;
+        instagramPostId: string | null;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
@@ -34,6 +36,8 @@ export async function GET(request: Request) {
         status: post.status,
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
+        facebookPostId: post.facebookPostId,
+        instagramPostId: post.instagramPostId,
         createdAt: post.createdAt.toISOString(),
         approvedAt: post.approvedAt?.toISOString() ?? null,
         mediaKind: post.mediaUrl.length === 0
