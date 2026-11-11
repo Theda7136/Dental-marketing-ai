@@ -146,3 +146,23 @@ Se prueban cuatro escenarios:
 La base temporal se elimina después de las pruebas. No se realizan llamadas a Meta ni se usan tokens reales.
 
 Comprobación: `npm test` seguido de `npm run build`. Estas pruebas validan SQLite real y reconexión, **no** simulan la terminación forzada de un proceso del sistema operativo ni todas las variantes de errores de SQLite. Antes de un piloto comercial siguen siendo necesarias pruebas de Meta en un entorno separado y un plan de copias de seguridad.
+
+## Incidencia local: Meta no puede descargar imágenes desde localhost
+
+La autenticación OAuth sí funciona en `http://localhost:3000`, pero el endpoint `/api/media/:id` debe ser descargable desde los servidores de Meta para publicar por URL.
+
+El publicador utiliza ahora `META_PUBLIC_MEDIA_URL` exclusivamente para construir enlaces firmados del archivo. Si no está definida, utiliza `NEXT_PUBLIC_APP_URL`. **Antes de reclamar el estado de la red**, rechaza orígenes HTTP y destinos locales (`localhost`, `127.0.0.1`, `::1`). Esto evita convertir nuevos borradores en `UNKNOWN` por una URL local que Meta no puede visitar.
+
+### Prueba con un túnel HTTPS temporal
+
+1. Conserva `NEXT_PUBLIC_APP_URL=http://localhost:3000` y `META_REDIRECT_URI=http://localhost:3000/api/auth/meta/callback`. No es necesario cambiar el callback de OAuth.
+2. Ejecuta `npm run dev` en una terminal.
+3. Instala `cloudflared` en Windows desde su fuente oficial y, en otra terminal, ejecuta `cloudflared tunnel --url http://localhost:3000`.
+4. Copia el origen `https://...trycloudflare.com` que muestra `cloudflared`. Introduce en `.env` una línea `META_PUBLIC_MEDIA_URL=https://...trycloudflare.com`. No añadas rutas, barras finales ni parámetros.
+5. Reinicia `npm run dev` manteniendo abierto el túnel. Verifica desde una red externa que la URL firmada de una **propuesta de prueba** responda `200` y que el archivo sea una imagen. Nunca compartas enlaces firmados, tokens o fotografías de pacientes.
+
+Los túneles rápidos no son aptos para producción y cualquiera con el enlace conoce una vía hacia el servidor; el panel mantiene Basic Auth y el contenido requiere firma. Usa material totalmente ficticio, no clínico, durante el piloto.
+
+**No cambies ni desbloquees a mano** publicaciones anteriores con `UNKNOWN`: primero revisa los registros y confirma el estado real. Un intento previo podría haberse procesado aunque la interfaz no lo muestre. La nueva validación aplica únicamente a solicitudes futuras.
+
+`npm test` ahora también cubre el rechazo de URL local antes de reclamar el estado.
