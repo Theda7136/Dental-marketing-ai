@@ -30,6 +30,7 @@ interface ApprovalQueueProps {
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
+  onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
 }
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -75,6 +76,7 @@ export function ApprovalQueue({
   posts,
   onApprove,
   onEdit,
+  onRetry,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,6 +104,27 @@ export function ApprovalQueue({
         ),
     [posts],
   );
+
+  function retryButton(post: ApprovalQueuePost, network: "facebook" | "instagram") {
+    if (post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
+      return null;
+    }
+
+    return (
+      <button
+        type="button"
+        disabled={busyId === post.id}
+        onClick={() => {
+          const platform = network === "facebook" ? "Facebook" : "Instagram";
+          if (!window.confirm(`Publicar ahora únicamente en ${platform}? Comprueba que el material esté autorizado y la cuenta conectada.`)) return;
+          void runAction(post.id, () => onRetry(post.id, network));
+        }}
+        className="rounded-xl border border-[#b7d7ce] bg-[#f2faf6] px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
+      >
+        Publicar solo en {network === "facebook" ? "Facebook" : "Instagram"}
+      </button>
+    );
+  }
 
   async function runAction(
     postId: string,
@@ -284,7 +307,20 @@ export function ApprovalQueue({
                       {networkStatus("Instagram", post.instagramStatus)}
                     </div>
 
-                    {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
+                    {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING") && (
+                      <div className="flex flex-wrap gap-2">
+                        {retryButton(post, "facebook")}
+                        {retryButton(post, "instagram")}
+                      </div>
+                    )}
+
+                    {post.status === "PUBLISHED" && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {retryButton(post, "facebook")}
+                    {retryButton(post, "instagram")}
+                  </div>
+                )}
+                {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                         El resultado de publicación de una red no está confirmado. Comprueba la publicación directamente en Meta antes de intentar de nuevo.
@@ -300,7 +336,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookStatus !== undefined && post.facebookStatus !== "PENDING" && post.instagramStatus !== "PENDING")}
+                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
                         onClick={() => runAction(post.id, onApprove)}
                         className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
