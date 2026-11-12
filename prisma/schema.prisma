@@ -50,6 +50,7 @@ model ScheduledPost {
   status           PostStatus @default(PENDING_APPROVAL)
   createdAt        DateTime   @default(now())
   approvedAt       DateTime?
+  archivedAt       DateTime?
   facebookStatus   String     @default("PENDING")
   facebookPostId   String?
   facebookError    String?
