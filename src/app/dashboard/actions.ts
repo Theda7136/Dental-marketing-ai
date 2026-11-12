@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
 import { inspectMetaObject } from "@/lib/metaVerification";
+import { generateDentalVariants } from "@/services/grokService";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
 import { canEditUnsentProposal, canSendToNetwork, canStartInitialPublication } from "@/lib/metaDeliveryPolicy.mjs";
 
@@ -113,14 +114,25 @@ export async function createTextProposal(formData: FormData) {
 
     clinicalGuardrails.validate(notes);
 
-    const generatedCaption = await generateCaptionWithGrok(procedureName, notes);
-    clinicalGuardrails.validate(generatedCaption);
+    const variants = await generateDentalVariants(
+      procedureName,
+      `Idea de contenido basada exclusivamente en la descripción facilitada por la clínica: ${notes || "Sin notas adicionales"}. No inventes características del paciente ni resultados.`,
+    );
+    const toCaption = (draft: { caption: string; hashtags: string[]; suggestedCallToAction: string }) =>
+      [draft.caption, draft.hashtags.join(" "), draft.suggestedCallToAction].join("\n\n");
+    const educationalCaption = toCaption(variants.educational);
+    const commercialCaption = toCaption(variants.commercial);
+    clinicalGuardrails.validate(educationalCaption);
+    clinicalGuardrails.validate(commercialCaption);
 
     const post = await prisma.scheduledPost.create({
       data: {
         procedureName,
         mediaType: "IMAGE",
-        generatedCaption: `Guion / Idea: \n\n${generatedCaption}`,
+        generatedCaption: educationalCaption,
+        educationalCaption,
+        commercialCaption,
+        selectedStyle: "EDUCATIONAL",
         mediaUrl: "",
         status: "PENDING_APPROVAL",
       },
