@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { platformCaptions } from "@/lib/platformCopy.mjs";
 
 export const POST_STATUSES = [
   "PENDING_APPROVAL",
@@ -164,6 +165,7 @@ export function ApprovalQueue({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const [clinicalChecks, setClinicalChecks] = useState<Record<string, boolean>>({});
+  const [platformPreview, setPlatformPreview] = useState<Record<string, "facebook" | "instagram">>({});
   const [pendingQuery, setPendingQuery] = useState("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [pendingPage, setPendingPage] = useState(1);
@@ -428,6 +430,8 @@ export function ApprovalQueue({
             const isVideo = post.mediaKind === "video" || isVideoUrl(post.mediaUrl);
             const error = errors[post.id];
             const mediaError = mediaErrors[post.id];
+            const networkPreview = platformPreview[post.id] || "facebook";
+            const previewCaption = platformCaptions(post.generatedCaption)[networkPreview];
 
             return (
               <li
@@ -543,6 +547,22 @@ export function ApprovalQueue({
                       </p>
                     )}
 
+                    {!isTextIdea && editingId !== post.id && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#526762]" aria-label="Vista previa del texto por plataforma">
+                        <span>Vista del copy:</span>
+                        {(["facebook", "instagram"] as const).map((network) =>
+                          <button key={network} type="button" aria-pressed={networkPreview === network}
+                            onClick={() => setPlatformPreview((current) => ({ ...current, [post.id]: network }))}
+                            className={networkPreview === network
+                              ? "rounded-full bg-[#176c63] px-3 py-1.5 font-semibold text-white"
+                              : "rounded-full border border-[#cbdcd4] bg-white px-3 py-1.5 font-semibold text-[#176c63]"}>
+                            {network === "facebook" ? "Facebook" : "Instagram"}
+                          </button>
+                        )}
+                        <span>Imagen 4:5, sin recorte clínico</span>
+                      </div>
+                    )}
+
                     {editingId === post.id ? (
                       <form
                         className="flex flex-col gap-3"
@@ -593,9 +613,9 @@ export function ApprovalQueue({
                         <p className={expandedPosts.includes(post.id)
                           ? "whitespace-pre-wrap text-sm leading-6 text-[#526762]"
                           : "line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-[#526762]"}>
-                          {post.generatedCaption}
+                          {isTextIdea ? post.generatedCaption : previewCaption}
                         </p>
-                        {post.generatedCaption.length > 170 && (
+                        {(isTextIdea ? post.generatedCaption : previewCaption).length > 170 && (
                           <button
                             type="button"
                             aria-expanded={expandedPosts.includes(post.id)}
