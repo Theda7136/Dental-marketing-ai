@@ -714,6 +714,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </fieldset>
             )}
 
+            {format === "photo" && hasMedia && (
+              <label className="studio-vision-consent">
+                <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} />
+                <span>Autorizo el análisis de esta fotografía con Gemini Vision. Confirmo que tengo permiso y que no contiene datos identificables.</span>
+              </label>
+            )}
+
             {canConfigure && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
               <textarea

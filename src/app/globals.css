@@ -1194,3 +1194,23 @@ body { background: var(--canvas); color: var(--ink); }
 @media (max-width: 720px) {
   .studio-form-panel .studio-generate-sticky { bottom: 8px; }
 }
+
+/* A single explicit consent replaces the former Vision settings panel. */
+.studio-vision-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 1px;
+  color: #567069;
+  font-size: .73rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.studio-vision-consent input {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.studio-vision-consent span { max-width: 60ch; }
