@@ -61,6 +61,9 @@ export async function GET(request: NextRequest) {
         grantedScopes: scopes,
       },
     });
+    await prisma.account.deleteMany({
+      where: { provider: "tiktok", providerAccountId: { not: tokens.open_id } },
+    });
     return redirect(scopes.split(",").includes("video.publish") ? "connected" : "scope_missing");
   } catch (error) {
     console.error("TikTok OAuth failed:", error);
