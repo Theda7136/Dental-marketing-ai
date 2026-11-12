@@ -432,29 +432,44 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="app-shell mx-auto flex w-full max-w-7xl flex-col gap-7 px-4 py-6 sm:px-7 sm:py-9 lg:px-10">
-      <header className="flex flex-col gap-6 border-b soft-divider pb-7 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+    <main className="studio-workspace app-shell">
+      <a href="#studio-main" className="studio-skip-link">Saltar al contenido</a>
+      <aside className="studio-sidebar" aria-label="Navegación principal">
+        <a href="#studio-main" className="studio-identity" aria-label="Dental Studio, inicio">
           <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.65"><path d="M8 4.5c-2.2 0-3.5 1.7-3.5 4.2 0 3.2 1.6 8.2 3 10 .6.8 1.4.6 1.7-.4l1.2-3.8c.2-.7 1.2-.7 1.4 0l1.2 3.8c.3 1 1.1 1.2 1.7.4 1.4-1.8 3-6.8 3-10 0-2.5-1.3-4.2-3.5-4.2-1.3 0-1.8.6-3.1.6S9.3 4.5 8 4.5Z" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 7v4m-2-2h4" strokeLinecap="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" width="23" height="23" stroke="currentColor" strokeWidth="1.6">
+              <path d="M8 4.5c-2.2 0-3.5 1.7-3.5 4.2 0 3.2 1.6 8.2 3 10 .6.8 1.4.6 1.7-.4l1.2-3.8c.2-.7 1.2-.7 1.4 0l1.2 3.8c.3 1 1.1 1.2 1.7.4 1.4-1.8 3-6.8 3-10 0-2.5-1.3-4.2-3.5-4.2-1.3 0-1.8.6-3.1.6S9.3 4.5 8 4.5Z" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 7v4m-2-2h4" strokeLinecap="round"/>
+            </svg>
           </span>
+          <span className="studio-identity-copy"><strong>Dental Studio</strong><small>Marketing clínico</small></span>
+        </a>
+        <div className="studio-sidebar-label">ESPACIO DE TRABAJO</div>
+        <nav className="studio-nav" aria-label="Secciones">
+          <a className="studio-nav-link is-current" href="#create-content"><span aria-hidden="true">01</span> Crear contenido</a>
+          <a className="studio-nav-link" href="#approval-queue-title"><span aria-hidden="true">02</span> Pendientes</a>
+          <a className="studio-nav-link" href="#published-history-title"><span aria-hidden="true">03</span> Historial</a>
+          <a className="studio-nav-link" href="#connected-accounts"><span aria-hidden="true">04</span> Conexiones</a>
+        </nav>
+        <div className="studio-sidebar-footer">
+          <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
+          <p>Todo contenido requiere revisión antes de publicarse.</p>
+        </div>
+      </aside>
+      <div className="studio-main" id="studio-main">
+        <header className="studio-topbar">
           <div>
-            <p className="eyebrow">Dental Studio <span className="mx-1 text-[#9bbcb3]">/</span> Clínica piloto</p>
-            <p className="mt-1 text-xs font-medium text-[#82928e]">Espacio de contenido</p>
+            <p className="eyebrow">ESTUDIO / CONTENIDO</p>
+            <h1>Panel de contenido</h1>
+            <p>Prepara, revisa y publica material odontológico desde un solo lugar.</p>
           </div>
-        </div>
-        <div className="sm:text-right">
-          <p className="eyebrow">Marketing dental</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#173b3a] sm:text-[1.8rem]">Panel de contenido</h1>
-          <p className="mt-1 max-w-lg text-sm leading-6 text-[#637773] sm:ml-auto">
-            Prepara fotos, videos y guiones; revisa cada propuesta antes de publicarla.
-          </p>
-        </div>
-      </header>
-
-      {/* Módulo de Conexión de Cuentas OAuth dinámico */}
+          <a href="#create-content" className="studio-topbar-link">Nueva propuesta <span aria-hidden="true">↗</span></a>
+        </header>
+        <div className="studio-content">
+          <section id="connected-accounts" aria-label="Canales conectados">
       <AccountConnector />
 
+          </section>
       {errorMessage ? (
         <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
           {errorMessage}
@@ -467,8 +482,8 @@ export default function DashboardPage() {
         </p>
       ) : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] xl:gap-8">
-        <section aria-labelledby="new-case-title" className="app-card rounded-3xl p-5 sm:p-6">
+      <div className="studio-editor-grid">
+        <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="mb-6 flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8f4f0] text-xs font-bold text-[#176c63]">01</span>
             <div>
@@ -715,6 +730,8 @@ export default function DashboardPage() {
           onChooseStyle={changeCopyStyle}
           onAuthorizeRetry={reconcileRetry}
         />
+      </div>
+        </div>
       </div>
     </main>
   );
