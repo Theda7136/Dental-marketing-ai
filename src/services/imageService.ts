@@ -205,7 +205,7 @@ export async function overlayOnClinicTemplate(input: {
     }
   }
 
-  const picture = await sharp(photo).resize(WIDTH, HEIGHT - footerHeight, { fit: "fill" }).png().toBuffer();
+  const picture = await sharp(photo).resize(WIDTH, HEIGHT - footerHeight, { fit: "contain", background: "#ffffff" }).png().toBuffer();
   return new Uint8Array(await sharp({
     create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#ffffff" },
   }).composite([{ input: picture, top: 0, left: 0 }, ...layers]).png().toBuffer());
