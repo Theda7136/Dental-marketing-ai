@@ -502,19 +502,16 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
       <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
         {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
-          <div className="mb-6 flex items-start gap-3">
-              <div>
-          <h2 id="new-case-title" className="text-xl font-semibold tracking-tight text-[#173b3a]">Crear propuesta</h2>
-          <p className="mt-1 text-sm leading-6 text-[#637773]">
-            Sube el material y elige cómo quieres presentarlo.
-          </p>
-            </div>
+          <div className="studio-form-intro">
+            <span className="studio-step">CONTENIDO / NUEVA PIEZA</span>
+            <h2 id="new-case-title">Diseña tu próxima publicación.</h2>
+            <p>Elige el formato, define el mensaje y prepara el material para revisión.</p>
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
             <div>
             <p className="mb-2 text-sm font-semibold text-[#49645b]">Formato</p>
-            <div role="tablist" aria-label="Formato del contenido" className="grid grid-cols-3 gap-2 rounded-2xl bg-[#f3f6f3] p-1.5">
+            <div role="tablist" aria-label="Formato del contenido" className="studio-format-picker grid grid-cols-3 gap-2 p-1.5">
               {FORMATS.map((item) => {
                 const selected = format === item.id;
                 return (
@@ -558,7 +555,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-semibold text-stone-800">Tipo de mensaje</legend>
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#edf4f0] p-1.5">
+              <div className="studio-tone-picker grid grid-cols-2 gap-2 p-1.5">
                 {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => (
                   <button
                     key={style}
@@ -588,7 +585,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 <span className="text-sm font-medium text-stone-800">
                   {format === "video" ? "Video clínico" : "Foto clínica"}
                 </span>
-                <label className="group flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#c9d9d2] bg-[#f8faf8] px-4 py-6 text-center transition hover:border-[#398e82] hover:bg-[#f2f8f5]">
+                <label className="studio-upload group flex min-h-36 cursor-pointer flex-col items-center justify-center px-4 py-6 text-center">
                   <span className="mb-2 grid h-9 w-9 place-items-center rounded-xl bg-white text-[#398e82] shadow-sm transition group-hover:scale-105" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </span>
@@ -669,18 +666,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                     </label>
                   </div>
                 </details>
-                {selectedPhoto && (
-                  <div className="space-y-2">
-                    {photoPreview ? (
-                      <div className="mx-auto max-w-[280px] overflow-hidden rounded-xl border border-[#d7e5df] bg-white p-2">
-                        <p className="mb-2 text-xs font-medium text-[#46615b]">Vista previa para Facebook e Instagram (feed 4:5)</p>
-                        <img src={photoPreview} alt="Vista previa del archivo final 4:5" className="aspect-[4/5] w-full object-contain" />
-                      </div>
-                    ) : <p role="status" className="text-xs">Preparando vista previa…</p>}
-                    {photoPreviewError && <p role="alert" className="text-xs text-red-700">{photoPreviewError}</p>}
-                    <p className="text-xs text-[#637773]">Previsualización de la imagen final; el recorte que aplique cada red puede variar.</p>
-                  </div>
-                )}
               </section>
             )}
 
@@ -722,7 +707,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             <button
               type="submit"
               disabled={isPending}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-3 text-sm font-semibold leading-5 text-white shadow-[0_10px_22px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              className="studio-generate flex min-h-12 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold leading-5 text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? (
                 <>
@@ -735,6 +720,45 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </button>
           </form>
         </section>}
+        {view === "create" && (
+          <aside className="studio-preview-panel" aria-label="Estudio de previsualización">
+            <div className="studio-preview-heading">
+              <div>
+                <span className="studio-step">ESTUDIO VISUAL</span>
+                <h2>Tu pieza, antes de publicar.</h2>
+              </div>
+              <span className="studio-preview-format">{format === "photo" ? "FEED · 4:5" : format === "video" ? "VIDEO" : "COPY"}</span>
+            </div>
+            <div className="studio-preview-canvas">
+              {format === "photo" && photoPreview ? (
+                <img src={photoPreview} alt="Resultado visual de la fotografía para el feed" className="studio-preview-image" />
+              ) : (
+                <div className="studio-preview-empty">
+                  <div className="studio-preview-glyph" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" width="64" height="64" stroke="currentColor" strokeWidth="1.2">
+                      <rect x="11" y="12" width="42" height="40" rx="3"/>
+                      <circle cx="24" cy="25" r="4"/>
+                      <path d="m15 45 12-12 8 8 7-7 7 11"/>
+                    </svg>
+                  </div>
+                  <h3>{format === "photo" ? "Aquí comienza una buena imagen." : format === "video" ? "Cada historia merece su formato." : "Las ideas también toman forma."}</h3>
+                  <p>{format === "photo" ? selectedPhoto ? "Preparando una vista previa fiel a tu encuadre…" : "Carga una fotografía para ver cómo quedará en el feed." : format === "video" ? "Selecciona un video en el formulario para preparar la propuesta." : "Define el tema y deja que Grok prepare el mensaje."}</p>
+                </div>
+              )}
+            </div>
+            {format === "photo" && photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
+            <div className="studio-preview-footnote">
+              <span className="studio-preview-dot" aria-hidden="true"/>
+              <p>{format === "photo" ? "Previsualización del archivo 4:5. Facebook e Instagram pueden adaptar cómo se muestra en sus interfaces." : "La publicación siempre requiere aprobación desde Pendientes."}</p>
+            </div>
+            <div className="studio-preview-divider"/>
+            <div className="studio-preview-promise">
+              <span>01 <strong>Preparar</strong></span>
+              <span>02 <strong>Revisar</strong></span>
+              <span>03 <strong>Publicar</strong></span>
+            </div>
+          </aside>
+        )}
 
         {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
