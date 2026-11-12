@@ -49,3 +49,12 @@ model ScheduledPost {
 
   @@index([status, createdAt])
 }
+model ClinicBrand {
+  id             String   @id @default("default")
+  clinicName     String   @default("Dental Studio")
+  primaryColor   String   @default("#147c72")
+  backgroundColor String  @default("#0a1817")
+  fontFamily     String   @default("sans")
+  logoDataUrl    String?
+  updatedAt      DateTime @updatedAt
+}
