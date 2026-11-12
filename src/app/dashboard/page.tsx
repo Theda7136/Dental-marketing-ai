@@ -640,18 +640,9 @@ export default function DashboardPage() {
                 </details>
                 {selectedPhoto && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["FACEBOOK", "INSTAGRAM"] as const).map((network) => (
-                        <button type="button" key={network} aria-pressed={previewNetwork === network}
-                          onClick={() => setPreviewNetwork(network)}
-                          className={`rounded-lg px-3 py-2 text-xs font-semibold ${previewNetwork === network ? "bg-[#176c63] text-white" : "bg-white text-[#46615b]"}`}>
-                          {network === "FACEBOOK" ? "Facebook feed" : "Instagram feed"}
-                        </button>
-                      ))}
-                    </div>
                     {photoPreview ? (
                       <div className="mx-auto max-w-[280px] overflow-hidden rounded-xl border border-[#d7e5df] bg-white p-2">
-                        <p className="mb-2 text-xs font-medium text-[#46615b]">{previewNetwork === "FACEBOOK" ? "Vista de imagen para Facebook" : "Vista de imagen para Instagram"}</p>
+                        <p className="mb-2 text-xs font-medium text-[#46615b]">Vista previa para Facebook e Instagram (feed 4:5)</p>
                         <img src={photoPreview} alt="Vista previa del archivo final 4:5" className="aspect-[4/5] w-full object-contain" />
                       </div>
                     ) : <p role="status" className="text-xs">Preparando vista previa…</p>}
