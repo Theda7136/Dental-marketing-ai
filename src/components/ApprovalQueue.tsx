@@ -505,13 +505,6 @@ export function ApprovalQueue({
                         })}
                       </div>
                     )}
-                    {post.visualSummary && (
-                      <details className="text-xs text-[#607771]">
-                        <summary className="w-fit cursor-pointer font-medium text-[#176c63]">Análisis visual opcional</summary>
-                        <p className="mt-2 leading-5">{post.visualSummary}</p>
-                      </details>
-                    )}
-
                     {editingId === post.id ? (
                       <form
                         className="flex flex-col gap-3"
