@@ -159,12 +159,54 @@ export async function removeClinicalBackground(image: Uint8Array): Promise<Uint8
   return new Uint8Array(await sharp(source.buffer).png().toBuffer());
 }
 
+export interface PhotoBrand {
+  clinicName: string;
+  primaryColor: string;
+  fontFamily: string;
+  logoDataUrl: string | null;
+}
+
+function xmlText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
 export async function overlayOnClinicTemplate(input: {
   cleanImage: Uint8Array;
   procedureName: string;
-  logo?: Uint8Array;
   options?: PhotoOptions;
+  brand?: PhotoBrand | null;
 }): Promise<Uint8Array> {
-  assertProcedure(input.procedureName);
-  return renderSocialPhoto(input.cleanImage, input.options);
+  if (input.procedureName) assertProcedure(input.procedureName);
+  const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, input.options));
+  const brand = input.brand;
+  if (!brand) return new Uint8Array(photo);
+
+  const accent = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor)
+    ? brand.primaryColor : "#116D60";
+  const family = brand.fontFamily === "SERIF" ? "Georgia, serif"
+    : brand.fontFamily === "MODERN" ? "Arial, sans-serif" : "sans-serif";
+  const clinicName = xmlText(brand.clinicName.slice(0, 70));
+  const footerHeight = 104;
+  const footer = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${footerHeight}">
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <rect width="6" height="100%" fill="${accent}"/>
+    <text x="48" y="62" font-family="${family}" font-size="34" font-weight="600" fill="#203c38">${clinicName}</text>
+  </svg>`);
+
+  const layers: sharp.OverlayOptions[] = [{ input: footer, top: HEIGHT - footerHeight, left: 0 }];
+  if (brand.logoDataUrl?.startsWith("data:image/")) {
+    const encoded = brand.logoDataUrl.split(",")[1];
+    if (encoded) {
+      const bytes = Buffer.from(encoded, "base64");
+      const logo = await sharp(bytes, { failOn: "error", limitInputPixels: 8_000_000 })
+        .resize(76, 76, { fit: "inside" }).png().toBuffer();
+      layers.push({ input: logo, left: WIDTH - 115, top: HEIGHT - footerHeight + 12 });
+    }
+  }
+
+  const picture = await sharp(photo).resize(WIDTH, HEIGHT - footerHeight, { fit: "contain", background: "#ffffff" }).png().toBuffer();
+  return new Uint8Array(await sharp({
+    create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#ffffff" },
+  }).composite([{ input: picture, top: 0, left: 0 }, ...layers]).png().toBuffer());
 }
