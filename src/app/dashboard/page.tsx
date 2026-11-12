@@ -500,12 +500,11 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         </p>
       ) : null}
 
-      <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
+      <div className={view === "create" ? `studio-editor-grid ${format === "photo" && selectedPhoto ? "has-preview" : "without-preview"}` : "studio-single-view"}>
         {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="studio-form-intro">
-            <span className="studio-step">CONTENIDO / NUEVA PIEZA</span>
-            <h2 id="new-case-title">Diseña tu próxima publicación.</h2>
-            <p>Elige el formato, define el mensaje y prepara el material para revisión.</p>
+            <h2 id="new-case-title">Nueva propuesta</h2>
+            <p>Prepara el contenido para revisión y publicación.</p>
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
@@ -720,43 +719,28 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </button>
           </form>
         </section>}
-        {view === "create" && (
-          <aside className="studio-preview-panel" aria-label="Estudio de previsualización">
+        {view === "create" && format === "photo" && selectedPhoto && (
+          <aside className="studio-preview-panel" aria-label="Previsualización de fotografía">
             <div className="studio-preview-heading">
               <div>
-                <span className="studio-step">ESTUDIO VISUAL</span>
-                <h2>Tu pieza, antes de publicar.</h2>
+                <h2>Vista previa</h2>
+                <p>Imagen final para el feed</p>
               </div>
-              <span className="studio-preview-format">{format === "photo" ? "FEED · 4:5" : format === "video" ? "VIDEO" : "COPY"}</span>
+              <span className="studio-preview-format">4:5</span>
             </div>
-            <div className="studio-preview-canvas">
-              {format === "photo" && photoPreview ? (
-                <img src={photoPreview} alt="Resultado visual de la fotografía para el feed" className="studio-preview-image" />
+            <div className="studio-preview-canvas" aria-live="polite">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" />
               ) : (
-                <div className="studio-preview-empty">
-                  <div className="studio-preview-glyph" aria-hidden="true">
-                    <svg viewBox="0 0 64 64" fill="none" width="64" height="64" stroke="currentColor" strokeWidth="1.2">
-                      <rect x="11" y="12" width="42" height="40" rx="3"/>
-                      <circle cx="24" cy="25" r="4"/>
-                      <path d="m15 45 12-12 8 8 7-7 7 11"/>
-                    </svg>
-                  </div>
-                  <h3>{format === "photo" ? "Aquí comienza una buena imagen." : format === "video" ? "Cada historia merece su formato." : "Las ideas también toman forma."}</h3>
-                  <p>{format === "photo" ? selectedPhoto ? "Preparando una vista previa fiel a tu encuadre…" : "Carga una fotografía para ver cómo quedará en el feed." : format === "video" ? "Selecciona un video en el formulario para preparar la propuesta." : "Define el tema y deja que Grok prepare el mensaje."}</p>
-                </div>
+                <p className="studio-preview-loading" role="status">
+                  {photoPreviewError ? "No se pudo generar la imagen" : "Preparando imagen…"}
+                </p>
               )}
             </div>
-            {format === "photo" && photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <div className="studio-preview-footnote">
-              <span className="studio-preview-dot" aria-hidden="true"/>
-              <p>{format === "photo" ? "Previsualización del archivo 4:5. Facebook e Instagram pueden adaptar cómo se muestra en sus interfaces." : "La publicación siempre requiere aprobación desde Pendientes."}</p>
-            </div>
-            <div className="studio-preview-divider"/>
-            <div className="studio-preview-promise">
-              <span>01 <strong>Preparar</strong></span>
-              <span>02 <strong>Revisar</strong></span>
-              <span>03 <strong>Publicar</strong></span>
-            </div>
+            {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
+            <p className="studio-preview-caption">
+              Comprueba el encuadre antes de generar. La visualización final puede variar ligeramente según la red social.
+            </p>
           </aside>
         )}
 
