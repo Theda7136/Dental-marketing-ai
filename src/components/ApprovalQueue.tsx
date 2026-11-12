@@ -122,6 +122,18 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
 }
 
+function mediaSource(post: ApprovalQueuePost): string {
+  if (!post.mediaUrl) return "";
+  const ownMediaPath = `/api/media/${post.id}`;
+  try {
+    const parsed = new URL(post.mediaUrl, "http://localhost");
+    if (parsed.pathname === ownMediaPath) return ownMediaPath;
+  } catch {
+    return post.mediaUrl;
+  }
+  return post.mediaUrl;
+}
+
 export function ApprovalQueue({
   posts,
   mode = "both",
@@ -145,6 +157,7 @@ export function ApprovalQueue({
   const [reviewEvidence, setReviewEvidence] = useState("");
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
 
   const reviewedPosts = useMemo(
     () => posts.filter((post) => post.status !== "PENDING_APPROVAL")
@@ -349,6 +362,7 @@ export function ApprovalQueue({
             const isTextIdea = post.mediaKind === "text" || post.mediaUrl.length === 0;
             const isVideo = post.mediaKind === "video" || isVideoUrl(post.mediaUrl);
             const error = errors[post.id];
+            const mediaError = mediaErrors[post.id];
 
             return (
               <li
@@ -357,27 +371,43 @@ export function ApprovalQueue({
               >
                 <article className="studio-proposal-grid grid gap-0 sm:grid-cols-[190px_1fr]">
                   <div className="studio-proposal-media h-44 overflow-hidden bg-[#edf3ef] sm:h-full">
-                    {post.mediaKind === "text" || post.mediaUrl.length === 0 ? (
+                    {isTextIdea ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
-                        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/80 shadow-sm" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.7"><path d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v12A1.25 1.25 0 0 1 17 19.25H7A1.25 1.25 0 0 1 5.75 18V6A1.25 1.25 0 0 1 7 4.75Z"/><path d="M9 9h6M9 12h6M9 15h4" strokeLinecap="round"/></svg></span>
                         Idea de contenido
                       </div>
-                    ) : post.mediaKind === "video" || isVideoUrl(post.mediaUrl) ? (
+                    ) : mediaError ? (
+                      <div role="alert" className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-[#815443]">
+                        <strong>Archivo no disponible</strong>
+                        <span>{mediaError}</span>
+                      </div>
+                    ) : isVideo ? (
                       <video
                         className="h-full w-full object-contain"
-                        src={post.mediaUrl}
+                        src={mediaSource(post)}
                         controls
                         preload="metadata"
+                        onError={() => setMediaErrors((previous) => ({ ...previous, [post.id]: "No se pudo cargar el video guardado." }))}
                       />
                     ) : (
                       <img
                         className="h-full w-full object-contain"
-                        src={post.mediaUrl}
+                        src={mediaSource(post)}
                         alt={`Caso de ${post.procedureName}`}
+                        onError={() => {
+                          void fetch(mediaSource(post), { cache: "no-store" })
+                            .then(async (response) => {
+                              const detail = response.status === 401 ? "Se requiere iniciar sesión nuevamente."
+                                : response.status === 404 ? "El archivo no está en el almacenamiento local."
+                                : response.status === 503 ? "El servidor de archivos no está disponible."
+                                : `Error HTTP ${response.status} al cargar la imagen.`;
+                              setMediaErrors((previous) => ({ ...previous, [post.id]: detail }));
+                              await response.body?.cancel();
+                            })
+                            .catch(() => setMediaErrors((previous) => ({ ...previous, [post.id]: "Comprueba que el servidor esté disponible." })));
+                        }}
                       />
                     )}
                   </div>
-
                   <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5">
                     <div>
                       <h3 className="text-lg font-semibold tracking-tight text-[#173b3a]">
