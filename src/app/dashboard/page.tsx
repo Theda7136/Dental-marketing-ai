@@ -674,49 +674,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
             )}
 
-            {format === "photo" && selectedPhoto && (
-              <section className="studio-photo-tools space-y-3 rounded-2xl border border-[#d7e5df] bg-[#f7faf8] p-3" aria-label="Ajuste visual de foto">
-                <div>
-                  <p className="text-sm font-semibold text-[#173b3a]">Ajuste visual</p>
-                  <p className="text-xs text-[#637773]">La foto se prepara para el feed en 4:5 (1080 × 1350), sin marcos negros.</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["CLINICAL", "EDUCATIONAL", "COMMERCIAL"] as const).map((preset) => (
-                    <button
-                      key={preset} type="button" disabled={isPending}
-                      aria-pressed={photoPreset === preset}
-                      onClick={() => setPhotoPreset(preset)}
-                      className={`min-h-10 rounded-lg border px-1 text-xs font-semibold ${photoPreset === preset ? "border-[#176c63] bg-white text-[#176c63]" : "border-[#d7e5df] text-[#637773]"}`}
-                    >
-                      {preset === "CLINICAL" ? "Clínico" : preset === "EDUCATIONAL" ? "Educativo" : "Comercial"}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-1 text-xs font-medium text-[#46615b]">
-                    <span className="block">Encuadre</span>
-                    <select value={photoLayout} disabled={isPending}
-                      onChange={(event) => setPhotoLayout(event.target.value as typeof photoLayout)}
-                      className="w-full rounded-lg border border-[#cbdcd4] bg-white p-2">
-                      <option value="AUTO">Automático</option>
-                      <option value="CONTAIN">Foto completa</option>
-                      <option value="COVER">Rellenar lienzo</option>
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-[#46615b]">
-                    <span className="block">Fondo</span>
-                    <select value={photoBackground} disabled={isPending}
-                      onChange={(event) => setPhotoBackground(event.target.value as typeof photoBackground)}
-                      className="w-full rounded-lg border border-[#cbdcd4] bg-white p-2">
-                      <option value="LIGHT">Claro</option>
-                      <option value="BLUR">Desenfocado</option>
-                    </select>
-                  </label>
-                </div>
-
-              </section>
-            )}
-
             {format === "video" && (
               <fieldset className="space-y-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3">
                 <legend className="px-1 text-sm font-semibold text-[#173b3a]">Edición de video</legend>
