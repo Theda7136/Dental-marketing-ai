@@ -555,3 +555,65 @@ export async function muteClinicalVideo(video: Uint8Array): Promise<Uint8Array> 
     return new Uint8Array(silent);
   });
 }
+
+export async function overlaySrtSubtitles(video: Uint8Array, captions: string): Promise<Uint8Array> {
+  const bytes = assertVideoBytes(video);
+  if (!captions.trim() || captions.length > 12000) {
+    throw new VideoServiceError("Los subtítulos SRT deben contener entre 1 y 12000 caracteres.", "INVALID_TRANSCRIPT");
+  }
+
+  const normalized = captions.replace(/\r\n?/g, "\n").trim();
+  const blocks = normalized.split(/\n\s*\n/);
+  if (blocks.length > 150) {
+    throw new VideoServiceError("Demasiados bloques de subtítulos para un video corto.", "INVALID_TRANSCRIPT");
+  }
+
+  const timePattern = /^(\d{2}):(\d{2}):(\d{2}),(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2}),(\d{3})$/;
+  const timeMs = (parts: string[], offset: number) =>
+    (Number(parts[offset]) * 3600 + Number(parts[offset + 1]) * 60 + Number(parts[offset + 2])) * 1000 +
+    Number(parts[offset + 3]);
+
+  let previousEnd = 0;
+  for (const [index, block] of blocks.entries()) {
+    const lines = block.trim().split("\n");
+    if (lines.length < 3 || lines[0].trim() !== String(index + 1)) {
+      throw new VideoServiceError(`El bloque ${index + 1} no tiene numeración SRT válida.`, "INVALID_TRANSCRIPT");
+    }
+    const match = timePattern.exec(lines[1].trim());
+    if (!match) {
+      throw new VideoServiceError(`Los tiempos del bloque ${index + 1} deben estar en formato HH:MM:SS,mmm.`, "INVALID_TRANSCRIPT");
+    }
+    const start = timeMs(match, 1);
+    const end = timeMs(match, 5);
+    const text = lines.slice(2).join(" ").trim();
+    if (!text || start < previousEnd || end <= start || end > MAX_DURATION_MS ||
+        Number(match[2]) > 59 || Number(match[3]) > 59 || Number(match[4]) > 999 ||
+        Number(match[6]) > 59 || Number(match[7]) > 59 || Number(match[8]) > 999) {
+      throw new VideoServiceError(`Los tiempos o el texto del bloque ${index + 1} no son válidos.`, "INVALID_TRANSCRIPT");
+    }
+    clinicalGuardrails.validate(text);
+    previousEnd = end;
+  }
+
+  return withTempDir(async (directory) => {
+    const extension = detectContainer(bytes);
+    const inputPath = path.join(directory, `source.${extension}`);
+    const subtitlePath = path.join(directory, "captions.srt");
+    const outputPath = path.join(directory, "subtitled.mp4");
+    await writeFile(inputPath, bytes);
+    const frame = await probeVideo(inputPath);
+    if (previousEnd > frame.durationMs + 250) {
+      throw new VideoServiceError("Los subtítulos se extienden más allá del final del video.", "INVALID_TRANSCRIPT");
+    }
+    await writeFile(subtitlePath, normalized + "\n", "utf8");
+    const fontsDir = process.platform === "win32"
+      ? `:fontsdir='${escapeFilterPath("C:/Windows/Fonts")}'`
+      : "";
+    return renderToMp4(
+      inputPath,
+      outputPath,
+      `subtitles='${escapeFilterPath(subtitlePath)}'${fontsDir}`,
+      "No se pudieron incrustar los subtítulos.",
+    );
+  });
+}
