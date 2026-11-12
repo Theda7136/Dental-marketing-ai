@@ -310,21 +310,17 @@ export function ApprovalQueue({
     <section aria-labelledby="approval-queue-title" className="w-full min-w-0">
       <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8f4f0] text-xs font-bold text-[#176c63]">02</span>
           <div>
-        <p className="eyebrow mb-1">
-          Revisión clínica
-        </p>
         <h2
           id="approval-queue-title"
           className="text-xl font-semibold tracking-tight text-[#173b3a] sm:text-2xl"
         >
-          Pendientes de aprobación
+          Pendientes de revisión
         </h2>
         <p className="mt-1 text-sm text-[#637773]">
           {pendingPosts.length === 0
-            ? "Revisa aquí cada propuesta antes de compartirla."
-            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta espera" : "propuestas esperan"} tu revisión.`}
+            ? "Las nuevas propuestas aparecerán aquí."
+            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta lista" : "propuestas listas"} para revisar.`}
         </p>
           </div>
         </div>
@@ -354,10 +350,10 @@ export function ApprovalQueue({
             return (
               <li
                 key={post.id}
-                className="app-card overflow-hidden rounded-3xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_52px_-32px_rgba(24,58,52,0.45)]"
+                className="app-card studio-proposal overflow-hidden"
               >
-                <article className="grid gap-0 sm:grid-cols-[220px_1fr]">
-                  <div className="h-44 overflow-hidden bg-[#edf3ef] sm:h-52">
+                <article className="studio-proposal-grid grid gap-0 sm:grid-cols-[190px_1fr]">
+                  <div className="studio-proposal-media h-44 overflow-hidden bg-[#edf3ef] sm:h-full">
                     {post.mediaKind === "text" || post.mediaUrl.length === 0 ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
                         <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/80 shadow-sm" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.7"><path d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v12A1.25 1.25 0 0 1 17 19.25H7A1.25 1.25 0 0 1 5.75 18V6A1.25 1.25 0 0 1 7 4.75Z"/><path d="M9 9h6M9 12h6M9 15h4" strokeLinecap="round"/></svg></span>
@@ -372,7 +368,7 @@ export function ApprovalQueue({
                       />
                     ) : (
                       <img
-                        className="h-56 w-full object-cover sm:h-full"
+                        className="h-full w-full object-contain"
                         src={post.mediaUrl}
                         alt={`Caso de ${post.procedureName}`}
                       />
@@ -560,7 +556,7 @@ export function ApprovalQueue({
                         type="button"
                         disabled={isBusy || isTextIdea || editingId === post.id}
                         onClick={() => runAction(post.id, onApprove)}
-                        className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="studio-primary-action rounded-lg bg-[#116f64] px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isTextIdea ? "Idea guardada" : "Aprobar y publicar"}
                       </button>
@@ -576,7 +572,7 @@ export function ApprovalQueue({
                           setDraftCaption(post.generatedCaption);
                           setEditingId(post.id);
                         }}
-                        className="rounded-full border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-lg border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Editar texto
                       </button>
