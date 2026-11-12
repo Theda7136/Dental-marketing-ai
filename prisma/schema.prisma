@@ -43,6 +43,10 @@ model ScheduledPost {
   mediaType        MediaType  @default(IMAGE)
   mediaUrl         String
   generatedCaption String
+  educationalCaption String?
+  commercialCaption  String?
+  selectedStyle      String   @default("EDUCATIONAL")
+  visualSummary      String?
   status           PostStatus @default(PENDING_APPROVAL)
   createdAt        DateTime   @default(now())
   approvedAt       DateTime?
