@@ -126,8 +126,62 @@ export default function DashboardPage() {
   const [procedureName, setProcedureName] = useState("");
   const [notes, setNotes] = useState("");
   const [copyStyle, setCopyStyle] = useState<"EDUCATIONAL" | "COMMERCIAL">("EDUCATIONAL");
+  const [photoLayout, setPhotoLayout] = useState<"AUTO" | "CONTAIN" | "COVER">("AUTO");
+  const [photoBackground, setPhotoBackground] = useState<"LIGHT" | "BLUR">("LIGHT");
+  const [photoPreset, setPhotoPreset] = useState<"CLINICAL" | "EDUCATIONAL" | "COMMERCIAL">("CLINICAL");
+  const [photoZoom, setPhotoZoom] = useState(1);
+  const [photoOffsetX, setPhotoOffsetX] = useState(0);
+  const [photoOffsetY, setPhotoOffsetY] = useState(0);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
+  const [previewNetwork, setPreviewNetwork] = useState<"FACEBOOK" | "INSTAGRAM">("FACEBOOK");
 
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (format !== "photo" || !selectedPhoto) {
+      setPhotoPreview(null);
+      setPhotoPreviewError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let currentUrl: string | null = null;
+    const timeout = setTimeout(async () => {
+      const body = new FormData();
+      body.set("photo", selectedPhoto);
+      body.set("photoLayout", photoLayout);
+      body.set("photoBackground", photoBackground);
+      body.set("photoPreset", photoPreset);
+      body.set("photoZoom", String(photoZoom));
+      body.set("photoOffsetX", String(photoOffsetX));
+      body.set("photoOffsetY", String(photoOffsetY));
+
+      try {
+        const response = await fetch("/api/preview-image", { method: "POST", body, signal: controller.signal });
+        if (!response.ok) {
+          const payload = await response.json();
+          throw new Error(payload.error || "No fue posible crear la vista previa.");
+        }
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        currentUrl = URL.createObjectURL(blob);
+        setPhotoPreview(currentUrl);
+        setPhotoPreviewError(null);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setPhotoPreview(null);
+        setPhotoPreviewError(error instanceof Error ? error.message : "No fue posible crear la vista previa.");
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [format, selectedPhoto, photoLayout, photoBackground, photoPreset, photoZoom, photoOffsetX, photoOffsetY]);
 
   useEffect(() => {
     let isMounted = true;
@@ -162,6 +216,12 @@ export default function DashboardPage() {
     formData.set("procedureName", procedureName);
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
+    formData.set("photoLayout", photoLayout);
+    formData.set("photoBackground", photoBackground);
+    formData.set("photoPreset", photoPreset);
+    formData.set("photoZoom", String(photoZoom));
+    formData.set("photoOffsetX", String(photoOffsetX));
+    formData.set("photoOffsetY", String(photoOffsetY));
 
     startTransition(async () => {
       let result: {
@@ -197,6 +257,7 @@ export default function DashboardPage() {
         setProcedureName("");
         setNotes("");
         setFileLabel("Ningún archivo seleccionado");
+        setSelectedPhoto(null);
         setFileKey((current) => current + 1);
         setNotice("La propuesta quedó en Posts pendientes de aprobación.");
       } else {
@@ -208,6 +269,7 @@ export default function DashboardPage() {
   function changeFormat(next: ContentFormat) {
     setFormat(next);
     setFileLabel("Ningún archivo seleccionado");
+    setSelectedPhoto(null);
     setFileKey((current) => current + 1);
   }
 
@@ -513,11 +575,92 @@ export default function DashboardPage() {
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
                       setFileLabel(file ? file.name : "Ningún archivo seleccionado");
+                      setSelectedPhoto(format === "photo" ? file || null : null);
                     }}
                   />
                 </label>
               </div>
             ) : null}
+
+            {format === "photo" && (
+              <section className="space-y-3 rounded-2xl border border-[#d7e5df] bg-[#f7faf8] p-3" aria-label="Ajuste visual de foto">
+                <div>
+                  <p className="text-sm font-semibold text-[#173b3a]">Ajuste visual</p>
+                  <p className="text-xs text-[#637773]">La foto se prepara para el feed en 4:5 (1080 × 1350), sin marcos negros.</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["CLINICAL", "EDUCATIONAL", "COMMERCIAL"] as const).map((preset) => (
+                    <button
+                      key={preset} type="button" disabled={isPending}
+                      aria-pressed={photoPreset === preset}
+                      onClick={() => setPhotoPreset(preset)}
+                      className={`min-h-10 rounded-lg border px-1 text-xs font-semibold ${photoPreset === preset ? "border-[#176c63] bg-white text-[#176c63]" : "border-[#d7e5df] text-[#637773]"}`}
+                    >
+                      {preset === "CLINICAL" ? "Clínico" : preset === "EDUCATIONAL" ? "Educativo" : "Comercial"}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="space-y-1 text-xs font-medium text-[#46615b]">
+                    <span className="block">Encuadre</span>
+                    <select value={photoLayout} disabled={isPending}
+                      onChange={(event) => setPhotoLayout(event.target.value as typeof photoLayout)}
+                      className="w-full rounded-lg border border-[#cbdcd4] bg-white p-2">
+                      <option value="AUTO">Automático</option>
+                      <option value="CONTAIN">Foto completa</option>
+                      <option value="COVER">Rellenar lienzo</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1 text-xs font-medium text-[#46615b]">
+                    <span className="block">Fondo</span>
+                    <select value={photoBackground} disabled={isPending}
+                      onChange={(event) => setPhotoBackground(event.target.value as typeof photoBackground)}
+                      className="w-full rounded-lg border border-[#cbdcd4] bg-white p-2">
+                      <option value="LIGHT">Claro</option>
+                      <option value="BLUR">Desenfocado</option>
+                    </select>
+                  </label>
+                </div>
+                <details className="text-xs text-[#46615b]">
+                  <summary className="cursor-pointer font-medium">Ajustar zoom y posición</summary>
+                  <div className="mt-3 space-y-2">
+                    <label className="block">Zoom: {photoZoom.toFixed(2)}×
+                      <input className="w-full" type="range" min="1" max="1.6" step="0.05" value={photoZoom} disabled={isPending}
+                        onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
+                    </label>
+                    <label className="block">Mover horizontalmente
+                      <input className="w-full" type="range" min="-100" max="100" step="10" value={photoOffsetX} disabled={isPending}
+                        onChange={(event) => setPhotoOffsetX(Number(event.target.value))}/>
+                    </label>
+                    <label className="block">Mover verticalmente
+                      <input className="w-full" type="range" min="-100" max="100" step="10" value={photoOffsetY} disabled={isPending}
+                        onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
+                    </label>
+                  </div>
+                </details>
+                {selectedPhoto && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["FACEBOOK", "INSTAGRAM"] as const).map((network) => (
+                        <button type="button" key={network} aria-pressed={previewNetwork === network}
+                          onClick={() => setPreviewNetwork(network)}
+                          className={`rounded-lg px-3 py-2 text-xs font-semibold ${previewNetwork === network ? "bg-[#176c63] text-white" : "bg-white text-[#46615b]"}`}>
+                          {network === "FACEBOOK" ? "Facebook feed" : "Instagram feed"}
+                        </button>
+                      ))}
+                    </div>
+                    {photoPreview ? (
+                      <div className="mx-auto max-w-[280px] overflow-hidden rounded-xl border border-[#d7e5df] bg-white p-2">
+                        <p className="mb-2 text-xs font-medium text-[#46615b]">{previewNetwork === "FACEBOOK" ? "Vista de imagen para Facebook" : "Vista de imagen para Instagram"}</p>
+                        <img src={photoPreview} alt="Vista previa del archivo final 4:5" className="aspect-[4/5] w-full object-contain" />
+                      </div>
+                    ) : <p role="status" className="text-xs">Preparando vista previa…</p>}
+                    {photoPreviewError && <p role="alert" className="text-xs text-red-700">{photoPreviewError}</p>}
+                    <p className="text-xs text-[#637773]">Previsualización de la imagen final; el recorte que aplique cada red puede variar.</p>
+                  </div>
+                )}
+              </section>
+            )}
 
             {format === "video" && (
               <fieldset className="space-y-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3">
