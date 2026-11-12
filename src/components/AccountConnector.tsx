@@ -45,55 +45,39 @@ export function AccountConnector() {
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8 flex items-center justify-between">
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">Cuentas de Redes Sociales</h2>
-        {connectionMessage ? (
-          <p role="alert" className="mt-2 max-w-xl text-sm text-red-700">{connectionMessage}</p>
-        ) : null}
-        <p className="text-sm text-gray-500">
-          {account?.connected
-            ? `Página vinculada: ${account.pageName || "Página Principal"}`
-            : "Vincula la cuenta de Instagram Business para habilitar la publicación y programación directa de anuncios."}
+    <section className="mb-6 space-y-4" aria-label="Redes sociales conectadas">
+      {connectionMessage && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {connectionMessage}
         </p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#d9e5df] bg-white p-5">
+        <div>
+          <h2 className="font-semibold text-[#173b3a]">Facebook e Instagram</h2>
+          <p className="mt-1 text-sm text-[#607771]">
+            {account?.connected ? `Página vinculada: ${account.pageName || "Página principal"}`
+              : "Conecta tu Página de Facebook y la cuenta profesional de Instagram."}
+          </p>
+        </div>
+        <a href="/api/auth/meta" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63]">
+          {account?.connected ? "Reconectar Meta" : "Conectar Meta"}
+        </a>
       </div>
-
-      <div>
-        {account?.connected ? (
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Conectado ({account.userName || "Meta"})
-            </span>
-            <a
-              href="/api/auth/meta"
-              className="text-xs font-medium text-gray-500 hover:text-gray-800 underline ml-2"
-            >
-              Reconectar
-            </a>
-          </div>
-        ) : (
-          <a
-            href="/api/auth/meta"
-            className="px-5 py-2.5 bg-[#005c53] hover:bg-[#004740] text-white rounded-full text-sm font-medium transition-colors"
-          >
-            Conectar cuenta
-          </a>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#d9e5df] bg-white p-5">
+        <div>
+          <h2 className="font-semibold text-[#173b3a]">TikTok</h2>
+          <p className="mt-1 text-sm text-[#607771]">
+            {tiktokConnected ? `Cuenta conectada${tiktokName ? ` · ${tiktokName}` : ""}`
+              : "Conecta TikTok para publicar fotografías o videos."}
+          </p>
+          <p className="mt-1 text-xs text-[#72847d]">
+            Requiere permiso video.publish y un dominio HTTPS verificado en TikTok.
+          </p>
+        </div>
+        <a href="/api/auth/tiktok" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63]">
+          {tiktokConnected ? "Reconectar TikTok" : "Conectar TikTok"}
+        </a>
       </div>
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#d9e5df] bg-white p-5">
-      <div>
-        <p className="font-semibold text-[#173b3a]">TikTok</p>
-        <p className="mt-1 text-sm text-[#607771]">
-          {tiktokConnected ? `Conectado${tiktokName ? ` · ${tiktokName}` : ""}`
-            : "Vincula TikTok para publicar fotos o videos aprobados."}
-        </p>
-        <p className="mt-1 text-xs text-[#72847d]">Necesita Login Kit, permiso video.publish y un dominio de medios verificado.</p>
-      </div>
-      <a href="/api/auth/tiktok" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63] hover:bg-[#edf5f1]">
-        {tiktokConnected ? "Reconectar TikTok" : "Conectar TikTok"}
-      </a>
-    </div>
-    </div>
+    </section>
   );
 }
