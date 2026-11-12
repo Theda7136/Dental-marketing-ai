@@ -223,3 +223,94 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-preview-panel .studio-preview-canvas { background: #f3f6f3; }
 .studio-preview-caption { margin-top: 10px; }
 @media (max-width: 720px) { .studio-preview-panel { position: static; } }
+
+/* Media workflow */
+.studio-file-field { display: flex; flex-direction: column; gap: 9px; }
+.studio-field-label { color: #263f38; font-size: .89rem; font-weight: 650; }
+.studio-upload-button {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  min-height: 90px; padding: 17px; text-align: left;
+  background: #f8fbf9; border: 1.5px dashed #b6d2c4; border-radius: 11px;
+  color: #155f55; transition: border-color 160ms ease, background 160ms ease;
+}
+.studio-upload-button:hover:not(:disabled), .studio-upload-button:focus-visible {
+  border-color: #147c72; background: #eff7f3;
+}
+.studio-upload-icon {
+  display: grid; place-items: center; flex: 0 0 41px; height: 41px;
+  border-radius: 10px; background: white; font-size: 1.55rem; font-weight: 400;
+}
+.studio-upload-button strong, .studio-upload-button small { display: block; }
+.studio-upload-button strong { font-size: .92rem; }
+.studio-upload-button small { margin-top: 4px; color: #71867b; font-size: .79rem; }
+.studio-file-selected {
+  display: flex; gap: 11px; align-items: center; min-width: 0;
+  padding: 10px; border: 1px solid #d9e7df; border-radius: 11px; background: #f8fbf9;
+}
+.studio-file-thumb {
+  display: grid; place-items: center; flex: 0 0 58px; height: 58px;
+  overflow: hidden; background: #e9f0ed; border-radius: 8px; color: #136e61;
+}
+.studio-file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.studio-file-info { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
+.studio-file-info strong {
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: .85rem; color: #253d36;
+}
+.studio-file-info span { color: #687d72; font-size: .78rem; }
+.studio-file-replace {
+  flex-shrink: 0; padding: 7px 10px; border-radius: 7px;
+  border: 1px solid #bad4c7; background: white; color: #0c665a;
+  font-size: .79rem; font-weight: 700;
+}
+.studio-file-replace:hover:not(:disabled) { background: #eef7f2; }
+.studio-preview-video {
+  width: 100%; max-height: 430px; aspect-ratio: 4 / 5;
+  object-fit: contain; background: #172e2a;
+}
+.studio-image-controls { border-top: 1px solid #deebe3; margin-top: 14px; padding-top: 13px; }
+.studio-image-control-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.studio-image-control-head strong { font-size: .85rem; }
+.studio-image-control-head button { border: 0; background: none; color: #0c7061; font-size: .78rem; font-weight: 650; }
+.studio-image-controls label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; color: #4d6a5c; }
+.studio-image-controls label output { align-self: end; margin-top: -22px; }
+.studio-image-controls input { width: 100%; accent-color: #126d5e; }
+.studio-image-direction { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.studio-feedback {
+  display: flex; align-items: center; gap: 13px; padding: 15px 17px;
+  background: #eaf7ef; color: #1a5b41; border: 1px solid #b5dfc2; border-radius: 11px;
+}
+.studio-feedback-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; background: #20774d; color: white; border-radius: 50%; }
+.studio-feedback > div { flex: 1; }
+.studio-feedback strong { font-size: .93rem; }
+.studio-feedback p { font-size: .82rem; margin-top: 2px; }
+.studio-feedback a { color: #145b41; font-weight: 740; font-size: .85rem; text-decoration: underline; text-underline-offset: 3px; }
+.studio-brand-settings { margin-top: 20px; padding: 23px; border: 1px solid #dbe6de; background: white; border-radius: 13px; }
+.studio-brand-intro h2 { font-size: 1.28rem; font-weight: 740; }
+.studio-brand-intro p { max-width: 65ch; font-size: .86rem; line-height: 1.55; color: #687c70; margin-top: 5px; }
+.studio-brand-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .9fr); gap: 35px; margin-top: 22px; }
+.studio-brand-fields { display: flex; flex-direction: column; gap: 15px; }
+.studio-brand-fields > label { display: flex; flex-direction: column; gap: 7px; font-size: .86rem; font-weight: 650; }
+.studio-brand-fields input:not([type="checkbox"]):not([type="color"]), .studio-brand-fields select {
+  min-height: 44px; padding: 9px 12px; border: 1px solid #cddbd0; border-radius: 9px; background: white;
+}
+.studio-brand-color-control { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 5px 12px; border: 1px solid #cddbd0; border-radius: 9px; font-variant-numeric: tabular-nums; }
+.studio-brand-color-control input { width: 37px; height: 32px; border: none; background: none; }
+.studio-brand-remove { flex-direction: row !important; align-items: center; }
+.studio-brand-fields > button { min-height: 44px; color: white; font-size: .88rem; font-weight: 740; }
+.studio-brand-example > p { margin-bottom: 10px; color: #657a6b; font-size: .8rem; font-weight: 650; }
+.studio-brand-artwork { min-height: 270px; padding: 30px; display: flex; flex-direction: column; align-items: start; justify-content: center; gap: 11px; border: 1px solid #e1e8e2; border-top: 5px solid; border-radius: 10px; background: #fafbf9; }
+.studio-brand-artwork img { display: block; width: 64px; height: 64px; object-fit: contain; }
+.studio-brand-initial { display: grid; place-items: center; width: 64px; height: 64px; color: white; font-size: 1.8rem; border-radius: 14px; }
+.studio-brand-artwork h3 { font-size: 1.5rem; font-weight: 740; }
+.studio-brand-artwork span:not(.studio-brand-initial) { font-size: 1rem; }
+.studio-brand-artwork small { color: #718276; font-size: .76rem; }
+.studio-brand-error { color: #9e3329; margin-top: 14px; }
+.studio-brand-success { color: #1c704f; margin-top: 14px; }
+@media (max-width: 720px) {
+  .studio-brand-grid { grid-template-columns: 1fr; }
+  .studio-file-thumb { flex-basis: 48px; height: 48px; }
+  .studio-file-replace { font-size: .75rem; }
+  .studio-image-direction { gap: 9px; }
+  .studio-feedback { align-items: flex-start; flex-wrap: wrap; }
+}
