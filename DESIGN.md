@@ -27,3 +27,21 @@ La etapa afecta solo al frontend y el CSS. No modifica Prisma, Grok, los permiso
 ## Pendiente
 
 El propietario decidió aplazar las pruebas funcionales. Comprobar en el equipo local mediante `npm run build` y revisión real en escritorio/móvil antes de desplegar.
+
+## Fase de herramientas creativas y marca (2026-11-12)
+
+1. **Carga de archivos**: el editor de imagen y video muestra archivo elegido, miniatura (imagen), peso MB y botón Reemplazar. El input conserva el nombre de campo `photo` para mantener compatibilidad con el backend.
+2. **Reproductor local**: los videos seleccionados pueden reproducirse en la vista previa mediante una URL temporal del navegador. **No** es una representación del archivo renderizado final con ajustes de FFmpeg; esta vista muestra el original. Las URLs temporales se liberan al cambiar el archivo.
+3. **Fotografía**: zoom, posición horizontal/vertical y restablecimiento están ubicados en el panel de vista previa. El formulario conserva únicamente estilo, encuadre y fondo; la previsualización en 4:5 usa el endpoint existente.
+4. **Confirmación de creación**: al guardar una propuesta se muestra mensaje verde y enlace real a `/dashboard/pendientes`.
+5. **Identidad de marca**: en Conexiones aparece el editor de nombre, color, tipografía y logotipo con vista previa. Datos en tabla `BrandProfile`, migración aditiva `20261112180000_brand_profile`. El logo se normaliza por Sharp, se limita a 2 MB de entrada y aproximadamente 400 kB resultantes. **No** se sobreimprime automáticamente en imágenes clínicas ni altera material previamente publicado.
+
+Configuración en Windows tras actualizar:
+```powershell
+if (Test-Path prisma/dev.db) { Copy-Item prisma/dev.db prisma/dev.db.backup }
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npx prisma generate
+npm run dev
+```
+
+Las pruebas completas continúan pendientes por elección del propietario. Antes del despliegue es obligatorio comprobar que el build compila, revisar la carga de imágenes/videos, la reproducción y el formulario de marca.
