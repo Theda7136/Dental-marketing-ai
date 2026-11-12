@@ -34,6 +34,9 @@ export async function GET(request: Request) {
         instagramStatus: string;
         facebookPostId: string | null;
         instagramPostId: string | null;
+        tiktokStatus: string;
+        tiktokPublishId: string | null;
+        tiktokError: string | null;
         facebookReviewOutcome: string | null;
         facebookReviewEvidence: string | null;
         facebookReviewedAt: Date | null;
@@ -58,6 +61,9 @@ export async function GET(request: Request) {
         facebookRetryCount: post.facebookRetryCount,
         instagramRetryCount: post.instagramRetryCount,
         instagramPostId: post.instagramPostId,
+        tiktokStatus: post.tiktokStatus,
+        tiktokPublishId: post.tiktokPublishId,
+        tiktokError: post.tiktokError,
         facebookReviewOutcome: post.facebookReviewOutcome,
         facebookReviewEvidence: post.facebookReviewEvidence,
         facebookReviewedAt: post.facebookReviewedAt?.toISOString() ?? null,
