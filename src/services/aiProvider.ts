@@ -68,7 +68,7 @@ async function queryGemini(parts: object[], systemInstruction: string, json = fa
       throw new AIProviderError("La clave de Gemini no está autorizada.", response.status);
     }
     if (response.status === 503) {
-      throw new AIProviderError("Gemini sigue temporalmente saturado (HTTP 503). Puedes desactivar el análisis visual para continuar con una foto sin enviarla a Google.", 503);
+      throw new AIProviderError("Gemini sigue temporalmente saturado (HTTP 503). Vuelve a intentar la propuesta más tarde; el análisis visual es necesario para generar contenido desde la fotografía.", 503);
     }
     throw new AIProviderError(`Gemini no pudo responder (HTTP ${response.status}).`, response.status);
   }
@@ -106,6 +106,11 @@ async function geminiVariants(procedure: string, context: string) {
     "educational: informa de forma accesible sin afirmar hallazgos del paciente.",
     "commercial: invita a valoración profesional sin garantizar beneficios.",
     "No presupongas que la fotografía confirma el procedimiento seleccionado.",
+    "El resumen visual es una observación no diagnóstica: no lo transcribas en el copy ni afirmes que se hizo un tratamiento.",
+    "Escribe una sola invitación a la acción por versión, dentro de suggestedCallToAction; no repitas ese llamado en caption.",
+    "No uses mensajes genéricos de venta, testimonios inventados, descuentos, porcentajes de éxito ni resultados garantizados.",
+    "El texto comercial debe ser diferente del educativo, sonar natural y estar orientado a una valoración individual.",
+    "Usa de 3 a 5 hashtags pertinentes al procedimiento; evita etiquetas no relacionadas.",
   ].join("\n");
   const prompt = `Procedimiento declarado por la clínica: ${procedure}\nContexto confirmado: ${context}\nRedacta ambas versiones sin inventar datos.`;
   const answer = await queryGemini([{ text: prompt }], system, true);
