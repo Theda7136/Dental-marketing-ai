@@ -109,7 +109,7 @@ export async function renderSocialPhoto(
 ): Promise<Uint8Array> {
   const { buffer, width, height } = await getSource(source);
   const layout = options.layout === "AUTO"
-    ? (width / height > 0.58 && width / height < 0.94 ? "COVER" : "CONTAIN")
+    ? (width / height >= 0.72 && width / height <= 0.88 ? "COVER" : "CONTAIN")
     : options.layout;
   const baseZoom = Math.max(WIDTH / width, HEIGHT / height);
   const containZoom = Math.min(WIDTH / width, HEIGHT / height);
@@ -119,8 +119,10 @@ export async function renderSocialPhoto(
   const resized = await sharp(buffer).resize(scaledWidth, scaledHeight, { fit: "fill" })
     .ensureAlpha().png().toBuffer();
 
-  const left = Math.round((WIDTH - scaledWidth) / 2 + options.offsetX * Math.max(0, scaledWidth - WIDTH) / 100);
-  const top = Math.round((HEIGHT - scaledHeight) / 2 + options.offsetY * Math.max(0, scaledHeight - HEIGHT) / 100);
+  const wantedLeft = Math.round((WIDTH - scaledWidth) / 2 + options.offsetX * Math.max(0, scaledWidth - WIDTH) / 200);
+  const wantedTop = Math.round((HEIGHT - scaledHeight) / 2 + options.offsetY * Math.max(0, scaledHeight - HEIGHT) / 200);
+  const left = scaledWidth >= WIDTH ? Math.max(WIDTH - scaledWidth, Math.min(0, wantedLeft)) : wantedLeft;
+  const top = scaledHeight >= HEIGHT ? Math.max(HEIGHT - scaledHeight, Math.min(0, wantedTop)) : wantedTop;
   const clippedLeft = Math.max(0, left);
   const clippedTop = Math.max(0, top);
   const clipX = Math.max(0, -left);
