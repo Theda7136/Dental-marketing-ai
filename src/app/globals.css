@@ -109,3 +109,248 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Dental Studio workspace — quiet operational surfaces */
+:root {
+  --ink: #163b36;
+  --ink-soft: #526963;
+  --accent: #116f64;
+  --accent-dark: #0b564e;
+  --accent-soft: #e7f1ec;
+  --line: #dfe7e2;
+  --paper: #ffffff;
+  --canvas: #f5f7f5;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+.studio-workspace {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.studio-skip-link {
+  position: fixed;
+  z-index: 100;
+  top: -100px;
+  left: 1rem;
+  padding: .65rem 1rem;
+  background: #fff;
+  color: var(--accent-dark);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+}
+.studio-skip-link:focus { top: 1rem; }
+.studio-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 18px 22px;
+  border-right: 1px solid var(--line);
+  background: #fff;
+}
+.studio-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 10px 35px;
+  color: inherit;
+  text-decoration: none;
+}
+.studio-identity .brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  box-shadow: none;
+  background: #136e62;
+}
+.studio-identity-copy { display: flex; flex-direction: column; gap: 1px; }
+.studio-identity-copy strong { font-size: 1rem; letter-spacing: -.02em; font-weight: 750; }
+.studio-identity-copy small { color: var(--ink-soft); font-size: .78rem; }
+.studio-sidebar-label {
+  padding: 0 13px 10px;
+  color: #6a8077;
+  font-size: .67rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+}
+.studio-nav { display: grid; gap: 4px; }
+.studio-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 44px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  color: #46635a;
+  text-decoration: none;
+  font-size: .9rem;
+  font-weight: 580;
+  transition: background 150ms ease, color 150ms ease;
+}
+.studio-nav-link span {
+  color: #81948a;
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+}
+.studio-nav-link:hover { background: #f3f7f5; color: var(--accent-dark); }
+.studio-nav-link.is-current {
+  background: #eaf3ef;
+  color: #0b564e;
+  font-weight: 720;
+}
+.studio-nav-link.is-current span { color: #116f64; }
+.studio-sidebar-footer {
+  margin-top: auto;
+  padding: 18px 12px 0;
+  border-top: 1px solid var(--line);
+}
+.studio-sidebar-footer p {
+  margin-top: 8px;
+  color: #667c73;
+  font-size: .76rem;
+  line-height: 1.5;
+}
+.studio-availability {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .8rem;
+  font-weight: 650;
+}
+.studio-availability-dot {
+  width: 7px;
+  height: 7px;
+  background: #148569;
+  border-radius: 50%;
+}
+.studio-main { min-width: 0; }
+.studio-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  max-width: 1600px;
+  padding: 39px clamp(24px, 3.5vw, 60px) 28px;
+  margin: 0 auto;
+}
+.studio-topbar h1 {
+  color: #163b36;
+  font-size: clamp(1.8rem, 2.8vw, 2.55rem);
+  font-weight: 730;
+  letter-spacing: -.035em;
+  line-height: 1.16;
+}
+.studio-topbar p:not(.eyebrow) {
+  margin-top: 9px;
+  font-size: .93rem;
+  color: #61766e;
+}
+.studio-topbar .eyebrow { display: none; }
+.studio-topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border: 1px solid #cee0d5;
+  border-radius: 10px;
+  color: var(--accent-dark);
+  background: #fff;
+  font-size: .85rem;
+  font-weight: 720;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.studio-topbar-link:hover { background: #ecf4ef; }
+.studio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 clamp(24px, 3.5vw, 60px) 64px;
+}
+.studio-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.studio-editor-grid > * { min-width: 0; }
+#connected-accounts .app-card { padding: 18px 23px; }
+#connected-accounts .eyebrow { display: none; }
+#connected-accounts .app-card h3 { font-weight: 720; }
+.studio-form-panel { padding: 25px !important; }
+#approval-queue-title, #new-case-title {
+  color: #173c37;
+  letter-spacing: -.025em;
+}
+#approval-queue-title { font-size: 1.45rem; }
+.studio-editor-grid .eyebrow { display: none; }
+.studio-editor-grid .app-card {
+  border-radius: 14px;
+}
+.app-card {
+  border: 1px solid #e0e8e2;
+  background: #fff;
+  box-shadow: 0 12px 28px -26px rgba(28, 62, 53, .32);
+}
+.studio-form-panel .field-control {
+  background: #fff;
+  border-color: #cfdcd4;
+}
+.studio-form-panel .field-control:focus {
+  border-color: #478f7c;
+  box-shadow: 0 0 0 3px rgba(34, 119, 96, .13);
+}
+.studio-editor-grid button {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.studio-editor-grid button:disabled { cursor: not-allowed; }
+#connected-accounts, #create-content, #approval-queue-title, #published-history-title { scroll-margin-top: 18px; }
+@media (max-width: 1120px) {
+  .studio-workspace { grid-template-columns: 205px minmax(0, 1fr); }
+  .studio-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 740px) {
+  .studio-workspace { display: block; }
+  .studio-sidebar {
+    position: relative;
+    height: auto;
+    padding: 13px 16px 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .studio-identity { padding: 0 0 10px; }
+  .studio-sidebar-label, .studio-sidebar-footer { display: none; }
+  .studio-nav {
+    display: flex;
+    gap: 3px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 3px;
+  }
+  .studio-nav-link {
+    white-space: nowrap;
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: .81rem;
+  }
+  .studio-nav-link span { display: none; }
+  .studio-topbar { padding: 25px 18px 18px; }
+  .studio-content { padding: 0 16px 40px; gap: 18px; }
+  .studio-topbar-link { display: none; }
+  .studio-form-panel { padding: 19px !important; }
+  #connected-accounts .app-card { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
