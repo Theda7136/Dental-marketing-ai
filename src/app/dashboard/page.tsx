@@ -106,7 +106,9 @@ function AccountConnector() {
   );
 }
 
-export default function DashboardPage() {
+type StudioView = "create" | "pending" | "history" | "connections";
+
+export default function DashboardPage({ view = "create" }: { view?: StudioView }) {
   // Limpieza segura de parámetros de URL una sola vez al cargar la página
   useEffect(() => {
     if (window.location.search.includes("success") || window.location.search.includes("error")) {
@@ -435,7 +437,7 @@ export default function DashboardPage() {
     <main className="studio-workspace app-shell">
       <a href="#studio-main" className="studio-skip-link">Saltar al contenido</a>
       <aside className="studio-sidebar" aria-label="Navegación principal">
-        <a href="#studio-main" className="studio-identity" aria-label="Dental Studio, inicio">
+        <a href="/dashboard/crear" className="studio-identity" aria-label="Dental Studio, inicio">
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" width="23" height="23" stroke="currentColor" strokeWidth="1.6">
               <path d="M8 4.5c-2.2 0-3.5 1.7-3.5 4.2 0 3.2 1.6 8.2 3 10 .6.8 1.4.6 1.7-.4l1.2-3.8c.2-.7 1.2-.7 1.4 0l1.2 3.8c.3 1 1.1 1.2 1.7.4 1.4-1.8 3-6.8 3-10 0-2.5-1.3-4.2-3.5-4.2-1.3 0-1.8.6-3.1.6S9.3 4.5 8 4.5Z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -446,10 +448,21 @@ export default function DashboardPage() {
         </a>
         <div className="studio-sidebar-label">ESPACIO DE TRABAJO</div>
         <nav className="studio-nav" aria-label="Secciones">
-          <a className="studio-nav-link is-current" href="#create-content">Crear contenido</a>
-          <a className="studio-nav-link" href="#approval-queue-title">Pendientes</a>
-          <a className="studio-nav-link" href="#published-history-title">Historial</a>
-          <a className="studio-nav-link" href="#connected-accounts">Conexiones</a>
+          {([
+            { id: "create", href: "/dashboard/crear", label: "Crear contenido" },
+            { id: "pending", href: "/dashboard/pendientes", label: "Pendientes" },
+            { id: "history", href: "/dashboard/historial", label: "Historial" },
+            { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
+          ] as const).map((destination) => (
+            <a
+              key={destination.id}
+              className={`studio-nav-link ${view === destination.id ? "is-current" : ""}`}
+              href={destination.href}
+              aria-current={view === destination.id ? "page" : undefined}
+            >
+              {destination.label}
+            </a>
+          ))}
         </nav>
         <div className="studio-sidebar-footer">
           <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
@@ -460,16 +473,21 @@ export default function DashboardPage() {
         <header className="studio-topbar">
           <div>
             <p className="eyebrow">ESTUDIO / CONTENIDO</p>
-            <h1>Panel de contenido</h1>
-            <p>Prepara, revisa y publica material odontológico desde un solo lugar.</p>
+            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : "Conexiones"}</h1>
+            <p>{view === "create"
+              ? "Prepara fotografías, videos e ideas listas para revisar."
+              : view === "pending"
+                ? "Revisa el material antes de publicarlo."
+                : view === "history"
+                  ? "Consulta las publicaciones y sus estados por red."
+                  : "Administra las cuentas sociales de la clínica."}</p>
           </div>
-          <a href="#create-content" className="studio-topbar-link">Nueva propuesta</a>
+          {view !== "create" && <a href="/dashboard/crear" className="studio-topbar-link">Nueva propuesta</a>}
         </header>
         <div className="studio-content">
-          <section id="connected-accounts" aria-label="Canales conectados">
-      <AccountConnector />
-
-          </section>
+          {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
+            <AccountConnector />
+          </section>}
       {errorMessage ? (
         <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
           {errorMessage}
@@ -482,8 +500,8 @@ export default function DashboardPage() {
         </p>
       ) : null}
 
-      <div className="studio-editor-grid">
-        <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
+      <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
+        {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="mb-6 flex items-start gap-3">
               <div>
           <h2 id="new-case-title" className="text-xl font-semibold tracking-tight text-[#173b3a]">Crear propuesta</h2>
@@ -716,9 +734,9 @@ export default function DashboardPage() {
               )}
             </button>
           </form>
-        </section>
+        </section>}
 
-        <ApprovalQueue
+        {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
           onApprove={approvePost}
           onEdit={handleEditPost}
@@ -727,7 +745,7 @@ export default function DashboardPage() {
           onLookup={lookupMetaId}
           onChooseStyle={changeCopyStyle}
           onAuthorizeRetry={reconcileRetry}
-        />
+        />}
       </div>
         </div>
       </div>
