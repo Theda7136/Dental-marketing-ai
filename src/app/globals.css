@@ -558,3 +558,7 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-feedback a { margin-left: 42px; }
   .studio-image-direction { grid-template-columns: 1fr; }
 }
+
+.studio-preview-canvas.is-adjustable { cursor: grab; touch-action: none; }
+.studio-preview-canvas.is-adjustable:active { cursor: grabbing; }
+.studio-preview-canvas.is-adjustable img { user-select: none; pointer-events: none; }
