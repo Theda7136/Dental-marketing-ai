@@ -45,3 +45,12 @@ npm run dev
 ```
 
 Las pruebas completas continúan pendientes por elección del propietario. Antes del despliegue es obligatorio comprobar que el build compila, revisar la carga de imágenes/videos, la reproducción y el formulario de marca.
+
+## Herramientas creativas (noviembre de 2026)
+- Carga con miniatura del archivo, tamaño en MB y acción «Reemplazar».
+- Vista previa de video local con controles de reproducción; no se publica ni se sube a Meta al previsualizar.
+- Edición de foto y ajustes de zoom/posición junto a la vista previa, sin controles duplicados en el formulario.
+- Confirmación de guardado con acceso a `/dashboard/pendientes`.
+- Identidad de marca editable en `/dashboard/conexiones`: nombre, color, tipografía y logotipo JPG/PNG/WebP. El perfil se guarda en SQLite y se muestra en una muestra de marca. No modifica publicaciones previas ni incrusta automáticamente logotipos sobre fotografías clínicas.
+
+Migración aditiva: `20261112163000_brand_settings`. Antes de utilizar el editor de marca hay que ejecutar `npx prisma migrate deploy` y `npx prisma generate`. Las pruebas de funcionamiento permanecen pendientes por decisión del propietario.
