@@ -61,7 +61,7 @@ function harness({
 
   const fetchMock = async (url, options) => {
     const path = new URL(url).pathname;
-    requests.push({ path, method: options?.method ?? "GET" });
+    requests.push({ path, method: options?.method ?? "GET", body: options?.body?.toString() || "" });
     if (respond) return respond(path, options);
     if (path === "/v26.0/123/photos") return graphResponse({ id: "123_999" });
     if (path === "/v26.0/456/media") return graphResponse({ id: "container-7" });
@@ -211,4 +211,18 @@ test("network-specific captions have distinct calls to action and hashtag limits
   assert.match(result.instagram, /mensaje directo/);
   assert.ok((result.facebook.match(/#/g) || []).length <= 2);
   assert.ok((result.instagram.match(/#/g) || []).length <= 5);
+});
+
+test("Meta receives a different caption for each supported network", async () => {
+  const { publishToMeta, requests } = harness({ instagram: true });
+  await publishToMeta(draft);
+  const ig = requests.find((request) => request.path.endsWith("/456/media"));
+  const fb = requests.find((request) => request.path.endsWith("/123/photos"));
+  assert.ok(ig);
+  assert.ok(fb);
+  const igCaption = new URLSearchParams(ig.body).get("caption");
+  const fbCaption = new URLSearchParams(fb.body).get("caption");
+  assert.notEqual(igCaption, fbCaption);
+  assert.match(igCaption, /mensaje directo/);
+  assert.match(fbCaption, /Escríbenos/);
 });
