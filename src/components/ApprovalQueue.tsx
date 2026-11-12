@@ -47,7 +47,6 @@ interface ApprovalQueueProps {
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
   onVerify: (postId: string, network: "facebook" | "instagram", outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN", evidence: string) => Promise<void>;
   onLookup: (postId: string, network: "facebook" | "instagram") => Promise<{ ok: boolean; message: string }>;
-  onCheckMedia: (postId: string) => Promise<{ ok: boolean; message: string }>;
   onChooseStyle: (postId: string, style: "EDUCATIONAL" | "COMMERCIAL") => Promise<void>;
   onAuthorizeRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
 }
@@ -129,7 +128,6 @@ export function ApprovalQueue({
   onRetry,
   onVerify,
   onLookup,
-  onCheckMedia,
   onChooseStyle,
   onAuthorizeRetry,
 }: ApprovalQueueProps) {
@@ -144,7 +142,6 @@ export function ApprovalQueue({
   const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
   const [reviewEvidence, setReviewEvidence] = useState("");
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
-  const [mediaChecks, setMediaChecks] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const reviewedPosts = useMemo(
@@ -492,29 +489,6 @@ export function ApprovalQueue({
                       </div>
                     )}
 
-                    {post.mediaUrl && post.mediaKind !== "text" && post.mediaKind !== "video" && (
-                      <div>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => {
-                            void runAction(post.id, async () => {
-                              const check = await onCheckMedia(post.id);
-                              setMediaChecks((current) => ({ ...current, [post.id]: check }));
-                            });
-                          }}
-                          className="rounded-xl border border-[#b7d7ce] bg-white px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
-                        >
-                          Comprobar acceso HTTPS de imagen
-                        </button>
-                        {mediaChecks[post.id] && (
-                          <p role="status" className={`mt-2 text-xs leading-5 ${mediaChecks[post.id].ok ? "text-[#176c63]" : "text-amber-800"}`}>
-                            {mediaChecks[post.id].message}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
                     <div className="flex flex-wrap gap-2" aria-label="Estado por red social">
                       {networkStatus("Facebook", post.facebookStatus)}
                       {networkStatus("Instagram", post.instagramStatus)}
@@ -568,6 +542,8 @@ export function ApprovalQueue({
                     {retryButton(post, "instagram")}
                   </div>
                 )}
+                {verificationControl(post, "facebook")}
+                {verificationControl(post, "instagram")}
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -582,6 +558,8 @@ export function ApprovalQueue({
                     ) : null}
 
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+                      {!["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus ?? "") &&
+                        !["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus ?? "") && (
                       <button
                         type="button"
                         disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0 || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
@@ -590,6 +568,7 @@ export function ApprovalQueue({
                       >
                         {isTextIdea ? "Idea guardada" : "Aprobar y publicar"}
                       </button>
+                      )}
                       <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
