@@ -382,12 +382,12 @@ export function ApprovalQueue({
   return (
     <section aria-labelledby="approval-queue-title" className="w-full min-w-0">
       {mode !== "history" && <>
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="studio-queue-summary mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <div>
         <h2
           id="approval-queue-title"
-          className="text-xl font-semibold tracking-tight text-[#173b3a] sm:text-2xl"
+          className="sr-only"
         >
           Pendientes de revisión
         </h2>
@@ -431,8 +431,8 @@ export function ApprovalQueue({
                 key={post.id}
                 className="app-card studio-proposal overflow-hidden"
               >
-                <article className="studio-proposal-grid grid gap-0 sm:grid-cols-[minmax(240px,290px)_minmax(0,1fr)]">
-                  <div className="studio-proposal-media overflow-hidden bg-[#edf3ef]">
+                <article className="studio-proposal-grid grid gap-0">
+                  <div className="studio-proposal-media overflow-hidden">
                     {isTextIdea ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
                         Idea de contenido
@@ -581,7 +581,7 @@ export function ApprovalQueue({
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-2" aria-label="Estado por red social">
+                    <div className="studio-proposal-networks flex flex-wrap gap-2" aria-label="Estado por red social">
                       {networkStatus("Facebook", post.facebookStatus)}
                       {networkStatus("Instagram", post.instagramStatus)}
                     </div>

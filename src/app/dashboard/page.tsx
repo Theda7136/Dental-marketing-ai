@@ -173,7 +173,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       const body = new FormData();
       body.set("photo", selectedPhoto);
       body.set("photoLayout", "AUTO");
-      body.set("photoBackground", "LIGHT");
+      body.set("photoBackground", "BLUR");
       body.set("photoPreset", "CLINICAL");
       body.set("photoZoom", String(photoZoom));
       body.set("photoOffsetX", String(photoOffsetX));
@@ -259,7 +259,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
     formData.set("photoLayout", "AUTO");
-    formData.set("photoBackground", "LIGHT");
+    formData.set("photoBackground", "BLUR");
     formData.set("photoPreset", "CLINICAL");
     formData.set("photoZoom", String(photoZoom));
     formData.set("photoOffsetX", String(photoOffsetX));
@@ -715,13 +715,19 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             )}
 
             {format === "photo" && hasMedia && (
-              <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
-                <input type="checkbox" name="visionConsent" value="true" disabled={isPending} className="mt-1" />
-                <span>
-                  <strong className="block text-sm text-[#173b3a]">Gemini Vision · análisis opcional</strong>
-                  Si activas esta casilla, autorizas enviar una versión reducida de la fotografía a Google Gemini para un análisis visual no diagnóstico. Confirma que cuentas con permiso y que la imagen no contiene datos identificables. Sin marcarla, la IA redactará usando el procedimiento y las notas, sin enviar la fotografía a Gemini. Google puede usar el contenido del nivel gratuito para mejorar sus productos.
-                </span>
-              </label>
+              <div className="studio-vision-options">
+                <label className="studio-vision-toggle">
+                  <input type="checkbox" name="visionConsent" value="true" disabled={isPending} />
+                  <span>
+                    <strong>Analizar fotografía con Gemini Vision</strong>
+                    <small>Opcional · sin marcar, la IA solo utiliza tus notas.</small>
+                  </span>
+                </label>
+                <details className="studio-vision-disclosure">
+                  <summary>Privacidad y autorización de la imagen</summary>
+                  <p>Al activar la casilla autorizas enviar una versión reducida de la fotografía a Google Gemini para análisis visual no diagnóstico. Confirma que tienes permiso y que no contiene datos identificables. En el nivel gratuito, Google puede utilizar el contenido enviado para mejorar sus productos.</p>
+                </details>
+              </div>
             )}
 
             {canConfigure && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
@@ -826,7 +832,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
             )}
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" ? "Arrastra la fotografía para moverla. Ajusta el zoom antes de generar." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? "Vista de composición · formato 4:5 sin recortar información clínica." : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 

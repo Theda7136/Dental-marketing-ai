@@ -20,7 +20,7 @@ export interface PhotoOptions {
 
 export const DEFAULT_PHOTO_OPTIONS: PhotoOptions = {
   layout: "AUTO",
-  background: "LIGHT",
+  background: "BLUR",
   preset: "CLINICAL",
   zoom: 1,
   offsetX: 0,
