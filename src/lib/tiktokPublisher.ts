@@ -15,7 +15,7 @@ function publicMediaBase() {
   return configured;
 }
 
-export async function publishToTikTok(postId: string, privacy: string) {
+export async function publishToTikTok(postId: string, privacy: string, requested: { disableComment: boolean; disableDuet: boolean; disableStitch: boolean }) {
   const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
   if (!post || post.archivedAt || !post.mediaUrl) throw new Error("Propuesta no disponible para TikTok.");
   if (post.tiktokStatus !== "PENDING") {
@@ -29,6 +29,9 @@ export async function publishToTikTok(postId: string, privacy: string) {
     throw new Error("La privacidad seleccionada no está permitida en esta cuenta de TikTok.");
   }
   const mediaUrl = createSignedMediaUrl(post.id, publicMediaBase());
+  const disableComment = Boolean(creator.comment_disabled) || requested.disableComment;
+  const disableDuet = Boolean(creator.duet_disabled) || requested.disableDuet;
+  const disableStitch = Boolean(creator.stitch_disabled) || requested.disableStitch;
   const isVideo = post.mediaType === "VIDEO";
 
   const claim = await prisma.scheduledPost.updateMany({
@@ -42,9 +45,9 @@ export async function publishToTikTok(postId: string, privacy: string) {
       ? {
           post_info: {
             title: post.generatedCaption.slice(0, 2200), privacy_level: privacy,
-            disable_comment: Boolean(creator.comment_disabled),
-            disable_duet: Boolean(creator.duet_disabled),
-            disable_stitch: Boolean(creator.stitch_disabled),
+            disable_comment: disableComment,
+            disable_duet: disableDuet,
+            disable_stitch: disableStitch,
             brand_organic_toggle: true,
             brand_content_toggle: false,
           },
@@ -56,7 +59,7 @@ export async function publishToTikTok(postId: string, privacy: string) {
             title: post.procedureName.slice(0, 90),
             description: post.generatedCaption.slice(0, 4000),
             privacy_level: privacy,
-            disable_comment: Boolean(creator.comment_disabled),
+            disable_comment: disableComment,
             auto_add_music: false,
             brand_organic_toggle: true,
             brand_content_toggle: false,
