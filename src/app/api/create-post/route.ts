@@ -269,7 +269,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       muteAudio: form.get("muteAudio") === "true",
       photoOptions: parsePhotoOptions({
         layout: form.get("photoLayout") ?? "AUTO",
-        background: form.get("photoBackground") ?? "BLUR",
+        background: form.get("photoBackground") ?? "LIGHT",
         preset: form.get("photoPreset") ?? "CLINICAL",
         zoom: form.get("photoZoom") ?? 1,
         offsetX: form.get("photoOffsetX") ?? 0,

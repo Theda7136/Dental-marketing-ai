@@ -173,7 +173,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       const body = new FormData();
       body.set("photo", selectedPhoto);
       body.set("photoLayout", "AUTO");
-      body.set("photoBackground", "BLUR");
+      body.set("photoBackground", "LIGHT");
       body.set("photoPreset", "CLINICAL");
       body.set("photoZoom", String(photoZoom));
       body.set("photoOffsetX", String(photoOffsetX));
@@ -259,7 +259,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
     formData.set("photoLayout", "AUTO");
-    formData.set("photoBackground", "BLUR");
+    formData.set("photoBackground", "LIGHT");
     formData.set("photoPreset", "CLINICAL");
     formData.set("photoZoom", String(photoZoom));
     formData.set("photoOffsetX", String(photoOffsetX));
@@ -770,6 +770,27 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
+            {format === "photo" && selectedPhoto && (
+              <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
+                <div className="studio-image-toolbar">
+                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · 4:5"}</small></strong>
+                  <div className="studio-image-toolbar-actions">
+                    <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
+                    <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
+                  </div>
+                </div>
+                <div className="studio-zoom-toolbar">
+                  <span>Zoom</span>
+                  <button type="button" aria-label="Reducir zoom" disabled={isPending || showOriginal || photoZoom <= 1}
+                    onClick={() => setPhotoZoom((z) => Math.max(1, Math.round((z - .05) * 100) / 100))}>−</button>
+                  <input type="range" aria-label="Zoom de fotografía" min="1" max="1.6" step="0.05" value={photoZoom}
+                    disabled={isPending || showOriginal} onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
+                  <button type="button" aria-label="Aumentar zoom" disabled={isPending || showOriginal || photoZoom >= 1.6}
+                    onClick={() => setPhotoZoom((z) => Math.min(1.6, Math.round((z + .05) * 100) / 100))}>+</button>
+                  <output>{photoZoom.toFixed(2)}×</output>
+                </div>
+              </div>
+            )}
             <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && photoPreview && !showOriginal && !isPending ? "is-adjustable" : ""}`} aria-live="polite"
               onPointerDown={(event) => {
                 if (format !== "photo" || !selectedPhoto || isPending || showOriginal) return;
@@ -810,27 +831,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 </div>
               )}
             </div>
-            {format === "photo" && selectedPhoto && (
-              <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
-                <div className="studio-image-toolbar">
-                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · 4:5"}</small></strong>
-                  <div className="studio-image-toolbar-actions">
-                    <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
-                    <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
-                  </div>
-                </div>
-                <div className="studio-zoom-toolbar">
-                  <span>Zoom</span>
-                  <button type="button" aria-label="Reducir zoom" disabled={isPending || showOriginal || photoZoom <= 1}
-                    onClick={() => setPhotoZoom((z) => Math.max(1, Math.round((z - .05) * 100) / 100))}>−</button>
-                  <input type="range" aria-label="Zoom de fotografía" min="1" max="1.6" step="0.05" value={photoZoom}
-                    disabled={isPending || showOriginal} onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
-                  <button type="button" aria-label="Aumentar zoom" disabled={isPending || showOriginal || photoZoom >= 1.6}
-                    onClick={() => setPhotoZoom((z) => Math.min(1.6, Math.round((z + .05) * 100) / 100))}>+</button>
-                  <output>{photoZoom.toFixed(2)}×</output>
-                </div>
-              </div>
-            )}
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
             <p className="studio-preview-caption">{format === "photo" && hasMedia ? "Vista de composición · formato 4:5 sin recortar información clínica." : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
