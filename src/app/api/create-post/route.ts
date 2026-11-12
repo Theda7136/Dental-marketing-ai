@@ -9,10 +9,10 @@ import {
 import { prisma } from "../../../lib/prisma";
 import { deletePostMedia, storePostMedia } from "../../../services/mediaStorage";
 import {
-  GrokServiceError,
+  AIProviderError,
   generateDentalVariants,
   describeDentalImage,
-} from "../../../services/grokService";
+} from "../../../services/aiProvider";
 import {
   ImageServiceError,
   overlayOnClinicTemplate,
@@ -504,16 +504,8 @@ function toErrorResponse(error: unknown) {
     return errorResponse(status, error.code, error.message);
   }
 
-  if (error instanceof GrokServiceError) {
-    if (error.message.includes("XAI_API_KEY")) {
-      return errorResponse(
-        503,
-        "GROK_NOT_CONFIGURED",
-        "No se pudo redactar la propuesta porque la conexión con Grok no está configurada.",
-      );
-    }
-
-    return errorResponse(502, "GROK_ERROR", error.message);
+  if (error instanceof AIProviderError) {
+    return errorResponse(error.statusCode, "AI_PROVIDER_ERROR", error.message);
   }
 
   if (error instanceof Error && error.name === "PrismaClientInitializationError") {
@@ -554,7 +546,7 @@ export async function POST(request: Request) {
     if (kind === "image" && !input.visionConsent) {
       throw new RequestInputError(
         400, "VISION_CONSENT_REQUIRED",
-        "Confirma la autorización para analizar una fotografía con Grok Vision.",
+        "Confirma la autorización para enviar esta fotografía a Google Gemini Vision.",
       );
     }
 
