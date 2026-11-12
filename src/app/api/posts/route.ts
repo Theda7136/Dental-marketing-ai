@@ -38,6 +38,8 @@ export async function GET(request: Request) {
         instagramReviewOutcome: string | null;
         instagramReviewEvidence: string | null;
         instagramReviewedAt: Date | null;
+        facebookRetryCount: number;
+        instagramRetryCount: number;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
@@ -51,6 +53,8 @@ export async function GET(request: Request) {
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
         facebookPostId: post.facebookPostId,
+        facebookRetryCount: post.facebookRetryCount,
+        instagramRetryCount: post.instagramRetryCount,
         instagramPostId: post.instagramPostId,
         facebookReviewOutcome: post.facebookReviewOutcome,
         facebookReviewEvidence: post.facebookReviewEvidence,
