@@ -14,43 +14,20 @@ async function hasClinicAccess(): Promise<boolean> {
   return isClinicAuthorized((await headers()).get("authorization"));
 }
 
-// Función para generar texto con Grok (xAI)
-async function generateCaptionWithGrok(procedureName: string, notes: string) {
-  const apiKey = process.env.XAI_API_KEY;
-  
-  if (!apiKey) {
-    return `Caso clínico de ${procedureName}. ${notes || "Excelente resultado en clínica."}\n\n#Odontología #SaludDental #${procedureName.replace(/\s+/g, '')}`;
+async function generateCaptionWithAI(procedureName: string, notes: string) {
+  if (!clinicalGuardrails.allowedDentalTerms.includes(procedureName)) {
+    throw new Error("Selecciona un procedimiento odontológico permitido.");
   }
-
-  try {
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "grok-3",
-        messages: [
-          {
-            role: "system",
-            content: "Eres un experto en marketing médico y odontológico. Redacta copys atractivos, profesionales y empáticos para Instagram y Facebook basados en casos clínicos reales, cumpliendo con normativas de salud y añadiendo hashtags relevantes."
-          },
-          {
-            role: "user",
-            content: "Procedimiento dental: " + procedureName + ". Notas del caso: " + (notes || "Ninguna nota adicional")
-          }
-        ],
-        temperature: 0.7,
-      }),
-    });
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || `Caso clínico de ${procedureName}.`;
-  } catch (error) {
-    console.error("Error conectando con Grok:", error);
-    return `Caso clínico de ${procedureName}. ${notes || ""}\n\n#Odontología #SaludDental`;
-  }
+  const context = notes?.trim().slice(0, 800) || "Sin notas confirmadas.";
+  clinicalGuardrails.validate(context);
+  const { educational } = await generateDentalVariants(procedureName, context);
+  const caption = [
+    educational.caption,
+    educational.hashtags.join(" "),
+    educational.suggestedCallToAction,
+  ].join("\n\n");
+  clinicalGuardrails.validate(caption);
+  return caption;
 }
 
 export async function createMarketingProposal(formData: FormData) {
@@ -77,7 +54,7 @@ export async function createMarketingProposal(formData: FormData) {
     }
 
     // Genera el texto dinámico usando Grok
-    const generatedCaption = await generateCaptionWithGrok(procedureName, notes);
+    const generatedCaption = await generateCaptionWithAI(procedureName, notes);
 
     const newPost = {
       id: Math.random().toString(36).substring(2, 9),
