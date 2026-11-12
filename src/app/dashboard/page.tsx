@@ -6,6 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
+import BrandSettings from "../../components/BrandSettings";
 import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, confirmMissingAndRetry } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
@@ -135,11 +136,25 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+  const [savedProposal, setSavedProposal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
   const [previewNetwork, setPreviewNetwork] = useState<"FACEBOOK" | "INSTAGRAM">("FACEBOOK");
 
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!selectedMedia) {
+      setMediaPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(selectedMedia);
+    setMediaPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedMedia]);
 
   useEffect(() => {
     if (format !== "photo" || !selectedPhoto) {
@@ -213,6 +228,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     event.preventDefault();
     setErrorMessage(null);
     setNotice(null);
+    setSavedProposal(false);
 
     const formData = new FormData(event.currentTarget);
     formData.set("procedureName", procedureName);
@@ -260,8 +276,10 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         setNotes("");
         setFileLabel("Ningún archivo seleccionado");
         setSelectedPhoto(null);
+        setSelectedMedia(null);
         setFileKey((current) => current + 1);
-        setNotice("La propuesta quedó en Posts pendientes de aprobación.");
+        setSavedProposal(true);
+        setNotice("Propuesta guardada y lista para revisión.");
       } else {
         setErrorMessage(result.message || "No se pudo crear la propuesta.");
       }
@@ -272,6 +290,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     setFormat(next);
     setFileLabel("Ningún archivo seleccionado");
     setSelectedPhoto(null);
+    setSelectedMedia(null);
+    setSavedProposal(false);
     setFileKey((current) => current + 1);
   }
 
@@ -487,6 +507,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         <div className="studio-content">
           {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
             <AccountConnector />
+            <BrandSettings />
           </section>}
       {errorMessage ? (
         <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
@@ -494,11 +515,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         </p>
       ) : null}
 
-      {notice ? (
-        <p role="status" className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 shadow-sm">
-          {notice}
-        </p>
-      ) : null}
+      {notice && (
+        <div role="status" className="studio-feedback">
+          <span className="studio-feedback-icon" aria-hidden="true">✓</span>
+          <div><strong>{savedProposal ? "Propuesta creada" : "Cambios guardados"}</strong><p>{notice}</p></div>
+          {savedProposal && <a href="/dashboard/pendientes">Ir a pendientes <span aria-hidden="true">→</span></a>}
+        </div>
+      )}
 
       <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
         {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
