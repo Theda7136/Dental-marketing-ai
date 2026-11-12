@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
 import { inspectMetaObject } from "@/lib/metaVerification";
-import { generateDentalVariants } from "@/services/grokService";
+import { generateDentalVariants } from "@/services/aiProvider";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
 import { canEditUnsentProposal, canSendToNetwork, canStartInitialPublication } from "@/lib/metaDeliveryPolicy.mjs";
 
