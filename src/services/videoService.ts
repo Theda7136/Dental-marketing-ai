@@ -531,3 +531,27 @@ export async function overlayKaraokeSubtitles(
     );
   });
 }
+
+/** Elimina todas las pistas de audio del MP4 final sin modificar la imagen. */
+export async function muteClinicalVideo(video: Uint8Array): Promise<Uint8Array> {
+  const bytes = assertVideoBytes(video);
+  const extension = detectContainer(bytes);
+
+  return withTempDir(async (directory) => {
+    const source = path.join(directory, `input.${extension}`);
+    const destination = path.join(directory, "silent.mp4");
+    await writeFile(source, bytes);
+    await probeVideo(source);
+
+    const output = await runFfmpeg([
+      "-y", "-hide_banner", "-i", source,
+      "-map", "0:v:0", "-an", "-c:v", "copy", "-movflags", "+faststart", destination,
+    ]);
+    if (output.code !== 0) {
+      throw failureFromFfmpeg(output.stderr, "No se pudo quitar el audio del video.");
+    }
+    const silent = await readFile(destination);
+    if (!silent.byteLength) throw new VideoServiceError("El video sin audio quedó vacío.", "RENDER_FAILED");
+    return new Uint8Array(silent);
+  });
+}

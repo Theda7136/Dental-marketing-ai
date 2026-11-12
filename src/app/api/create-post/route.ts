@@ -1,5 +1,6 @@
-import { Prisma } from "@prisma/client";
+
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { isClinicAuthorized, unauthorizedResponse } from "../../../lib/clinicAuth";
 import {
   ClinicalGuardrailWarning,
@@ -9,16 +10,20 @@ import { prisma } from "../../../lib/prisma";
 import { deletePostMedia, storePostMedia } from "../../../services/mediaStorage";
 import {
   GrokServiceError,
-  generateDentalPost,
+  generateDentalVariants,
+  describeDentalImage,
 } from "../../../services/grokService";
 import {
   ImageServiceError,
   overlayOnClinicTemplate,
   removeClinicalBackground,
+  parsePhotoOptions,
+  type PhotoOptions,
 } from "../../../services/imageService";
 import {
   VideoServiceError,
   overlayKaraokeSubtitles,
+  muteClinicalVideo,
   renderVerticalClinicalVideo,
   type TranscriptWord,
 } from "../../../services/videoService";
@@ -49,6 +54,16 @@ interface CreatePostInput {
   media: Uint8Array;
   transcript?: TranscriptWord[];
   notes?: string;
+  enableVision?: boolean;
+  selectedStyle: "EDUCATIONAL" | "COMMERCIAL";
+  visionConsent: boolean;
+  muteAudio: boolean;
+  photoOptions: PhotoOptions;
+}
+
+function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
+  if (value === "EDUCATIONAL" || value === "COMMERCIAL") return value;
+  throw new RequestInputError(400, "INVALID_STYLE", "Elige un enfoque educativo o comercial.");
 }
 
 function normalize(value: string): string {
@@ -248,6 +263,18 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(form.get("transcript")),
       notes: readNotes(form.get("notes")),
+      enableVision: true,
+      selectedStyle: readCopyStyle(form.get("selectedStyle")),
+      visionConsent: form.get("visionConsent") === "true",
+      muteAudio: form.get("muteAudio") === "true",
+      photoOptions: parsePhotoOptions({
+        layout: form.get("photoLayout") ?? "AUTO",
+        background: form.get("photoBackground") ?? "LIGHT",
+        preset: form.get("photoPreset") ?? "CLINICAL",
+        zoom: form.get("photoZoom") ?? 1,
+        offsetX: form.get("photoOffsetX") ?? 0,
+        offsetY: form.get("photoOffsetY") ?? 0,
+      }),
     };
   }
 
@@ -303,6 +330,18 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(record.transcript),
       notes: readNotes(record.notes),
+      enableVision: true,
+      selectedStyle: readCopyStyle(record.selectedStyle),
+      visionConsent: record.visionConsent === true,
+      muteAudio: record.muteAudio === true,
+      photoOptions: parsePhotoOptions({
+        layout: record.photoLayout,
+        background: record.photoBackground,
+        preset: record.photoPreset,
+        zoom: record.photoZoom,
+        offsetX: record.photoOffsetX,
+        offsetY: record.photoOffsetY,
+      }),
     };
   }
 
@@ -365,29 +404,37 @@ function buildCaption(draft: {
 async function prepareImage(
   procedureName: string,
   media: Uint8Array,
-  notes?: string,
+  notes: string | undefined,
+  enableVision: boolean,
+  photoOptions: PhotoOptions,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
-    throw new RequestInputError(
-      400,
-      "FILE_TOO_LARGE",
-      "La imagen supera el máximo de 20 MB.",
-    );
+    throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
   }
 
-  const cleanImage = await removeClinicalBackground(media);
-  const draft = await generateDentalPost(
-    procedureName,
-    imageContextFor(procedureName, notes),
-  );
-  const generatedCaption = buildCaption(draft);
-  clinicalGuardrails.validate(generatedCaption);
-  const composed = await overlayOnClinicTemplate({
-    cleanImage,
-    procedureName,
-  });
+  let visualSummary: string | null = null;
+  if (enableVision) {
+    const reducedJpeg = await sharp(media).rotate().resize(768, 768, { fit: "inside" })
+      .jpeg({ quality: 68 }).toBuffer();
+    visualSummary = await describeDentalImage(reducedJpeg);
+  }
 
-  return { media: composed, generatedCaption, mediaType: "IMAGE" as const };
+  const context = imageContextFor(procedureName, notes) +
+    (visualSummary ? `\nObservaciones visuales no diagnósticas: ${visualSummary}. No las conviertas en afirmaciones clínicas.` : "");
+  const variants = await generateDentalVariants(procedureName, context);
+  const educationalCaption = buildCaption(variants.educational);
+  const commercialCaption = buildCaption(variants.commercial);
+  clinicalGuardrails.validate(educationalCaption);
+  clinicalGuardrails.validate(commercialCaption);
+
+  const cleanImage = await removeClinicalBackground(media);
+  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions });
+
+  return {
+    media: composed, generatedCaption: educationalCaption, educationalCaption,
+    commercialCaption, selectedStyle: "EDUCATIONAL" as const,
+    visualSummary, mediaType: "IMAGE" as const,
+  };
 }
 
 async function prepareVideo(
@@ -395,19 +442,25 @@ async function prepareVideo(
   media: Uint8Array,
   transcript: TranscriptWord[] | undefined,
   notes?: string,
+  muteAudio = false,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
-  const rendered = transcript
-    ? await overlayKaraokeSubtitles(vertical, transcript)
-    : vertical;
-  const draft = await generateDentalPost(
+  const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
+  const rendered = muteAudio ? await muteClinicalVideo(captioned) : captioned;
+  const variants = await generateDentalVariants(
     procedureName,
     videoContextFor(procedureName, transcript !== undefined, notes),
   );
-  const generatedCaption = buildCaption(draft);
-  clinicalGuardrails.validate(generatedCaption);
+  const educationalCaption = buildCaption(variants.educational);
+  const commercialCaption = buildCaption(variants.commercial);
+  clinicalGuardrails.validate(educationalCaption);
+  clinicalGuardrails.validate(commercialCaption);
 
-  return { media: rendered, generatedCaption, mediaType: "VIDEO" as const };
+  return {
+    media: rendered, generatedCaption: educationalCaption, educationalCaption,
+    commercialCaption, selectedStyle: "EDUCATIONAL" as const,
+    visualSummary: null, mediaType: "VIDEO" as const,
+  };
 }
 
 function errorResponse(
@@ -462,7 +515,7 @@ function toErrorResponse(error: unknown) {
     return errorResponse(502, "GROK_ERROR", error.message);
   }
 
-  if (error instanceof Prisma.PrismaClientInitializationError) {
+  if (error instanceof Error && error.name === "PrismaClientInitializationError") {
     return errorResponse(
       503,
       "DATABASE_UNAVAILABLE",
@@ -470,7 +523,7 @@ function toErrorResponse(error: unknown) {
     );
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  if (error instanceof Error && error.name === "PrismaClientKnownRequestError") {
     return errorResponse(
       500,
       "DATABASE_ERROR",
@@ -497,8 +550,14 @@ export async function POST(request: Request) {
     const input = await readRequestInput(request);
     const procedureName = resolveProcedureName(input.procedureName);
     const kind = detectMediaKind(input.media);
+    if (kind === "image" && !input.visionConsent) {
+      throw new RequestInputError(
+        400, "VISION_CONSENT_REQUIRED",
+        "Confirma la autorización para analizar una fotografía con Grok Vision.",
+      );
+    }
 
-    if (kind === "image" && input.transcript) {
+    if (kind === "image" && (input.transcript || input.muteAudio)) {
       throw new RequestInputError(
         400,
         "INVALID_TRANSCRIPT",
@@ -508,12 +567,13 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes)
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision === true, input.photoOptions)
         : await prepareVideo(
             procedureName,
             input.media,
             input.transcript,
             input.notes,
+            input.muteAudio,
           );
 
     const id = crypto.randomUUID();
@@ -528,7 +588,11 @@ export async function POST(request: Request) {
         procedureName,
         mediaType: prepared.mediaType,
         mediaUrl,
-        generatedCaption: prepared.generatedCaption,
+        generatedCaption: input.selectedStyle === "COMMERCIAL" ? prepared.commercialCaption : prepared.educationalCaption,
+        educationalCaption: prepared.educationalCaption,
+        commercialCaption: prepared.commercialCaption,
+        selectedStyle: input.selectedStyle,
+        visualSummary: prepared.visualSummary,
         status: "PENDING_APPROVAL",
       },
     });
@@ -542,6 +606,10 @@ export async function POST(request: Request) {
           mediaType: post.mediaType,
           mediaUrl: post.mediaUrl,
           generatedCaption: post.generatedCaption,
+          educationalCaption: post.educationalCaption,
+          commercialCaption: post.commercialCaption,
+          selectedStyle: post.selectedStyle,
+          visualSummary: post.visualSummary,
           status: post.status,
           createdAt: post.createdAt.toISOString(),
           approvedAt: post.approvedAt?.toISOString() ?? null,

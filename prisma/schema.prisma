@@ -43,9 +43,37 @@ model ScheduledPost {
   mediaType        MediaType  @default(IMAGE)
   mediaUrl         String
   generatedCaption String
+  educationalCaption String?
+  commercialCaption  String?
+  selectedStyle      String   @default("EDUCATIONAL")
+  visualSummary      String?
   status           PostStatus @default(PENDING_APPROVAL)
   createdAt        DateTime   @default(now())
   approvedAt       DateTime?
+  facebookStatus   String     @default("PENDING")
+  facebookPostId   String?
+  facebookError    String?
+  instagramStatus  String     @default("PENDING")
+  instagramPostId  String?
+  instagramError   String?
+  facebookReviewOutcome  String?
+  facebookReviewEvidence String?
+  facebookReviewedAt     DateTime?
+  instagramReviewOutcome  String?
+  instagramReviewEvidence String?
+  instagramReviewedAt     DateTime?
+  facebookRetryCount Int @default(0)
+  instagramRetryCount Int @default(0)
+  facebookLastRetryAt DateTime?
+  instagramLastRetryAt DateTime?
 
   @@index([status, createdAt])
+}
+model BrandProfile {
+  id String @id @default("default")
+  clinicName String @default("Dental Studio")
+  primaryColor String @default("#116D60")
+  fontFamily String @default("SANS")
+  logoDataUrl String?
+  updatedAt DateTime @updatedAt
 }

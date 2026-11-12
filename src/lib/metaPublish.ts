@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
+import { canSendToNetwork } from "@/lib/metaDeliveryPolicy.mjs";
 
 const GRAPH = "https://graph.facebook.com/v26.0";
 type PublishPost = { id: string; mediaUrl: string; generatedCaption: string; mediaKind: string };
@@ -30,65 +31,176 @@ async function waitForInstagramContainer(id: string, token: string): Promise<voi
   throw new Error("Meta sigue procesando el video. Intenta aprobar la publicación de nuevo más tarde.");
 }
 
-export async function publishToMeta(post: PublishPost) {
-  if (post.mediaKind !== "image" && post.mediaKind !== "video") throw new Error("El tipo de archivo no se puede publicar en Meta.");
+export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" | "instagram") {
+  if (post.mediaKind !== "image" && post.mediaKind !== "video") {
+    throw new Error("El tipo de archivo no se puede publicar en Meta.");
+  }
+
   const account = await prisma.account.findFirst({ where: { provider: "facebook" } });
-  if (!account?.accessToken || !account.pageId) throw new Error("Vuelve a conectar la Página de Meta desde el panel.");
+  if (!account?.accessToken || !account.pageId) {
+    throw new Error("Vuelve a conectar la Página de Meta desde el panel.");
+  }
+
+  const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
+  if (!savedPost) throw new Error("La propuesta ya no existe.");
+
+  if (onlyNetwork === "instagram" && !account.instagramId) {
+    throw new Error("Conecta una cuenta profesional de Instagram antes de publicarla allí.");
+  }
+
   const token = account.accessToken;
-  const mediaUrl = createSignedMediaUrl(post.id, process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
-  const results: { instagramId?: string; facebookId?: string } = {};
+  const publicBaseUrl = process.env.META_PUBLIC_MEDIA_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const publicOrigin = new URL(publicBaseUrl);
+  const blockedHost = publicOrigin.hostname === "localhost" ||
+    publicOrigin.hostname.endsWith(".localhost") ||
+    publicOrigin.hostname === "127.0.0.1" ||
+    publicOrigin.hostname === "::1" ||
+    publicOrigin.hostname === "[::1]" ||
+    publicOrigin.hostname === "0.0.0.0";
+
+  if (publicOrigin.protocol !== "https:" || blockedHost) {
+    throw new Error(
+      "Meta necesita una URL HTTPS pública para descargar la imagen. Configura META_PUBLIC_MEDIA_URL con una dirección HTTPS accesible desde Internet antes de publicar.",
+    );
+  }
+
+  const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
   const isVideo = post.mediaKind === "video";
-  const errors: string[] = [];
   const warnings: string[] = [];
+  let instagramId = savedPost.instagramPostId || undefined;
+  let facebookId = savedPost.facebookPostId || undefined;
 
-  if (account.instagramId) {
-    try {
-      const creation = await graphPost(`${account.instagramId}/media`, isVideo
-        ? { media_type: "REELS", video_url: mediaUrl, caption: post.generatedCaption, share_to_feed: "true", access_token: token }
-        : { image_url: mediaUrl, caption: post.generatedCaption, access_token: token });
-      if (!creation.id) throw new Error("Meta no devolvió el identificador de la publicación de Instagram.");
-      if (isVideo) await waitForInstagramContainer(creation.id, token);
-      const published = await graphPost(`${account.instagramId}/media_publish`, { creation_id: creation.id, access_token: token });
-      if (published.id) results.instagramId = published.id;
-    } catch (error) { errors.push(error instanceof Error ? error.message : "Falló Instagram."); }
-  }
-
-  try {
-    if (isVideo) {
-      const started = await graphPost(`${account.pageId}/video_reels`, { upload_phase: "start", access_token: token });
-      if (!started.video_id || !started.upload_url) throw new Error("Meta no inició la carga del Reel de Facebook.");
-      const upload = await fetch(started.upload_url, {
-        method: "POST",
-        headers: { Authorization: `OAuth ${token}`, file_url: mediaUrl },
-        signal: AbortSignal.timeout(120_000),
-      });
-      const uploadData = await upload.json() as GraphResult;
-      if (!upload.ok || uploadData.error || uploadData.success === false) throw new Error(`Meta: ${uploadData.error?.message || "no se pudo cargar el video de Facebook."}`);
-      const finished = await graphPost(`${account.pageId}/video_reels`, { video_id: String(started.video_id), upload_phase: "finish", video_state: "PUBLISHED", description: post.generatedCaption, access_token: token });
-      if (finished.success === false || finished.error) throw new Error(`Meta: ${finished.error?.message || "no se pudo publicar el Reel de Facebook."}`);
-      results.facebookId = String(started.video_id);
+  // The state is claimed before contacting Meta. An interrupted call remains blocked,
+  // since Meta could have accepted a post even when our server lost its response.
+  if (onlyNetwork !== "facebook" && account.instagramId && canSendToNetwork(savedPost.instagramStatus)) {
+    const claim = await prisma.scheduledPost.updateMany({
+      where: { id: post.id, instagramStatus: "PENDING" },
+      data: { instagramStatus: "IN_PROGRESS", instagramError: null },
+    });
+    if (claim.count === 1) {
       try {
-        const status = await graphGet(String(started.video_id), token, "status");
-        const publishingStatus = status.status?.publishing_phase?.status;
-        if (publishingStatus !== "complete") {
-          warnings.push("Meta aceptó el Reel de Facebook y todavía lo está procesando. Revisa la Página antes de intentar publicarlo de nuevo.");
-        }
-      } catch {
-        warnings.push("Meta aceptó el Reel de Facebook, pero no se pudo confirmar su estado final. Revisa la Página antes de intentar publicarlo de nuevo.");
+        const creation = await graphPost(`${account.instagramId}/media`, isVideo
+          ? { media_type: "REELS", video_url: mediaUrl, caption: post.generatedCaption, share_to_feed: "true", access_token: token }
+          : { image_url: mediaUrl, caption: post.generatedCaption, access_token: token });
+        if (!creation.id) throw new Error("Meta no devolvió el identificador del contenedor de Instagram.");
+        if (isVideo) await waitForInstagramContainer(creation.id, token);
+        const published = await graphPost(`${account.instagramId}/media_publish`, {
+          creation_id: creation.id,
+          access_token: token,
+        });
+        if (!published.id) throw new Error("Meta no confirmó la publicación en Instagram.");
+        instagramId = String(published.id);
+        await prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: { instagramStatus: "SUCCEEDED", instagramPostId: instagramId },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo confirmar Instagram.";
+        await prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: { instagramStatus: "UNKNOWN", instagramError: message.slice(0, 500) },
+        });
+        warnings.push("No se confirmó el resultado de Instagram. Comprueba la cuenta antes de otro intento.");
       }
-    } else {
-      const published = await graphPost(`${account.pageId}/photos`, { url: mediaUrl, caption: post.generatedCaption, access_token: token });
-      if (published.id) results.facebookId = published.id;
     }
-  } catch (error) { errors.push(error instanceof Error ? error.message : "Falló Facebook."); }
-
-  if (!results.instagramId && !results.facebookId) {
-    throw new Error(errors.join(" ") || "No se pudo completar la publicación en Instagram ni en Facebook.");
+  } else if (onlyNetwork !== "facebook" && !account.instagramId) {
+    warnings.push("Instagram Business no está vinculado; no se intentó publicar allí.");
   }
 
-  warnings.push(...errors);
-  if (!account.instagramId) {
-    warnings.push("La Página no tiene Instagram Business vinculado; se publicó solo en Facebook.");
+  if (onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus)) {
+    const claim = await prisma.scheduledPost.updateMany({
+      where: { id: post.id, facebookStatus: "PENDING" },
+      data: { facebookStatus: "IN_PROGRESS", facebookError: null },
+    });
+    if (claim.count === 1) {
+      try {
+        if (isVideo) {
+          const started = await graphPost(`${account.pageId}/video_reels`, {
+            upload_phase: "start",
+            access_token: token,
+          });
+          if (!started.video_id || !started.upload_url) {
+            throw new Error("Meta no inició la carga del Reel de Facebook.");
+          }
+          const upload = await fetch(started.upload_url, {
+            method: "POST",
+            headers: { Authorization: `OAuth ${token}`, file_url: mediaUrl },
+            signal: AbortSignal.timeout(120_000),
+          });
+          const uploadData = await upload.json() as GraphResult;
+          if (!upload.ok || uploadData.error || uploadData.success === false) {
+            throw new Error("Meta no pudo cargar el video de Facebook.");
+          }
+          const finished = await graphPost(`${account.pageId}/video_reels`, {
+            video_id: String(started.video_id),
+            upload_phase: "finish",
+            video_state: "PUBLISHED",
+            description: post.generatedCaption,
+            access_token: token,
+          });
+          if (finished.success === false || finished.error) {
+            throw new Error("Meta no confirmó la publicación del Reel de Facebook.");
+          }
+          facebookId = String(started.video_id);
+          await prisma.scheduledPost.update({
+            where: { id: post.id },
+            data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
+          });
+          try {
+            const state = await graphGet(facebookId, token, "status");
+            if (state.status?.publishing_phase?.status !== "complete") {
+              warnings.push("Meta aceptó el Reel de Facebook y todavía puede estar procesándolo.");
+            }
+          } catch {
+            warnings.push("Meta aceptó el Reel de Facebook, pero no se pudo consultar su procesamiento final.");
+          }
+        } else {
+          const published = await graphPost(`${account.pageId}/photos`, {
+            url: mediaUrl,
+            caption: post.generatedCaption,
+            access_token: token,
+          });
+          if (!published.id) throw new Error("Meta no confirmó la foto de Facebook.");
+          facebookId = String(published.id);
+          await prisma.scheduledPost.update({
+            where: { id: post.id },
+            data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo confirmar Facebook.";
+        await prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: { facebookStatus: "UNKNOWN", facebookError: message.slice(0, 500) },
+        });
+        warnings.push("No se confirmó el resultado de Facebook. Comprueba la Página antes de otro intento.");
+      }
+    }
   }
-  return { success: true, ...results, ...(warnings.length ? { warnings } : {}) };
+
+  if (onlyNetwork === "instagram" && !instagramId) {
+    throw new Error("Instagram no confirmó la publicación. Comprueba el estado en Meta antes de volver a intentar.");
+  }
+  if (onlyNetwork === "facebook" && !facebookId) {
+    throw new Error("Facebook no confirmó la publicación. Comprueba el estado en Meta antes de volver a intentar.");
+  }
+
+  if (!instagramId && !facebookId) {
+    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
+    const unconfirmed = currentPost && [currentPost.facebookStatus, currentPost.instagramStatus]
+      .some((status) => status === "UNKNOWN" || status === "IN_PROGRESS");
+
+    if (unconfirmed) {
+      throw new Error("No se confirmó la publicación. Hay un envío con resultado incierto; revisa Meta antes de volver a intentar.");
+    }
+
+    throw new Error(warnings.join(" ") || "No hay publicaciones confirmadas. Revisa el estado de las redes antes de continuar.");
+  }
+
+  return {
+    success: true,
+    ...(instagramId ? { instagramId } : {}),
+    ...(facebookId ? { facebookId } : {}),
+    ...(warnings.length ? { warnings } : {}),
+  };
 }

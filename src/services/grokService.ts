@@ -396,3 +396,67 @@ export async function generateDentalPost(
 
   return parseDentalPost(parsed);
 }
+export type CopyStyle = "EDUCATIONAL" | "COMMERCIAL";
+
+export async function generateDentalVariants(procedureName: string, context: string) {
+  const [educational, commercial] = await Promise.all([
+    generateDentalPost(procedureName, context + "\nEstilo EDUCATIVO: explica de forma accesible el objetivo general del tratamiento, sin atribuir hallazgos al paciente ni ofrecer garantías."),
+    generateDentalPost(procedureName, context + "\nEstilo COMERCIAL: enfócate en invitar a una valoración profesional, beneficios potenciales sin prometer resultados, mensaje breve y claro."),
+  ]);
+
+  return { educational, commercial };
+}
+
+export async function describeDentalImage(imageJpeg: Uint8Array): Promise<string> {
+  const apiKey = readApiKey();
+  if (imageJpeg.byteLength > 2 * 1024 * 1024) {
+    throw new GrokServiceError("La imagen para análisis visual es demasiado grande.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-4.7",
+        store: false,
+        input: [
+          {
+            role: "system",
+            content: "Describe solo elementos visibles de una fotografía para apoyar contenido odontológico. No identifiques personas, no infieras diagnósticos, tratamientos efectuados, estado de salud ni resultados clínicos. Responde en español, con una frase objetiva de máximo 240 caracteres.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_image",
+                image_url: `data:image/jpeg;base64,${Buffer.from(imageJpeg).toString("base64")}`,
+                detail: "low",
+              },
+              {
+                type: "input_text",
+                text: "Describe únicamente elementos visuales evidentes útiles para presentar la imagen en redes sociales. Si no hay observaciones seguras, responde: Sin observaciones visuales seguras.",
+              },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch {
+    throw new GrokServiceError("No se pudo consultar la visión de Grok.");
+  }
+
+  if (!response.ok) {
+    throw new GrokServiceError("Grok no pudo analizar la imagen.", response.status);
+  }
+
+  const payload = await response.json() as XaiErrorBody;
+  const summary = extractOutputText(payload).trim();
+  if (!summary) throw new GrokServiceError("Grok no devolvió observaciones visuales.");
+  return summary.slice(0, 240);
+}
