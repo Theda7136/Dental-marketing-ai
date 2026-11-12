@@ -17,6 +17,8 @@ import {
   ImageServiceError,
   overlayOnClinicTemplate,
   removeClinicalBackground,
+  parsePhotoOptions,
+  type PhotoOptions,
 } from "../../../services/imageService";
 import {
   VideoServiceError,
@@ -56,6 +58,7 @@ interface CreatePostInput {
   selectedStyle: "EDUCATIONAL" | "COMMERCIAL";
   visionConsent: boolean;
   muteAudio: boolean;
+  photoOptions: PhotoOptions;
 }
 
 function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
@@ -264,6 +267,14 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
       visionConsent: form.get("visionConsent") === "true",
       muteAudio: form.get("muteAudio") === "true",
+      photoOptions: parsePhotoOptions({
+        layout: form.get("photoLayout") ?? "AUTO",
+        background: form.get("photoBackground") ?? "LIGHT",
+        preset: form.get("photoPreset") ?? "CLINICAL",
+        zoom: form.get("photoZoom") ?? 1,
+        offsetX: form.get("photoOffsetX") ?? 0,
+        offsetY: form.get("photoOffsetY") ?? 0,
+      }),
     };
   }
 
@@ -323,6 +334,14 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(record.selectedStyle),
       visionConsent: record.visionConsent === true,
       muteAudio: record.muteAudio === true,
+      photoOptions: parsePhotoOptions({
+        layout: record.photoLayout,
+        background: record.photoBackground,
+        preset: record.photoPreset,
+        zoom: record.photoZoom,
+        offsetX: record.photoOffsetX,
+        offsetY: record.photoOffsetY,
+      }),
     };
   }
 
@@ -387,6 +406,7 @@ async function prepareImage(
   media: Uint8Array,
   notes?: string,
   enableVision = false,
+  photoOptions: PhotoOptions,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
     throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
@@ -408,7 +428,7 @@ async function prepareImage(
   clinicalGuardrails.validate(commercialCaption);
 
   const cleanImage = await removeClinicalBackground(media);
-  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName });
+  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions });
 
   return {
     media: composed, generatedCaption: educationalCaption, educationalCaption,
@@ -547,7 +567,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision)
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision, input.photoOptions)
         : await prepareVideo(
             procedureName,
             input.media,
