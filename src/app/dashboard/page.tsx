@@ -120,6 +120,11 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const formRef = useRef<HTMLFormElement>(null);
   const [format, setFormat] = useState<ContentFormat>("photo");
   const [posts, setPosts] = useState<ApprovalQueuePost[]>([]);
+  const [brandIdentity, setBrandIdentity] = useState<{
+    clinicName: string;
+    primaryColor: string;
+    logoDataUrl: string | null;
+  }>({ clinicName: "Dental Studio", primaryColor: "#116D60", logoDataUrl: null });
   const [fileKey, setFileKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -198,6 +203,26 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
   }, [format, selectedPhoto, photoLayout, photoBackground, photoPreset, photoZoom, photoOffsetX, photoOffsetY]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/brand", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (mounted && payload?.brand) setBrandIdentity(payload.brand);
+      })
+      .catch(() => { /* The default product identity remains available. */ });
+
+    const onBrandUpdate = (event: Event) => {
+      const brand = (event as CustomEvent).detail;
+      if (brand) setBrandIdentity(brand);
+    };
+    window.addEventListener("dental-brand-updated", onBrandUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener("dental-brand-updated", onBrandUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -454,14 +479,15 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     <main className="studio-workspace app-shell">
       <a href="#studio-main" className="studio-skip-link">Saltar al contenido</a>
       <aside className="studio-sidebar" aria-label="Navegación principal">
-        <a href="/dashboard/crear" className="studio-identity" aria-label="Dental Studio, inicio">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" width="23" height="23" stroke="currentColor" strokeWidth="1.6">
-              <path d="M8 4.5c-2.2 0-3.5 1.7-3.5 4.2 0 3.2 1.6 8.2 3 10 .6.8 1.4.6 1.7-.4l1.2-3.8c.2-.7 1.2-.7 1.4 0l1.2 3.8c.3 1 1.1 1.2 1.7.4 1.4-1.8 3-6.8 3-10 0-2.5-1.3-4.2-3.5-4.2-1.3 0-1.8.6-3.1.6S9.3 4.5 8 4.5Z" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 7v4m-2-2h4" strokeLinecap="round"/>
-            </svg>
+        <a href="/dashboard/crear" className="studio-identity" aria-label="Volver a Crear contenido">
+          <span className="brand-mark" aria-hidden="true" style={{ backgroundColor: brandIdentity.primaryColor }}>
+            {brandIdentity.logoDataUrl
+              ? <img src={brandIdentity.logoDataUrl} alt="" className="studio-header-logo"/>
+              : <svg viewBox="0 0 24 24" fill="none" width="23" height="23" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M8 4.5c-2.2 0-3.5 1.7-3.5 4.2 0 3.2 1.6 8.2 3 10 .6.8 1.4.6 1.7-.4l1.2-3.8c.2-.7 1.2-.7 1.4 0l1.2 3.8c.3 1 1.1 1.2 1.7.4 1.4-1.8 3-6.8 3-10 0-2.5-1.3-4.2-3.5-4.2-1.3 0-1.8.6-3.1.6S9.3 4.5 8 4.5Z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>}
           </span>
-          <span className="studio-identity-copy"><strong>Dental Studio</strong><small>Marketing clínico</small></span>
+          <span className="studio-identity-copy"><strong>{brandIdentity.clinicName}</strong><small>Marketing clínico</small></span>
         </a>
         <div className="studio-sidebar-label">ESPACIO DE TRABAJO</div>
         <nav className="studio-nav" aria-label="Secciones">
