@@ -446,10 +446,10 @@ export default function DashboardPage() {
         </a>
         <div className="studio-sidebar-label">ESPACIO DE TRABAJO</div>
         <nav className="studio-nav" aria-label="Secciones">
-          <a className="studio-nav-link is-current" href="#create-content"><span aria-hidden="true">01</span> Crear contenido</a>
-          <a className="studio-nav-link" href="#approval-queue-title"><span aria-hidden="true">02</span> Pendientes</a>
-          <a className="studio-nav-link" href="#published-history-title"><span aria-hidden="true">03</span> Historial</a>
-          <a className="studio-nav-link" href="#connected-accounts"><span aria-hidden="true">04</span> Conexiones</a>
+          <a className="studio-nav-link is-current" href="#create-content">Crear contenido</a>
+          <a className="studio-nav-link" href="#approval-queue-title">Pendientes</a>
+          <a className="studio-nav-link" href="#published-history-title">Historial</a>
+          <a className="studio-nav-link" href="#connected-accounts">Conexiones</a>
         </nav>
         <div className="studio-sidebar-footer">
           <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
@@ -463,7 +463,7 @@ export default function DashboardPage() {
             <h1>Panel de contenido</h1>
             <p>Prepara, revisa y publica material odontológico desde un solo lugar.</p>
           </div>
-          <a href="#create-content" className="studio-topbar-link">Nueva propuesta <span aria-hidden="true">↗</span></a>
+          <a href="#create-content" className="studio-topbar-link">Nueva propuesta</a>
         </header>
         <div className="studio-content">
           <section id="connected-accounts" aria-label="Canales conectados">
@@ -485,19 +485,17 @@ export default function DashboardPage() {
       <div className="studio-editor-grid">
         <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="mb-6 flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8f4f0] text-xs font-bold text-[#176c63]">01</span>
-            <div>
-          <p className="eyebrow mb-1">Crear contenido</p>
-          <h2 id="new-case-title" className="text-lg font-semibold tracking-tight text-[#173b3a]">Nuevo caso</h2>
+              <div>
+          <h2 id="new-case-title" className="text-xl font-semibold tracking-tight text-[#173b3a]">Crear propuesta</h2>
           <p className="mt-1 text-sm leading-6 text-[#637773]">
-            El material se prepara en la clínica y el texto queda en revisión.
+            Sube el material y elige cómo quieres presentarlo.
           </p>
             </div>
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
             <div>
-            <p className="mb-2 text-xs font-semibold text-[#637773]">Formato del contenido</p>
+            <p className="mb-2 text-sm font-semibold text-[#49645b]">Formato</p>
             <div role="tablist" aria-label="Formato del contenido" className="grid grid-cols-3 gap-2 rounded-2xl bg-[#f3f6f3] p-1.5">
               {FORMATS.map((item) => {
                 const selected = format === item.id;
@@ -541,7 +539,7 @@ export default function DashboardPage() {
             </label>
 
             <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-semibold text-stone-800">Enfoque de la propuesta</legend>
+              <legend className="text-sm font-semibold text-stone-800">Tipo de mensaje</legend>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#edf4f0] p-1.5">
                 {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => (
                   <button
