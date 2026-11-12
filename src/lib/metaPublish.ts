@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
+import { platformCaptions } from "@/lib/platformCopy.mjs";
 import { canSendToNetwork } from "@/lib/metaDeliveryPolicy.mjs";
 
 const GRAPH = "https://graph.facebook.com/v26.0";
@@ -43,6 +44,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
+  if (!savedPost.clinicalVerifiedAt) throw new Error("Confirma la correspondencia clínica de la foto, el procedimiento y el texto antes de publicar.");
 
   if (onlyNetwork === "instagram" && !account.instagramId) {
     throw new Error("Conecta una cuenta profesional de Instagram antes de publicarla allí.");
@@ -66,6 +68,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
   const isVideo = post.mediaKind === "video";
+  const captions = platformCaptions(savedPost.generatedCaption);
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
   let facebookId = savedPost.facebookPostId || undefined;
@@ -80,8 +83,8 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     if (claim.count === 1) {
       try {
         const creation = await graphPost(`${account.instagramId}/media`, isVideo
-          ? { media_type: "REELS", video_url: mediaUrl, caption: post.generatedCaption, share_to_feed: "true", access_token: token }
-          : { image_url: mediaUrl, caption: post.generatedCaption, access_token: token });
+          ? { media_type: "REELS", video_url: mediaUrl, caption: captions.instagram, share_to_feed: "true", access_token: token }
+          : { image_url: mediaUrl, caption: captions.instagram, access_token: token });
         if (!creation.id) throw new Error("Meta no devolvió el identificador del contenedor de Instagram.");
         if (isVideo) await waitForInstagramContainer(creation.id, token);
         const published = await graphPost(`${account.instagramId}/media_publish`, {
@@ -135,7 +138,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
             video_id: String(started.video_id),
             upload_phase: "finish",
             video_state: "PUBLISHED",
-            description: post.generatedCaption,
+            description: captions.facebook,
             access_token: token,
           });
           if (finished.success === false || finished.error) {
@@ -157,7 +160,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
         } else {
           const published = await graphPost(`${account.pageId}/photos`, {
             url: mediaUrl,
-            caption: post.generatedCaption,
+            caption: captions.facebook,
             access_token: token,
           });
           if (!published.id) throw new Error("Meta no confirmó la foto de Facebook.");

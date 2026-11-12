@@ -439,7 +439,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
     setPosts((current) => current.map((post) =>
       post.id === postId
-        ? { ...post, selectedStyle: style, generatedCaption: chosen.caption! }
+        ? { ...post, selectedStyle: style, generatedCaption: chosen.caption!, clinicalVerifiedAt: null }
         : post,
     ));
     setNotice(style === "EDUCATIONAL" ? "Versión educativa seleccionada." : "Versión comercial seleccionada.");
@@ -465,6 +465,22 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     setNotice(review.message);
   }
 
+  async function confirmClinical(postId: string) {
+    const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/clinical-review`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmed: true }),
+    });
+    const payload = await response.json() as { ok?: boolean; message?: string; clinicalVerifiedAt?: string };
+    if (!response.ok || !payload.ok || !payload.clinicalVerifiedAt) {
+      throw new Error(payload.message || "No se pudo registrar la revisión clínica.");
+    }
+    setPosts((current) => current.map((post) =>
+      post.id === postId ? { ...post, clinicalVerifiedAt: payload.clinicalVerifiedAt } : post,
+    ));
+    setNotice("Revisión clínica registrada. Ahora puedes aprobar la publicación.");
+  }
+
   async function deletePost(postId: string) {
     const response = await fetch(`/api/posts/${encodeURIComponent(postId)}`, {
       method: "DELETE",
@@ -488,7 +504,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
     setPosts((current) => current.map((savedPost) =>
       savedPost.id === post.id
-        ? { ...savedPost, generatedCaption: revised.caption! }
+        ? { ...savedPost, generatedCaption: revised.caption!, clinicalVerifiedAt: null }
         : savedPost,
     ));
     setNotice("Texto actualizado. La propuesta conserva su archivo y sigue pendiente de aprobación.");
@@ -828,6 +844,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
           onApprove={approvePost}
+          onConfirmClinical={confirmClinical}
           onDelete={deletePost}
           onEdit={handleEditPost}
           onRetry={retryNetwork}

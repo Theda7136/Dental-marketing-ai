@@ -32,6 +32,7 @@ before(async () => {
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "approvedAt" DATETIME,
       "archivedAt" DATETIME,
+      "clinicalVerifiedAt" DATETIME,
       "facebookStatus" TEXT NOT NULL DEFAULT 'PENDING',
       "facebookPostId" TEXT,
       "facebookError" TEXT,
