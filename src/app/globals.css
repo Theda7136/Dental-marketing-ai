@@ -661,3 +661,29 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-preview-panel.is-empty { position: static; }
   .studio-preview-panel.is-empty .studio-preview-canvas { height: 230px; min-height: 230px; }
 }
+
+/* Focused photo editor: larger canvas, fewer controls */
+.studio-preview-panel.has-media { padding: 11px; }
+.studio-preview-panel.has-media .studio-preview-heading { padding: 4px 5px 0; }
+.studio-preview-panel.has-media .studio-preview-canvas {
+  background: #eef2ee;
+  border-radius: 9px;
+  max-height: min(76vh, 680px);
+}
+.studio-preview-panel.has-media .studio-preview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.studio-preview-panel.has-media .studio-image-controls {
+  margin-top: 10px;
+  padding: 12px 13px;
+}
+.studio-preview-panel.has-media .studio-image-toolbar { margin-bottom: 4px; }
+.studio-preview-panel.has-media .studio-preview-caption { padding-inline: 5px; }
+.studio-preview-canvas.is-adjustable { cursor: grab; touch-action: none; }
+.studio-preview-canvas.is-adjustable:active { cursor: grabbing; }
+@media (max-width: 720px) {
+  .studio-preview-panel.has-media .studio-preview-canvas { max-height: 65vh; }
+}
