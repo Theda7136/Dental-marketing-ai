@@ -204,3 +204,22 @@ npm run dev
 ```
 
 Prueba una propuesta nueva con imagen **ficticia**, sin activar visión primero. Confirma que ambas versiones cambian al seleccionar cada estilo, que pueden editarse individualmente y que no se publica nada antes de aprobar manualmente. Después, prueba visión solo con una imagen sintética.
+
+## Flujo de recuperación para publicación sin confirmación (2026-11-12)
+
+El bloqueo por `UNKNOWN` se mantiene hasta que alguien revise la Página de Facebook o cuenta de Instagram. Si la publicación no existe, el operador puede:
+
+1. En la tarjeta, abrir «Registrar comprobación».
+2. Elegir «No encontré la publicación» y escribir dónde y cuándo revisó la Página/Meta Business Suite, sin datos de pacientes.
+3. Guardar la comprobación y seleccionar «Habilitar un reintento tras comprobar Meta». El backend exige registro reciente (máximo 30 minutos), ausencia de ID guardado y `UNKNOWN`, y limita la autorización a un solo reintento.
+4. Comprobar acceso HTTPS de la foto; usar «Publicar solo en Facebook» o «Publicar solo en Instagram», según la red autorizada. El botón «Aprobar y publicar» para ambas redes permanece bloqueado.
+
+**Precaución:** no encontrar un post no prueba de manera absoluta que Meta no lo haya aceptado. Esta recuperación es una decisión manual y auditada, no una garantía de idempotencia; exige confirmación expresa y nunca publica automáticamente.
+
+Hay una migración aditiva: `20261112130000_manual_meta_retry_audit`. No se eliminan borradores, IDs ni evidencias. Las recuperaciones registran contador y fecha de autorización.
+
+## UX de generación (2026-11-12)
+
+El selector «Enfoque de la propuesta» aparece **antes** de adjuntar archivo y de pulsar «Generar propuesta». Grok crea variantes Educativa/Comercial y selecciona como `generatedCaption` la elegida desde el formulario. La tarjeta permite cambiarla mientras no haya habido envíos.
+
+Grok Vision se integra al envío de fotografías mediante xAI Responses API `grok-4.7`. No hay opción técnica de habilitar/deshabilitar Vision; para procesar una imagen es obligatorio marcar la casilla de consentimiento específico (sin datos identificables). El backend también valida esa condición. El uso de fotos reales requiere controles de privacidad y autorizaciones adicionales. Videos y guiones no hacen análisis de imagen.
