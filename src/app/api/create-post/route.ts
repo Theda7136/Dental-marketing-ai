@@ -21,6 +21,8 @@ import {
 import {
   VideoServiceError,
   overlayKaraokeSubtitles,
+  overlaySrtSubtitles,
+  muteClinicalVideo,
   renderVerticalClinicalVideo,
   type TranscriptWord,
 } from "../../../services/videoService";
@@ -54,6 +56,16 @@ interface CreatePostInput {
   enableVision?: boolean;
   selectedStyle: "EDUCATIONAL" | "COMMERCIAL";
   visionConsent: boolean;
+  muteAudio: boolean;
+  subtitleSrt?: string;
+}
+
+function readSubtitleSrt(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || value.length > 12000) {
+    throw new RequestInputError(400, "INVALID_SUBTITLES", "Los subtítulos SRT superan el máximo o no son texto.");
+  }
+  return value.trim() || undefined;
 }
 
 function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
@@ -261,6 +273,8 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       enableVision: true,
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
       visionConsent: form.get("visionConsent") === "true",
+      muteAudio: form.get("muteAudio") === "true",
+      subtitleSrt: readSubtitleSrt(form.get("subtitleSrt")),
     };
   }
 
@@ -319,6 +333,8 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       enableVision: true,
       selectedStyle: readCopyStyle(record.selectedStyle),
       visionConsent: record.visionConsent === true,
+      muteAudio: record.muteAudio === true,
+      subtitleSrt: readSubtitleSrt(record.subtitleSrt),
     };
   }
 
@@ -418,12 +434,22 @@ async function prepareVideo(
   media: Uint8Array,
   transcript: TranscriptWord[] | undefined,
   notes?: string,
+  muteAudio = false,
+  subtitleSrt?: string,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
-  const rendered = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
+  if (transcript && subtitleSrt) {
+    throw new RequestInputError(400, "CONFLICTING_SUBTITLES", "Envía una transcripción por palabras o subtítulos SRT, no ambos.");
+  }
+  const captioned = transcript
+    ? await overlayKaraokeSubtitles(vertical, transcript)
+    : subtitleSrt
+      ? await overlaySrtSubtitles(vertical, subtitleSrt)
+      : vertical;
+  const rendered = muteAudio ? await muteClinicalVideo(captioned) : captioned;
   const variants = await generateDentalVariants(
     procedureName,
-    videoContextFor(procedureName, transcript !== undefined, notes),
+    videoContextFor(procedureName, transcript !== undefined || subtitleSrt !== undefined, notes),
   );
   const educationalCaption = buildCaption(variants.educational);
   const commercialCaption = buildCaption(variants.commercial);
@@ -531,7 +557,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (kind === "image" && input.transcript) {
+    if (kind === "image" && (input.transcript || input.subtitleSrt || input.muteAudio)) {
       throw new RequestInputError(
         400,
         "INVALID_TRANSCRIPT",
@@ -547,6 +573,8 @@ export async function POST(request: Request) {
             input.media,
             input.transcript,
             input.notes,
+            input.muteAudio,
+            input.subtitleSrt,
           );
 
     const id = crypto.randomUUID();
