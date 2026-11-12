@@ -1177,3 +1177,20 @@ body { background: var(--canvas); color: var(--ink); }
   }
   .studio-proposal-media .studio-proposal-media-content { max-height: 260px; }
 }
+
+/* Keep the primary creation action available without a full-page scroll. */
+.studio-form-panel .studio-generate-sticky {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  width: 100%;
+  margin-top: 4px;
+  box-shadow: 0 10px 24px -12px rgba(13, 83, 70, .36), 0 0 0 5px #fff;
+}
+.studio-form-panel .studio-form-intro { padding-bottom: 12px; margin-bottom: 12px; }
+.studio-form-panel form { gap: 11px; }
+.studio-form-panel .studio-progressive-content { gap: 8px; padding-top: 12px; }
+.studio-form-panel textarea[name="notes"] { min-height: 72px; }
+@media (max-width: 720px) {
+  .studio-form-panel .studio-generate-sticky { bottom: 8px; }
+}
