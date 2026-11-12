@@ -15,7 +15,7 @@ async function hasClinicAccess(): Promise<boolean> {
 }
 
 async function generateCaptionWithAI(procedureName: string, notes: string) {
-  if (!clinicalGuardrails.allowedDentalTerms.includes(procedureName)) {
+  if (!clinicalGuardrails.allowedDentalTerms.some((term) => term === procedureName)) {
     throw new Error("Selecciona un procedimiento odontológico permitido.");
   }
   const context = notes?.trim().slice(0, 800) || "Sin notas confirmadas.";
