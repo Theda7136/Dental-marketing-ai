@@ -789,6 +789,31 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                       onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
                   </label>
                 </div>
+                <details className="studio-image-more">
+                  <summary>Opciones de imagen</summary>
+                  <div className="studio-image-more-grid">
+                    <label>Encuadre
+                      <select value={photoLayout} onChange={(event) => setPhotoLayout(event.target.value as typeof photoLayout)} disabled={isPending}>
+                        <option value="AUTO">Automático</option>
+                        <option value="CONTAIN">Foto completa</option>
+                        <option value="COVER">Rellenar</option>
+                      </select>
+                    </label>
+                    <label>Fondo
+                      <select value={photoBackground} onChange={(event) => setPhotoBackground(event.target.value as typeof photoBackground)} disabled={isPending}>
+                        <option value="LIGHT">Claro</option>
+                        <option value="BLUR">Desenfocado</option>
+                      </select>
+                    </label>
+                    <label>Estilo
+                      <select value={photoPreset} onChange={(event) => setPhotoPreset(event.target.value as typeof photoPreset)} disabled={isPending}>
+                        <option value="CLINICAL">Clínico</option>
+                        <option value="EDUCATIONAL">Educativo</option>
+                        <option value="COMMERCIAL">Comercial</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
               </div>
             )}
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
