@@ -396,3 +396,59 @@ export async function generateDentalPost(
 
   return parseDentalPost(parsed);
 }
+export type CopyStyle = "EDUCATIONAL" | "COMMERCIAL";
+
+export async function generateDentalVariants(procedureName: string, context: string) {
+  const [educational, commercial] = await Promise.all([
+    generateDentalPost(procedureName, context + "\nEstilo EDUCATIVO: explica de forma accesible el objetivo general del tratamiento, sin atribuir hallazgos al paciente ni ofrecer garantías."),
+    generateDentalPost(procedureName, context + "\nEstilo COMERCIAL: enfócate en invitar a una valoración profesional, beneficios potenciales sin prometer resultados, mensaje breve y claro."),
+  ]);
+
+  return { educational, commercial };
+}
+
+export async function describeDentalImage(imageJpeg: Uint8Array): Promise<string> {
+  const apiKey = readApiKey();
+  if (imageJpeg.byteLength > 2 * 1024 * 1024) {
+    throw new GrokServiceError("La imagen para análisis visual es demasiado grande.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-4",
+        messages: [
+          {
+            role: "system",
+            content: "Describe únicamente características VISIBLES de una imagen para preparar contenido odontológico. Nunca identifiques a nadie ni deduzcas enfermedades, tratamientos efectuados, resultados, estado de salud o identidad. No diagnostiques. Responde con una frase objetiva en español, máximo 240 caracteres. Si no puedes describirla con certeza, responde 'Sin observaciones visuales seguras'.",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Describe exclusivamente elementos visuales evidentes útiles para encuadre y presentación editorial." },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${Buffer.from(imageJpeg).toString("base64")}`, detail: "low" } },
+            ],
+          },
+        ],
+        max_tokens: 200,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch {
+    throw new GrokServiceError("No se pudo consultar la visión de Grok.");
+  }
+
+  if (!response.ok) throw new GrokServiceError("Grok no pudo analizar la imagen.", response.status);
+  const payload = await response.json();
+  const summary = payload.choices?.[0]?.message?.content;
+  if (typeof summary !== "string" || !summary.trim()) {
+    throw new GrokServiceError("Grok no devolvió observaciones visuales.");
+  }
+  return summary.trim().slice(0, 240);
+}
