@@ -95,6 +95,21 @@ Meta debe descargar las fotos y videos por HTTPS para procesarlos. localhost sol
 
 La revisión de Meta y el modo de la aplicación pueden limitar qué cuentas pueden autorizar o publicar. Revisa también el acceso de la persona autorizante a la Página.
 
+## Configurar TikTok
+
+1. Registra una aplicación en [TikTok for Developers](https://developers.tiktok.com/) y añade **Login Kit** y **Content Posting API**.
+2. Solicita los permisos `user.info.basic` y `video.publish`. TikTok debe aprobar los productos y permisos correspondientes.
+3. Configura `TIKTOK_CLIENT_KEY` y `TIKTOK_CLIENT_SECRET` en tu archivo `.env`. No compartas estos valores.
+4. Registra en Login Kit una URL HTTPS exacta (por ejemplo, `https://dental.example.com/api/auth/tiktok/callback`) y copia ese valor a `TIKTOK_REDIRECT_URI`.
+5. Verifica en TikTok el dominio o prefijo desde el cual TikTok descargará las fotografías y videos. Configura `TIKTOK_PUBLIC_MEDIA_URL=https://dental.example.com` y asegúrate de que el mismo servidor pueda ofrecer `/api/media/...` mediante HTTPS. Un túnel `trycloudflare.com` temporal no sustituye un dominio verificado.
+6. Abre Dental Studio desde la misma dirección HTTPS del callback y entra a **Conexiones → Conectar TikTok**. El panel requiere autorización Basic y valida un `state` OAuth antes de almacenar tokens en el servidor.
+7. En **Pendientes** o **Historial**, selecciona **Preparar publicación TikTok**. Elige la privacidad ofrecida por la cuenta y las opciones de interacción, revisa el texto y pulsa **Publicar en TikTok**.
+8. Pulsa **Comprobar TikTok** para confirmar el procesamiento. No repitas envíos si su estado es incierto; el programa los bloquea para evitar duplicaciones.
+
+TikTok restringe a **Solo yo** las publicaciones hechas por aplicaciones sin auditoría hasta que se apruebe la integración. La API puede aceptar una solicitud y continuar procesándola: recibir un `publish_id` no garantiza que el contenido ya esté publicado. La fotografía se envía como un post fotográfico de TikTok; los videos usan Direct Post con URL verificada. Publicar en TikTok es una acción separada de **Aprobar y publicar** en Meta, para que cada publicación respete la configuración de privacidad de TikTok.
+
+La base SQLite del piloto guarda tokens de TikTok y Meta sin cifrado de aplicación. Protege estrictamente `prisma/dev.db`, sus copias de seguridad y el servidor. Antes de ofrecerlo a otras clínicas, implementa cifrado de credenciales, roles y segregación por cliente.
+
 ## Comandos
 
 | Comando | Descripción |
@@ -103,7 +118,7 @@ La revisión de Meta y el modo de la aplicación pueden limitar qué cuentas pue
 | `npm run build` | Compila la aplicación y comprueba los tipos de TypeScript. |
 | `npm run start` | Inicia la compilación de producción después de `npm run build`. |
 
-El proyecto todavía no define scripts automatizados test o lint.
+El proyecto incluye `npm test` para pruebas de persistencia, publicación y estados de redes sociales.
 
 ## Estructura del proyecto
 
