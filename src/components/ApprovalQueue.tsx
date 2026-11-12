@@ -263,7 +263,9 @@ export function ApprovalQueue({
   }
 
   function retryButton(post: ApprovalQueuePost, network: "facebook" | "instagram") {
-    if (post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
+    const retryAuthorized = (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0;
+    const authorizedNetwork = network === "facebook" ? (post.facebookRetryCount ?? 0) > 0 : (post.instagramRetryCount ?? 0) > 0;
+    if ((retryAuthorized && !authorizedNetwork) || post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
       return null;
     }
 
