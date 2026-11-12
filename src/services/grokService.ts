@@ -415,40 +415,48 @@ export async function describeDentalImage(imageJpeg: Uint8Array): Promise<string
 
   let response: Response;
   try {
-    response = await fetch("https://api.x.ai/v1/chat/completions", {
+    response = await fetch("https://api.x.ai/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-4",
-        messages: [
+        model: "grok-4.7",
+        store: false,
+        input: [
           {
             role: "system",
-            content: "Describe únicamente características VISIBLES de una imagen para preparar contenido odontológico. Nunca identifiques a nadie ni deduzcas enfermedades, tratamientos efectuados, resultados, estado de salud o identidad. No diagnostiques. Responde con una frase objetiva en español, máximo 240 caracteres. Si no puedes describirla con certeza, responde 'Sin observaciones visuales seguras'.",
+            content: "Describe solo elementos visibles de una fotografía para apoyar contenido odontológico. No identifiques personas, no infieras diagnósticos, tratamientos efectuados, estado de salud ni resultados clínicos. Responde en español, con una frase objetiva de máximo 240 caracteres.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Describe exclusivamente elementos visuales evidentes útiles para encuadre y presentación editorial." },
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${Buffer.from(imageJpeg).toString("base64")}`, detail: "low" } },
+              {
+                type: "input_image",
+                image_url: `data:image/jpeg;base64,${Buffer.from(imageJpeg).toString("base64")}`,
+                detail: "low",
+              },
+              {
+                type: "input_text",
+                text: "Describe únicamente elementos visuales evidentes útiles para presentar la imagen en redes sociales. Si no hay observaciones seguras, responde: Sin observaciones visuales seguras.",
+              },
             ],
           },
         ],
-        max_tokens: 200,
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(120_000),
     });
   } catch {
     throw new GrokServiceError("No se pudo consultar la visión de Grok.");
   }
 
-  if (!response.ok) throw new GrokServiceError("Grok no pudo analizar la imagen.", response.status);
-  const payload = await response.json();
-  const summary = payload.choices?.[0]?.message?.content;
-  if (typeof summary !== "string" || !summary.trim()) {
-    throw new GrokServiceError("Grok no devolvió observaciones visuales.");
+  if (!response.ok) {
+    throw new GrokServiceError("Grok no pudo analizar la imagen.", response.status);
   }
-  return summary.trim().slice(0, 240);
+
+  const payload = await response.json() as XaiErrorBody;
+  const summary = extractOutputText(payload).trim();
+  if (!summary) throw new GrokServiceError("Grok no devolvió observaciones visuales.");
+  return summary.slice(0, 240);
 }
