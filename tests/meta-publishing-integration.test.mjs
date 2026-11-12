@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { platformCaptions } from "../src/lib/platformCopy.mjs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 
@@ -22,6 +23,7 @@ function harness({
   instagramStatus = "PENDING",
   facebookPostId = null,
   instagramPostId = null,
+  reviewed = true,
   respond,
   publicMediaUrl = "https://demo.example.test",
 } = {}) {
@@ -31,6 +33,8 @@ function harness({
     instagramStatus,
     facebookPostId,
     instagramPostId,
+    generatedCaption: draft.generatedCaption,
+    clinicalVerifiedAt: reviewed ? new Date() : null,
   };
   const requests = [];
   const account = { accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
@@ -73,6 +77,7 @@ function harness({
   );
   loaded((name) => {
     if (name === "@/lib/prisma") return { prisma };
+    if (name === "@/lib/platformCopy.mjs") return { platformCaptions };
     if (name === "@/lib/mediaSignature") {
       return { createSignedMediaUrl: () => "https://example.test/private-image" };
     }
@@ -190,4 +195,20 @@ test("a public HTTPS media URL is accepted without changing the OAuth callback",
   assert.equal(outcome.facebookId, "123_999");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
   assert.equal(requests.length, 1);
+});
+
+test("unreviewed clinical media never reaches Meta", async () => {
+  const { publishToMeta, requests } = harness({ reviewed: false });
+  await assert.rejects(publishToMeta(draft), /correspondencia clínica/i);
+  assert.equal(requests.length, 0);
+});
+
+test("network-specific captions have distinct calls to action and hashtag limits", () => {
+  const caption = "Un tratamiento se planifica después de una valoración profesional.\n\n#Dental #SaludOral #Sonrisa #Clínica #Medellín #Paciente\n\nHaz clic en el enlace de nuestra biografía para agendar.";
+  const result = platformCaptions(caption);
+  assert.match(result.facebook, /Escríbenos/);
+  assert.doesNotMatch(result.facebook, /biografía/);
+  assert.match(result.instagram, /mensaje directo/);
+  assert.ok((result.facebook.match(/#/g) || []).length <= 2);
+  assert.ok((result.instagram.match(/#/g) || []).length <= 5);
 });
