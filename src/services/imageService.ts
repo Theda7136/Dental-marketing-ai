@@ -34,6 +34,10 @@ export interface ClinicTemplateInput {
   cleanImage: Uint8Array;
   procedureName: string;
   logo?: Uint8Array;
+  backgroundColor?: string;
+  primaryColor?: string;
+  clinicName?: string;
+  fontFamily?: string;
 }
 
 function asBuffer(bytes: Uint8Array): Buffer {
@@ -205,21 +209,36 @@ export async function overlayOnClinicTemplate(
       .png()
       .toBuffer();
 
-    // 2. Creamos el lienzo publicitario vertical definitivo (1080x1350) con fondo de estudio (#0A1817)
+    const bg = input.backgroundColor && /^#[0-9a-f]{6}$/i.test(input.backgroundColor)
+      ? input.backgroundColor : "#0a1817";
+    const accent = input.primaryColor && /^#[0-9a-f]{6}$/i.test(input.primaryColor)
+      ? input.primaryColor : "#147c72";
+    const clinicName = (input.clinicName || "Dental Studio").slice(0, 80);
+    const escapedName = clinicName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const font = input.fontFamily === "serif" ? "Georgia, serif" : input.fontFamily === "modern" ? "Arial, sans-serif" : "sans-serif";
+    const nameOverlay = Buffer.from(`<svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="1210" width="1080" height="140" fill="${bg}"/>
+      <rect x="60" y="1215" width="100" height="5" rx="2" fill="${accent}"/>
+      <text x="60" y="1285" font-family="${font}" font-size="37" fill="#ffffff" font-weight="600">${escapedName}</text>
+    </svg>`);
+    const composites: sharp.OverlayOptions[] = [
+      { input: enhancedPhoto, gravity: "center" },
+      { input: nameOverlay, top: 0, left: 0 },
+    ];
+    if (input.logo) {
+      const logo = await sharp(asBuffer(input.logo)).resize(115, 115, { fit: "inside" }).png().toBuffer();
+      composites.push({ input: logo, top: 1218, left: 900 });
+    }
+
     const advertisingCanvas = await sharp({
       create: {
         width: CANVAS_WIDTH,
         height: CANVAS_HEIGHT,
         channels: 4,
-        background: { r: 10, g: 24, b: 23, alpha: 1 }, // Fondo corporativo profundo
+        background: bg,
       },
     })
-      .composite([
-        {
-          input: enhancedPhoto,
-          gravity: "center", // Centra perfectamente la foto mejorada
-        },
-      ])
+      .composite(composites)
       .png()
       .toBuffer();
 

@@ -5,6 +5,8 @@ import {
   ApprovalQueue,
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
+import { MediaWorkspace, cropImage, type ImageCrop } from "../../components/MediaWorkspace";
+import { BrandSettings } from "../../components/BrandSettings";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
 import { createTextProposal, approveAndPublishPost, rejectPost } from "./actions";
 
@@ -117,8 +119,8 @@ export default function DashboardPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const [format, setFormat] = useState<ContentFormat>("photo");
   const [posts, setPosts] = useState<ApprovalQueuePost[]>([]);
-  const [fileLabel, setFileLabel] = useState("Ningún archivo seleccionado");
-  const [fileKey, setFileKey] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [crop, setCrop] = useState<ImageCrop>({ zoom: 1, x: 0, y: 0 });
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -158,10 +160,24 @@ export default function DashboardPage() {
     setNotice(null);
 
     const formData = new FormData(event.currentTarget);
+    if (format !== "text") {
+      if (!selectedFile) {
+        setErrorMessage("Selecciona una foto o un video.");
+        return;
+      }
+      try {
+        const upload = format === "photo" ? await cropImage(selectedFile, crop) : selectedFile;
+        formData.set("photo", upload);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "No se pudo preparar el archivo.");
+        return;
+      }
+    }
     formData.set("procedureName", procedureName);
     formData.set("notes", notes);
 
     startTransition(async () => {
+      try {
       let result: {
         ok: boolean;
         post?: ApprovalQueuePost;
@@ -194,19 +210,23 @@ export default function DashboardPage() {
         formRef.current?.reset();
         setProcedureName("");
         setNotes("");
-        setFileLabel("Ningún archivo seleccionado");
-        setFileKey((current) => current + 1);
-        setNotice("La propuesta quedó en Posts pendientes de aprobación.");
+        setSelectedFile(null);
+        setCrop({ zoom: 1, x: 0, y: 0 });
+        setNotice("La propuesta se guardó correctamente.");
+        window.setTimeout(() => document.getElementById("pendientes")?.scrollIntoView({ behavior: "smooth" }), 200);
       } else {
         setErrorMessage(result.message || "No se pudo crear la propuesta.");
+      }
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "No se pudo conectar con el servidor.");
       }
     });
   }
 
   function changeFormat(next: ContentFormat) {
     setFormat(next);
-    setFileLabel("Ningún archivo seleccionado");
-    setFileKey((current) => current + 1);
+    setSelectedFile(null);
+    setCrop({ zoom: 1, x: 0, y: 0 });
   }
 
   // Manejador para aprobar y publicar directamente en Instagram y Facebook
@@ -293,11 +313,13 @@ export default function DashboardPage() {
 
       {notice ? (
         <p role="status" className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 shadow-sm">
-          {notice}
+          {notice} <a href="#pendientes" className="ml-2 font-semibold underline underline-offset-4">Ir a Pendientes</a>
         </p>
       ) : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] xl:gap-8">
+      <BrandSettings />
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] xl:gap-8">
         <section aria-labelledby="new-case-title" className="app-card rounded-3xl p-5 sm:p-6">
           <div className="mb-6 flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e8f4f0] text-xs font-bold text-[#176c63]">01</span>
@@ -355,34 +377,19 @@ export default function DashboardPage() {
               </select>
             </label>
 
-            {format !== "text" ? (
+            {format !== "text" && (
               <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-stone-800">
-                  {format === "video" ? "Video clínico" : "Foto clínica"}
-                </span>
-                <label className="group flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#c9d9d2] bg-[#f8faf8] px-4 py-6 text-center transition hover:border-[#398e82] hover:bg-[#f2f8f5]">
-                  <span className="mb-2 grid h-9 w-9 place-items-center rounded-xl bg-white text-[#398e82] shadow-sm transition group-hover:scale-105" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span className="text-sm font-semibold text-[#245e57]">
-                    {format === "video" ? "Elegir video" : "Elegir foto"}
-                  </span>
-                  <span className="mt-1 max-w-full truncate text-xs text-[#82928e]">{fileLabel}</span>
-                  <input
-                    key={fileKey}
-                    name="photo"
-                    type="file"
-                    required
-                    disabled={isPending}
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      setFileLabel(file ? file.name : "Ningún archivo seleccionado");
-                    }}
-                  />
-                </label>
+                <p className="text-sm font-medium text-stone-800">{format === "video" ? "Video clínico" : "Fotografía clínica"}</p>
+                <MediaWorkspace
+                  kind={format}
+                  file={selectedFile}
+                  crop={crop}
+                  onCropChange={setCrop}
+                  onFileChange={(file) => { setSelectedFile(file); setCrop({ zoom: 1, x: 0, y: 0 }); }}
+                  disabled={isPending}
+                />
               </div>
-            ) : null}
+            )}
 
             <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
@@ -415,11 +422,11 @@ export default function DashboardPage() {
           </form>
         </section>
 
-        <ApprovalQueue
+        <div id="pendientes" className="min-w-0 scroll-mt-8"><ApprovalQueue
           posts={posts}
           onApprove={approvePost}
           onEdit={handleEditPost}
-        />
+        /></div>
       </div>
     </main>
   );

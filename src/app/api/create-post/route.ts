@@ -382,9 +382,18 @@ async function prepareImage(
   );
   const generatedCaption = buildCaption(draft);
   clinicalGuardrails.validate(generatedCaption);
+  const brand = await prisma.clinicBrand.findUnique({ where: { id: "default" } });
+  const logo = brand?.logoDataUrl
+    ? new Uint8Array(Buffer.from(brand.logoDataUrl.split(",")[1], "base64"))
+    : undefined;
   const composed = await overlayOnClinicTemplate({
     cleanImage,
     procedureName,
+    logo,
+    clinicName: brand?.clinicName,
+    backgroundColor: brand?.backgroundColor,
+    primaryColor: brand?.primaryColor,
+    fontFamily: brand?.fontFamily,
   });
 
   return { media: composed, generatedCaption, mediaType: "IMAGE" as const };
