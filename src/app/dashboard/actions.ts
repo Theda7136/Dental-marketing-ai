@@ -157,7 +157,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
         id: postId, status: "PENDING_APPROVAL",
         facebookStatus: "PENDING", instagramStatus: "PENDING",
       },
-      data: { selectedStyle: style, generatedCaption: caption },
+      data: { selectedStyle: style, generatedCaption: caption, clinicalVerifiedAt: null },
     });
 
     return saved.count === 1
@@ -191,6 +191,7 @@ export async function updatePendingCaption(postId: string, caption: string) {
       where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING" },
       data: {
         generatedCaption: revisedCaption,
+        clinicalVerifiedAt: null,
         ...(currentPost.selectedStyle === "COMMERCIAL"
           ? { commercialCaption: revisedCaption }
           : { educationalCaption: revisedCaption }),
