@@ -412,24 +412,34 @@ async function prepareImage(
     throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
   }
 
-  let visualSummary: string | null = null;
-  if (enableVision) {
-    const reducedJpeg = await sharp(media).rotate().resize(768, 768, { fit: "inside" })
-      .jpeg({ quality: 68 }).toBuffer();
-    visualSummary = await describeDentalImage(reducedJpeg);
-  }
+  const composition = (async () => {
+    const [cleanImage, brand] = await Promise.all([
+      removeClinicalBackground(media),
+      prisma.brandProfile.findUnique({ where: { id: "default" } }),
+    ]);
+    return overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
+  })();
 
-  const context = imageContextFor(procedureName, notes) +
-    (visualSummary ? `\nObservaciones visuales no diagnósticas: ${visualSummary}. No las conviertas en afirmaciones clínicas.` : "");
-  const variants = await generateDentalVariants(procedureName, context);
-  const educationalCaption = buildCaption(variants.educational);
-  const commercialCaption = buildCaption(variants.commercial);
-  clinicalGuardrails.validate(educationalCaption);
-  clinicalGuardrails.validate(commercialCaption);
+  const copywriting = (async () => {
+    let visualSummary: string | null = null;
+    if (enableVision) {
+      const reducedJpeg = await sharp(media).rotate().resize(768, 768, { fit: "inside" })
+        .jpeg({ quality: 68 }).toBuffer();
+      visualSummary = await describeDentalImage(reducedJpeg);
+    }
 
-  const cleanImage = await removeClinicalBackground(media);
-  const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
-  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
+    const context = imageContextFor(procedureName, notes) +
+      (visualSummary ? `\nObservaciones visuales no diagnósticas: ${visualSummary}. No las conviertas en afirmaciones clínicas.` : "");
+    const variants = await generateDentalVariants(procedureName, context);
+    const educationalCaption = buildCaption(variants.educational);
+    const commercialCaption = buildCaption(variants.commercial);
+    clinicalGuardrails.validate(educationalCaption);
+    clinicalGuardrails.validate(commercialCaption);
+    return { visualSummary, educationalCaption, commercialCaption };
+  })();
+
+  const [composed, { visualSummary, educationalCaption, commercialCaption }] =
+    await Promise.all([composition, copywriting]);
 
   return {
     media: composed, generatedCaption: educationalCaption, educationalCaption,

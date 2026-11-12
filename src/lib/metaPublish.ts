@@ -44,6 +44,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
+  if (savedPost.archivedAt) throw new Error("La publicación está archivada y no puede enviarse a Meta.");
   if (!savedPost.clinicalVerifiedAt) throw new Error("Confirma la correspondencia clínica de la foto, el procedimiento y el texto antes de publicar.");
 
   if (onlyNetwork === "instagram" && !account.instagramId) {
