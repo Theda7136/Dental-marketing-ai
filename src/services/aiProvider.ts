@@ -114,10 +114,15 @@ async function geminiVariants(procedure: string, context: string) {
     "El resumen visual es una observación no diagnóstica: no lo transcribas en el copy ni afirmes que se hizo un tratamiento.",
     "Escribe una sola invitación a la acción por versión, dentro de suggestedCallToAction; no repitas ese llamado en caption.",
     "No uses mensajes genéricos de venta, testimonios inventados, descuentos, porcentajes de éxito ni resultados garantizados.",
+    "Escribe como una clínica real que presenta una fotografía y un caso específico; evita lenguaje corporativo y frases de relleno.",
+    "No uses expresiones como «en nuestra consulta», «en nuestra clínica», «evaluamos cada caso», «tecnología de vanguardia», «la mejor ruta hacia» o «un proceso personalizado» salvo que sean hechos concretos confirmados en las notas.",
+    "Si las notas dicen «resultado final de diseño de sonrisa en cerámica», presenta el resultado final en cerámica como tema central; no cambies el tema hacia una valoración previa o un plan todavía por realizar.",
+    "Evita segunda persona dirigida al paciente fotografiado, promesas estéticas y afirmaciones que no aparecen en las notas.",
+    "Usa frases breves, directas y específicas. La versión educativa explica el material o procedimiento sin inventar detalles; la comercial presenta el caso e invita a pedir información, sin repetir fórmulas.",
     "El texto comercial debe ser diferente del educativo, sonar natural y estar orientado a una valoración individual.",
     "Usa de 3 a 5 hashtags pertinentes al procedimiento; evita etiquetas no relacionadas.",
   ].join("\n");
-  const prompt = `Procedimiento declarado por la clínica: ${procedure}\n${context}\nPrioriza los hechos expresamente confirmados por la clínica sobre cualquier fórmula publicitaria. Las dos versiones deben referirse al mismo caso concreto, con enfoques diferentes, sin inventar datos.`;
+  const prompt = `Procedimiento declarado por la clínica: ${procedure}\n${context}\nEscribe sobre el caso concreto indicado en las notas. Si se trata de un resultado final, descríbelo como resultado final documentado, sin dar a entender que el tratamiento aún se va a planificar. Evita frases corporativas vacías. Las versiones educativa y comercial deben tener enfoques distintos, sin inventar datos.`;
   const answer = await queryGemini([{ text: prompt }], system, true);
 
   let parsed: unknown;
