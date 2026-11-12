@@ -266,6 +266,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("photoOffsetY", String(photoOffsetY));
 
     startTransition(async () => {
+      try {
       let result: {
         ok: boolean;
         post?: ApprovalQueuePost;
@@ -305,6 +306,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         setNotice("Propuesta guardada y lista para revisión.");
       } else {
         setErrorMessage(result.message || "No se pudo crear la propuesta.");
+      }
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "No se pudo conectar con el servidor.");
       }
     });
   }
@@ -661,13 +665,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                       <span>{(selectedMedia.size / 1024 / 1024).toFixed(2)} MB · {format === "photo" ? "Imagen" : "Video"}</span>
                     </div>
                     <button type="button" className="studio-file-replace" disabled={isPending}
-                      onClick={() => fileInputRef.current?.click()}>
+                      onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ""; fileInputRef.current.click(); } }}>
                       Reemplazar
                     </button>
                   </div>
                 ) : (
                   <button type="button" className="studio-upload-button" disabled={isPending}
-                    onClick={() => fileInputRef.current?.click()}>
+                    onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ""; fileInputRef.current.click(); } }}>
                     <span className="studio-upload-icon" aria-hidden="true">＋</span>
                     <span><strong>{format === "video" ? "Agregar video" : "Agregar fotografía"}</strong>
                     <small>{format === "video" ? "MP4, MOV o WebM" : "JPG, PNG o WebP"}</small></span>
