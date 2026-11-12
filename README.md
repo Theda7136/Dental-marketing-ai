@@ -8,6 +8,7 @@
 - Procesar imágenes y videos desde el servidor antes de mostrarlos en la cola.
 - Generar copies, hashtags y llamados a la acción con Google Gemini; Grok es un respaldo opcional para texto.
 - Revisar cada propuesta manualmente antes de publicarla.
+- Retirar publicaciones de Pendientes o Historial mediante «Eliminar», sin borrar los registros de auditoría ni las publicaciones realizadas en Meta. El sistema bloquea la retirada de envíos con estado pendiente de conciliación.
 - Conectar una Página de Facebook y, si está vinculada, una cuenta profesional de Instagram.
 - Guardar propuestas en SQLite y medios en el disco local o en almacenamiento compatible con S3.
 

@@ -44,6 +44,7 @@ interface ApprovalQueueProps {
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
+  onDelete: (postId: string) => Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
   onVerify: (postId: string, network: "facebook" | "instagram", outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN", evidence: string) => Promise<void>;
@@ -138,6 +139,7 @@ export function ApprovalQueue({
   posts,
   mode = "both",
   onApprove,
+  onDelete,
   onEdit,
   onRetry,
   onVerify,
@@ -293,6 +295,32 @@ export function ApprovalQueue({
         className="rounded-xl border border-[#b7d7ce] bg-[#f2faf6] px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
       >
         Publicar solo en {network === "facebook" ? "Facebook" : "Instagram"}
+      </button>
+    );
+  }
+
+  function deleteButton(post: ApprovalQueuePost) {
+    const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
+      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus || "");
+    const priorAttempt = post.status === "PENDING_APPROVAL" &&
+      (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" ||
+        Boolean(post.facebookRetryCount) || Boolean(post.instagramRetryCount) ||
+        Boolean(post.facebookPostId) || Boolean(post.instagramPostId));
+
+    return (
+      <button
+        type="button"
+        disabled={busyId === post.id || unresolved || priorAttempt}
+        title={unresolved || priorAttempt ? "Primero resuelve el estado de publicación en Meta." : "Ocultar de la lista conservando el registro interno."}
+        onClick={() => {
+          if (!window.confirm(
+            `¿Eliminar «${post.procedureName}» de la lista? El registro se conservará y no se borrará de Facebook ni Instagram.`
+          )) return;
+          void runAction(post.id, onDelete);
+        }}
+        className="rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Eliminar
       </button>
     );
   }
@@ -616,6 +644,7 @@ export function ApprovalQueue({
                       >
                         Editar texto
                       </button>
+                      {deleteButton(post)}
                     </div>
                   </div>
                 </article>
@@ -727,6 +756,7 @@ export function ApprovalQueue({
                 )}
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
+                <div className="mt-3 flex justify-end">{deleteButton(post)}</div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                   post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                     <p className="mt-3 text-sm text-amber-800">Estado sin confirmar: verifica directamente en Meta antes de cualquier nuevo envío.</p>
