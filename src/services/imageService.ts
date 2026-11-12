@@ -81,7 +81,13 @@ async function getSource(source: Uint8Array): Promise<{ buffer: Buffer; width: n
         metadata.width > 12000 || metadata.height > 12000) {
       throw new Error("Formato o dimensiones no compatibles");
     }
-    return { buffer, width: metadata.width, height: metadata.height };
+    const oriented = await sharp(buffer).rotate().png().toBuffer();
+    const orientedMetadata = await sharp(oriented).metadata();
+    return {
+      buffer: oriented,
+      width: orientedMetadata.width!,
+      height: orientedMetadata.height!,
+    };
   } catch {
     throw new ImageServiceError("La fotografía es inválida o no es JPEG, PNG o WebP.", "INVALID_IMAGE");
   }
@@ -110,7 +116,7 @@ export async function renderSocialPhoto(
   const scale = (layout === "COVER" ? baseZoom : containZoom) * options.zoom;
   const scaledWidth = Math.max(1, Math.round(width * scale));
   const scaledHeight = Math.max(1, Math.round(height * scale));
-  const resized = await sharp(buffer).rotate().resize(scaledWidth, scaledHeight, { fit: "fill" })
+  const resized = await sharp(buffer).resize(scaledWidth, scaledHeight, { fit: "fill" })
     .ensureAlpha().png().toBuffer();
 
   const left = Math.round((WIDTH - scaledWidth) / 2 + options.offsetX * Math.max(0, scaledWidth - WIDTH) / 100);
@@ -131,7 +137,7 @@ export async function renderSocialPhoto(
 
   let background: Buffer;
   if (options.background === "BLUR") {
-    background = await sharp(buffer).rotate()
+    background = await sharp(buffer)
       .resize(WIDTH, HEIGHT, { fit: "cover", position: "attention" })
       .blur(28).modulate({ brightness: 1.08, saturation: 0.55 })
       .png().toBuffer();
@@ -148,7 +154,7 @@ export async function renderSocialPhoto(
 
 export async function removeClinicalBackground(image: Uint8Array): Promise<Uint8Array> {
   const source = await getSource(image);
-  return new Uint8Array(await sharp(source.buffer).rotate().png().toBuffer());
+  return new Uint8Array(await sharp(source.buffer).png().toBuffer());
 }
 
 export async function overlayOnClinicTemplate(input: {
