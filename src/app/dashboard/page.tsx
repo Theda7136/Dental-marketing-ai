@@ -272,8 +272,8 @@ export default function DashboardPage() {
 
   async function changeCopyStyle(postId: string, style: "EDUCATIONAL" | "COMMERCIAL") {
     const chosen = await chooseCopyStyle(postId, style);
-    if (!chosen.ok || !chosen.caption) {
-      throw new Error(chosen.message || "No se pudo seleccionar el estilo.");
+    if (!("caption" in chosen) || !chosen.caption) {
+      throw new Error("message" in chosen ? chosen.message : "No se pudo seleccionar el estilo.");
     }
 
     setPosts((current) => current.map((post) =>
