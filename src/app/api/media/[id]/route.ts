@@ -72,6 +72,18 @@ export async function GET(
       );
     }
 
-    return notFound();
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      console.warn("Archivo multimedia ausente para el post:", id);
+      return NextResponse.json(
+        { error: { code: "MEDIA_FILE_MISSING", message: "El archivo no existe en el almacenamiento configurado." } },
+        { status: 404 },
+      );
+    }
+
+    console.error("Error al leer el archivo multimedia del post:", id, error);
+    return NextResponse.json(
+      { error: { code: "MEDIA_READ_FAILED", message: "No se pudo leer el archivo guardado." } },
+      { status: 503 },
+    );
   }
 }
