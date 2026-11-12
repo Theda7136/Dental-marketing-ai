@@ -32,6 +32,9 @@ model Account {
   pageName          String?  // Nombre de la página de Facebook
   pageId            String?  // ID de la página de Facebook
   instagramId       String?  // ID de la cuenta de Instagram Business
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  grantedScopes     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -58,6 +61,10 @@ model ScheduledPost {
   instagramStatus  String     @default("PENDING")
   instagramPostId  String?
   instagramError   String?
+  tiktokStatus     String @default("PENDING")
+  tiktokPublishId  String?
+  tiktokError      String?
+  tiktokPrivacy    String?
   facebookReviewOutcome  String?
   facebookReviewEvidence String?
   facebookReviewedAt     DateTime?
