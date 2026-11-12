@@ -24,6 +24,7 @@ function harness({
   facebookPostId = null,
   instagramPostId = null,
   reviewed = true,
+  archived = false,
   respond,
   publicMediaUrl = "https://demo.example.test",
 } = {}) {
@@ -35,6 +36,7 @@ function harness({
     instagramPostId,
     generatedCaption: draft.generatedCaption,
     clinicalVerifiedAt: reviewed ? new Date() : null,
+    archivedAt: archived ? new Date() : null,
   };
   const requests = [];
   const account = { accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
@@ -225,4 +227,10 @@ test("Meta receives a different caption for each supported network", async () =>
   assert.notEqual(igCaption, fbCaption);
   assert.match(igCaption, /mensaje directo/);
   assert.match(fbCaption, /Escríbenos/);
+});
+
+test("archived proposals are rejected before contacting Meta", async () => {
+  const { publishToMeta, requests } = harness({ archived: true });
+  await assert.rejects(publishToMeta(draft), /archivada/i);
+  assert.equal(requests.length, 0);
 });
