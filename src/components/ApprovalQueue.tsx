@@ -17,6 +17,10 @@ export interface ApprovalQueuePost {
   procedureName: string;
   mediaUrl: string;
   generatedCaption: string;
+  educationalCaption?: string | null;
+  commercialCaption?: string | null;
+  selectedStyle?: string;
+  visualSummary?: string | null;
   status: PostStatus;
   facebookStatus?: string;
   instagramStatus?: string;
@@ -42,6 +46,7 @@ interface ApprovalQueueProps {
   onVerify: (postId: string, network: "facebook" | "instagram", outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN", evidence: string) => Promise<void>;
   onLookup: (postId: string, network: "facebook" | "instagram") => Promise<{ ok: boolean; message: string }>;
   onCheckMedia: (postId: string) => Promise<{ ok: boolean; message: string }>;
+  onChooseStyle: (postId: string, style: "EDUCATIONAL" | "COMMERCIAL") => Promise<void>;
 }
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -122,6 +127,7 @@ export function ApprovalQueue({
   onVerify,
   onLookup,
   onCheckMedia,
+  onChooseStyle,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -361,6 +367,37 @@ export function ApprovalQueue({
                         Creado el {formatCreatedAt(post.createdAt)}
                       </p>
                     </div>
+
+                    {(post.educationalCaption || post.commercialCaption) && (
+                      <div className="flex flex-wrap items-center gap-2" aria-label="Elegir estilo de copy">
+                        {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => {
+                          const available = style === "EDUCATIONAL" ? post.educationalCaption : post.commercialCaption;
+                          const chosen = (post.selectedStyle || "EDUCATIONAL") === style;
+                          return (
+                            <button
+                              key={style}
+                              type="button"
+                              aria-pressed={chosen}
+                              disabled={isBusy || !available || editingId === post.id ||
+                                post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"}
+                              onClick={() => void runAction(post.id, () => onChooseStyle(post.id, style))}
+                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                                chosen
+                                  ? "border-[#176c63] bg-[#176c63] text-white"
+                                  : "border-[#cbdcd4] bg-white text-[#176c63] hover:bg-[#edf5f1]"
+                              }`}
+                            >
+                              {style === "EDUCATIONAL" ? "Educativa" : "Comercial"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {post.visualSummary && (
+                      <p className="text-xs leading-5 text-[#607771]">
+                        Observación visual IA (no diagnóstica): {post.visualSummary}
+                      </p>
+                    )}
 
                     {editingId === post.id ? (
                       <form
