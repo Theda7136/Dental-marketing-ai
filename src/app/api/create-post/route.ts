@@ -428,7 +428,8 @@ async function prepareImage(
   clinicalGuardrails.validate(commercialCaption);
 
   const cleanImage = await removeClinicalBackground(media);
-  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions });
+  const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
+  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
 
   return {
     media: composed, generatedCaption: educationalCaption, educationalCaption,
