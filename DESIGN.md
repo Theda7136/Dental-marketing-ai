@@ -34,7 +34,7 @@ El propietario decidió aplazar las pruebas funcionales. Comprobar en el equipo 
 2. **Reproductor local**: los videos seleccionados pueden reproducirse en la vista previa mediante una URL temporal del navegador. **No** es una representación del archivo renderizado final con ajustes de FFmpeg; esta vista muestra el original. Las URLs temporales se liberan al cambiar el archivo.
 3. **Fotografía**: zoom, posición horizontal/vertical y restablecimiento están ubicados en el panel de vista previa. El formulario conserva únicamente estilo, encuadre y fondo; la previsualización en 4:5 usa el endpoint existente.
 4. **Confirmación de creación**: al guardar una propuesta se muestra mensaje verde y enlace real a `/dashboard/pendientes`.
-5. **Identidad de marca**: en Conexiones aparece el editor de nombre, color, tipografía y logotipo con vista previa. Datos en tabla `BrandProfile`, migración aditiva `20261112180000_brand_profile`. El logo se normaliza por Sharp, se limita a 2 MB de entrada y aproximadamente 400 kB resultantes. **No** se sobreimprime automáticamente en imágenes clínicas ni altera material previamente publicado.
+5. **Identidad de marca**: en Conexiones aparece el editor de nombre, color, tipografía y logotipo con vista previa. Datos en tabla `BrandProfile`, migración aditiva `20261112163000_brand_settings`. El logo se normaliza por Sharp, se limita a 2 MB de entrada y aproximadamente 400 kB resultantes. **No** se sobreimprime automáticamente en imágenes clínicas ni altera material previamente publicado.
 
 Configuración en Windows tras actualizar:
 ```powershell
