@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { checkPublicMediaAccess, createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject } from "./actions";
+import { checkPublicMediaAccess, createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -270,6 +270,20 @@ export default function DashboardPage() {
     setNotice(result.message);
   }
 
+  async function changeCopyStyle(postId: string, style: "EDUCATIONAL" | "COMMERCIAL") {
+    const chosen = await chooseCopyStyle(postId, style);
+    if (!chosen.ok || !chosen.caption) {
+      throw new Error(chosen.message || "No se pudo seleccionar el estilo.");
+    }
+
+    setPosts((current) => current.map((post) =>
+      post.id === postId
+        ? { ...post, selectedStyle: style, generatedCaption: chosen.caption! }
+        : post,
+    ));
+    setNotice(style === "EDUCATIONAL" ? "Versión educativa seleccionada." : "Versión comercial seleccionada.");
+  }
+
   async function checkMedia(postId: string) {
     return checkPublicMediaAccess(postId);
   }
@@ -431,6 +445,18 @@ export default function DashboardPage() {
               </div>
             ) : null}
 
+            {format === "photo" && (
+              <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
+                <input type="checkbox" name="enableVision" value="true" disabled={isPending} className="mt-1" />
+                <span>
+                  <strong className="block text-sm text-[#173b3a]">Analizar imagen con Grok Vision (opcional)</strong>
+                  Enviará una versión reducida a xAI para describir únicamente elementos visibles.
+                  Actívalo solo con autorización para tratar la imagen y sin datos identificables.
+                  No realiza diagnósticos ni verifica resultados clínicos.
+                </span>
+              </label>
+            )}
+
             <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
               <textarea
@@ -470,6 +496,7 @@ export default function DashboardPage() {
           onVerify={verifyNetwork}
           onLookup={lookupMetaId}
           onCheckMedia={checkMedia}
+          onChooseStyle={changeCopyStyle}
         />
       </div>
     </main>
