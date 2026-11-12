@@ -31,6 +31,7 @@ before(async () => {
       "status" TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "approvedAt" DATETIME,
+      "archivedAt" DATETIME,
       "facebookStatus" TEXT NOT NULL DEFAULT 'PENDING',
       "facebookPostId" TEXT,
       "facebookError" TEXT,
