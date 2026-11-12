@@ -466,3 +466,10 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-feedback { align-items: flex-start; flex-wrap: wrap; }
   .studio-feedback a { margin-left: 44px; }
 }
+
+.studio-image-more { margin-top: 13px; padding-top: 10px; border-top: 1px solid #deebe3; }
+.studio-image-more summary { cursor: pointer; color: #126d5e; font-size: .8rem; font-weight: 700; }
+.studio-image-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.studio-image-more-grid label { display: flex; flex-direction: column; gap: 5px; font-size: .78rem; }
+.studio-image-more-grid select { min-width: 0; width: 100%; background: #fff; border: 1px solid #cfdfd5; border-radius: 7px; padding: 8px; color: #23473b; }
+@media (max-width: 420px) { .studio-image-more-grid { grid-template-columns: 1fr; } }
