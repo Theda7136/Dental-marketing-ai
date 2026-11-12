@@ -714,22 +714,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </fieldset>
             )}
 
-            {format === "photo" && hasMedia && (
-              <div className="studio-vision-options">
-                <label className="studio-vision-toggle">
-                  <input type="checkbox" name="visionConsent" value="true" disabled={isPending} />
-                  <span>
-                    <strong>Analizar fotografía con Gemini Vision</strong>
-                    <small>Opcional · sin marcar, la IA solo utiliza tus notas.</small>
-                  </span>
-                </label>
-                <details className="studio-vision-disclosure">
-                  <summary>Privacidad y autorización de la imagen</summary>
-                  <p>Al activar la casilla autorizas enviar una versión reducida de la fotografía a Google Gemini para análisis visual no diagnóstico. Confirma que tienes permiso y que no contiene datos identificables. En el nivel gratuito, Google puede utilizar el contenido enviado para mejorar sus productos.</p>
-                </details>
-              </div>
-            )}
-
             {canConfigure && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
               <textarea
@@ -747,7 +731,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             <button
               type="submit"
               disabled={isPending || (format !== "text" && !hasMedia)}
-              className="studio-generate flex min-h-12 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold leading-5 text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="studio-generate studio-generate-sticky flex min-h-12 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold leading-5 text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? (
                 <>
