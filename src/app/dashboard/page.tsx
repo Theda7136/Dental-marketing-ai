@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { checkPublicMediaAccess, createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle } from "./actions";
+import { checkPublicMediaAccess, createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -125,6 +125,7 @@ export default function DashboardPage() {
   // Estados controlados para el formulario
   const [procedureName, setProcedureName] = useState("");
   const [notes, setNotes] = useState("");
+  const [copyStyle, setCopyStyle] = useState<"EDUCATIONAL" | "COMMERCIAL">("EDUCATIONAL");
 
   const [isPending, startTransition] = useTransition();
 
@@ -160,6 +161,7 @@ export default function DashboardPage() {
     const formData = new FormData(event.currentTarget);
     formData.set("procedureName", procedureName);
     formData.set("notes", notes);
+    formData.set("selectedStyle", copyStyle);
 
     startTransition(async () => {
       let result: {
@@ -268,6 +270,17 @@ export default function DashboardPage() {
 
     if (!result.ok) throw new Error(result.message);
     setNotice(result.message);
+  }
+
+  async function reconcileRetry(postId: string, network: "facebook" | "instagram") {
+    const decision = await authorizeManualRetry(postId, network);
+    if (!decision.ok) throw new Error(decision.message);
+
+    const response = await fetch("/api/posts", { cache: "no-store" });
+    if (!response.ok) throw new Error("El reintento quedó habilitado; recarga el panel para ver el estado.");
+    const payload = await response.json();
+    setPosts(payload.posts as ApprovalQueuePost[]);
+    setNotice(decision.message);
   }
 
   async function changeCopyStyle(postId: string, style: "EDUCATIONAL" | "COMMERCIAL") {
@@ -416,6 +429,33 @@ export default function DashboardPage() {
               </select>
             </label>
 
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-semibold text-stone-800">Enfoque de la propuesta</legend>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#edf4f0] p-1.5">
+                {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    aria-pressed={copyStyle === style}
+                    disabled={isPending}
+                    onClick={() => setCopyStyle(style)}
+                    className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                      copyStyle === style
+                        ? "bg-white text-[#176c63] shadow-sm ring-1 ring-[#bfd8d0]"
+                        : "text-[#55736b] hover:bg-white/70"
+                    }`}
+                  >
+                    {style === "EDUCATIONAL" ? "Educativa" : "Comercial"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs leading-5 text-[#637773]">
+                {copyStyle === "EDUCATIONAL"
+                  ? "Contenido informativo para orientar a pacientes."
+                  : "Contenido que invita a agendar una valoración sin prometer resultados."}
+              </p>
+            </fieldset>
+
             {format !== "text" ? (
               <div className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-stone-800">
@@ -447,12 +487,11 @@ export default function DashboardPage() {
 
             {format === "photo" && (
               <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
-                <input type="checkbox" name="enableVision" value="true" disabled={isPending} className="mt-1" />
+                <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} className="mt-1" />
                 <span>
-                  <strong className="block text-sm text-[#173b3a]">Analizar imagen con Grok Vision (opcional)</strong>
-                  Enviará una versión reducida a xAI para describir únicamente elementos visibles.
-                  Actívalo solo con autorización para tratar la imagen y sin datos identificables.
-                  No realiza diagnósticos ni verifica resultados clínicos.
+                  <strong className="block text-sm text-[#173b3a]">Grok Vision integrado</strong>
+                  Se analizará una versión reducida de la foto. Confirmo que tengo autorización para enviarla a xAI,
+                  que no contiene datos identificables y que la revisión clínica será humana.
                 </span>
               </label>
             )}
@@ -479,7 +518,7 @@ export default function DashboardPage() {
               {isPending ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Grok-3 está redactando la propuesta...
+                  Grok está preparando el contenido...
                 </>
               ) : (
                 "Generar propuesta"
@@ -497,6 +536,7 @@ export default function DashboardPage() {
           onLookup={lookupMetaId}
           onCheckMedia={checkMedia}
           onChooseStyle={changeCopyStyle}
+          onAuthorizeRetry={reconcileRetry}
         />
       </div>
     </main>
