@@ -47,6 +47,7 @@ interface ApprovalQueueProps {
   onLookup: (postId: string, network: "facebook" | "instagram") => Promise<{ ok: boolean; message: string }>;
   onCheckMedia: (postId: string) => Promise<{ ok: boolean; message: string }>;
   onChooseStyle: (postId: string, style: "EDUCATIONAL" | "COMMERCIAL") => Promise<void>;
+  onAuthorizeRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
 }
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -128,6 +129,7 @@ export function ApprovalQueue({
   onLookup,
   onCheckMedia,
   onChooseStyle,
+  onAuthorizeRetry,
 }: ApprovalQueueProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -189,6 +191,24 @@ export function ApprovalQueue({
             {evidence ? ` · ${evidence}` : ""}
           </p>
         )}
+        {status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
+          network === "facebook" ? post.facebookPostId : post.instagramPostId
+        ) && (
+          <button
+            type="button"
+            disabled={busyId === post.id}
+            className="mt-2 rounded-lg bg-[#176c63] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            onClick={() => {
+              const confirmed = window.confirm(
+                `¿Verificaste la cuenta y el historial de ${label}, y confirmas que esta publicación no existe? Habilitarás un único reintento manual. Una publicación demorada podría duplicarse.`,
+              );
+              if (!confirmed) return;
+              void runAction(post.id, () => onAuthorizeRetry(post.id, network));
+            }}
+          >
+            Habilitar un reintento tras comprobar Meta
+          </button>
+        )}
         {reviewKey === key ? (
           <form className="mt-3 space-y-2" onSubmit={(event) => {
             event.preventDefault();
@@ -223,7 +243,7 @@ export function ApprovalQueue({
               placeholder="Fecha de la consulta, enlace público si existe o detalle de la revisión"
               className="w-full rounded-lg border border-[#d6c7a4] bg-white p-2 text-sm"
             />
-            <p className="text-xs text-[#806b49]">Registrar una revisión no autoriza un nuevo envío.</p>
+            <p className="text-xs text-[#806b49]">Registrar una revisión no envía nada. Si no se encontró, podrás solicitar un reintento manual limitado.</p>
             <div className="flex flex-wrap gap-2">
               <button type="submit" disabled={busyId === post.id || !reviewEvidence.trim()} className="rounded-lg bg-[#69553a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Guardar verificación</button>
               <button type="button" disabled={busyId === post.id} onClick={() => setReviewKey(null)} className="rounded-lg border border-[#d6c7a4] px-3 py-2 text-xs">Cancelar</button>
