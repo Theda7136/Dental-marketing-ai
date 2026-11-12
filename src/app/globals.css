@@ -146,14 +146,14 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-nav-link.is-current { background: #e7f2ed; color: #0d6258; }
 .studio-nav-link:focus-visible, .studio-topbar-link:focus-visible { outline: 3px solid #82b5a4; outline-offset: 3px; }
 .studio-main { min-width: 0; }
-.studio-topbar { display: flex; align-items: end; justify-content: space-between; gap: 15px; max-width: 1330px; padding: 30px 24px 19px; margin: 0 auto; }
+.studio-topbar { display: flex; align-items: end; justify-content: space-between; gap: 15px; max-width: 1080px; padding: 30px 24px 19px; margin: 0 auto; }
 .studio-topbar .eyebrow { display: none; }
 .studio-topbar h1 { font-size: 2rem; letter-spacing: -.03em; line-height: 1.14; font-weight: 730; }
 .studio-topbar p:not(.eyebrow) { margin-top: 6px; color: var(--ink-soft); font-size: .89rem; }
 .studio-topbar-link { border: 1px solid #bcd6cb; background: white; color: #126457; border-radius: 9px; text-decoration: none; padding: 10px 14px; font-size: .83rem; font-weight: 700; white-space: nowrap; }
 .studio-topbar-link:hover { background: #eff7f2; }
-.studio-content { display: flex; flex-direction: column; gap: 16px; max-width: 1330px; padding: 0 24px 50px; margin: 0 auto; }
-.studio-editor-grid { display: grid; grid-template-columns: minmax(0, 490px) minmax(0, 360px); align-items: start; gap: 24px; }
+.studio-content { display: flex; flex-direction: column; gap: 16px; max-width: 1080px; padding: 0 24px 50px; margin: 0 auto; }
+.studio-editor-grid { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 360px); align-items: start; justify-content: center; gap: 24px; width: 100%; margin-inline: auto; }
 .studio-editor-grid > * { min-width: 0; }
 .studio-single-view { width: 100%; max-width: 1000px; }
 .studio-form-panel { padding: 23px 25px !important; border-radius: 13px !important; border: 1px solid #dee8e2; background: white; box-shadow: none; }
@@ -178,7 +178,7 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-preview-format { background: #e9f3ed; color: #126457; font-size: .7rem; font-weight: 750; padding: 5px 8px; border-radius: 6px; }
 .studio-preview-canvas { aspect-ratio: 4 / 5; width: 100%; max-height: 430px; border-radius: 9px; overflow: hidden; display: grid; place-items: center; background: #eef3ef; }
 .studio-preview-image { width: 100%; height: 100%; object-fit: contain; }
-.studio-preview-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 235px; padding: 22px; text-align: center; color: #84978e; }
+.studio-preview-placeholder { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 230px; padding: 20px; text-align: center; color: #84978e; }
 .studio-preview-placeholder strong { color: #3b5c51; font-size: .94rem; }
 .studio-preview-placeholder span { font-size: .79rem; line-height: 1.55; }
 .studio-preview-caption { color: var(--ink-soft); margin-top: 12px; font-size: .76rem; line-height: 1.5; }
@@ -192,7 +192,7 @@ body { background: var(--canvas); color: var(--ink); }
 #connected-accounts .app-card { padding: 22px; border-radius: 13px; }
 #connected-accounts .eyebrow { display: none; }
 @media (max-width: 950px) {
-  .studio-editor-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 18px; }
+  .studio-editor-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 18px; }
 }
 @media (max-width: 720px) {
   .studio-sidebar { display: block; padding: 12px 16px 9px; }
@@ -212,3 +212,14 @@ body { background: var(--canvas); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .studio-nav-link, .studio-upload, .studio-generate { transition: none; }
 }
+
+/* Consistent editor alignment and compact controls */
+.studio-topbar, .studio-content { width: 100%; }
+.studio-form-panel .studio-upload { min-height: 108px; padding-block: 14px; }
+.studio-form-panel .studio-form-intro { padding-bottom: 13px; margin-bottom: 14px; }
+.studio-form-panel form { gap: 13px; }
+.studio-form-panel label, .studio-form-panel legend { color: #263f38; }
+.studio-preview-panel { position: sticky; top: 24px; }
+.studio-preview-panel .studio-preview-canvas { background: #f3f6f3; }
+.studio-preview-caption { margin-top: 10px; }
+@media (max-width: 720px) { .studio-preview-panel { position: static; } }
