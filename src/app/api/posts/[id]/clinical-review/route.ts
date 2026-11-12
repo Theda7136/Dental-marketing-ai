@@ -29,20 +29,16 @@ export async function PATCH(
       where: {
         id,
         archivedAt: null,
-        status: "PENDING_APPROVAL",
-        facebookStatus: "PENDING",
-        instagramStatus: "PENDING",
-        facebookRetryCount: 0,
-        instagramRetryCount: 0,
-        facebookPostId: null,
-        instagramPostId: null,
+        status: { in: ["PENDING_APPROVAL", "PUBLISHED"] },
+        facebookStatus: { in: ["PENDING", "SUCCEEDED"] },
+        instagramStatus: { in: ["PENDING", "SUCCEEDED"] },
         mediaUrl: { not: "" },
       },
       data: { clinicalVerifiedAt: new Date() },
     });
     if (updated.count !== 1) {
       return NextResponse.json({
-        message: "El registro no está listo para revisión. Comprueba que no tenga envíos iniciados.",
+        message: "El registro no está disponible para revisión clínica. Resuelve primero los envíos inciertos o en proceso.",
       }, { status: 409 });
     }
     const post = await prisma.scheduledPost.findUnique({
