@@ -542,12 +542,10 @@ export function ApprovalQueue({
                     {retryButton(post, "instagram")}
                   </div>
                 )}
-                {verificationControl(post, "facebook")}
-                {verificationControl(post, "instagram")}
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        El envío no pudo confirmarse. Revisa la publicación en Meta y utiliza «Registrar comprobación» para resolver el estado antes de reintentar.
+                        Meta no confirmó el resultado anterior. «Aprobar y publicar» te permitirá revisar y decidir cómo continuar; no reenviará contenido sin tu confirmación.
                       </p>
                     )}
 
@@ -558,17 +556,14 @@ export function ApprovalQueue({
                     ) : null}
 
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
-                      {!["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus ?? "") &&
-                        !["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus ?? "") && (
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0 || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
+                        disabled={isBusy || isTextIdea || editingId === post.id}
                         onClick={() => runAction(post.id, onApprove)}
                         className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isTextIdea ? "Idea guardada" : "Aprobar y publicar"}
                       </button>
-                      )}
                       <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
