@@ -92,3 +92,27 @@ Las pruebas automáticas siguen pendientes a petición del propietario. La apari
 ### Actualización local
 
 Como se añadió un modelo Prisma, hacer copia de seguridad de `prisma/dev.db`, aplicar `npx prisma migrate deploy`, generar el cliente y compilar cuando se reanuden las pruebas. No ejecutar `prisma migrate reset`.
+
+## Mejoras de flujo creativo — 12 de noviembre de 2026
+
+Se incorporaron cinco mejoras coordinadas:
+
+1. **Archivo seleccionado:** tarjeta con nombre, tamaño en MB, miniatura de foto o video y acción «Reemplazar». El archivo permanece en el navegador hasta generar la propuesta.
+2. **Vista previa de video:** el clip se reproduce localmente usando un `blob:` URL temporal, con controles de reproducción. Este es el original seleccionado; el render final del backend puede diferir (normalización vertical, eliminación de audio si se solicita).
+3. **Recorte en la vista previa:** zoom y desplazamiento horizontal/vertical junto a la imagen. Los controles alimentan la misma API de render 4:5 utilizada al crear la propuesta.
+4. **Guardado confirmado:** mensaje visual de éxito y enlace a `/dashboard/pendientes`. No publica automáticamente.
+5. **Marca configurable:** página Conexiones con nombre de la clínica, color, tipografía y logotipo. Los datos se guardan mediante `/api/brand` en SQLite con el modelo `BrandProfile`. El logotipo se valida y comprime en el servidor, y el encabezado refleja nombre, logo y color. Estos ajustes quedan disponibles para futuras plantillas; **no se superponen sobre las fotos clínicas ni cambian publicaciones anteriores**.
+
+### Migración necesaria
+
+La marca requiere ejecutar la migración aditiva `20261112163000_brand_settings` sin limpiar ni reiniciar la base de datos. Antes de aplicar la migración en la clínica, realizar copia de seguridad de `prisma/dev.db`.
+
+```powershell
+git pull origin feature/safe-content-review
+if (Test-Path prisma/dev.db) { Copy-Item prisma/dev.db prisma/dev.db.backup }
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npx prisma generate
+npm run dev
+```
+
+La revisión funcional, visual en distintas pantallas y compilación quedan pendientes hasta la siguiente validación acordada con el propietario.
