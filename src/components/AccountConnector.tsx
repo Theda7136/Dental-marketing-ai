@@ -2,82 +2,150 @@
 
 import { useEffect, useState } from "react";
 
+type MetaAccount = {
+  connected: boolean;
+  userName?: string;
+  pageName?: string;
+  instagramConnected?: boolean;
+};
+
+type TikTokAccount = {
+  connected: boolean;
+  userName?: string | null;
+};
+
+const META_ERRORS: Record<string, string> = {
+  no_page: "Meta no encontró una Página administrada por tu cuenta.",
+  multiple_pages: "Administra varias Páginas. Configura META_PAGE_ID para seleccionar la de la clínica.",
+  page_not_found: "No se encontró la Página indicada en META_PAGE_ID.",
+  pages_failed: "No pudimos consultar tus Páginas. Revisa los permisos concedidos.",
+  token_failed: "Meta no completó la autorización.",
+  token_exchange_failed: "Meta no pudo renovar la autorización.",
+  invalid_state: "La autorización de Meta caducó. Intenta conectar de nuevo.",
+};
+
+function ConnectionCard({
+  name,
+  description,
+  connected,
+  detail,
+  href,
+  action,
+  badge,
+}: {
+  name: string;
+  description: string;
+  connected: boolean;
+  detail?: string;
+  href: string;
+  action: string;
+  badge?: string;
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-5 rounded-2xl border border-[#dce7e0] bg-white p-5 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#eaf4ef] text-[#106d60]" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="5" width="16" height="14" rx="4" />
+            <path d="M8 12h8M12 8v8" />
+          </svg>
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-[#183d37]">{name}</h3>
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${connected
+              ? "border-[#c4e2d5] bg-[#ecf8f0] text-[#15715d]"
+              : "border-[#e2e9e3] bg-[#f7f9f7] text-[#657b70]"}`}>
+              {connected ? "Conectada" : "Sin conectar"}
+            </span>
+            {badge && <span className="text-xs text-[#71867b]">{badge}</span>}
+          </div>
+          <p className="mt-1 text-sm leading-5 text-[#5e756e]">{description}</p>
+          {detail && <p className="mt-1 text-xs leading-5 text-[#788b83]">{detail}</p>}
+        </div>
+      </div>
+      <a
+        href={href}
+        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#bbd7c9] bg-white px-4 py-2.5 text-sm font-semibold text-[#106a5b] transition hover:bg-[#edf6f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#106a5b]"
+      >
+        {action}
+      </a>
+    </div>
+  );
+}
+
 export function AccountConnector() {
-  const [account, setAccount] = useState<{
-    connected: boolean;
-    userName?: string;
-    pageName?: string;
-  } | null>(null);
-  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
-  const [tiktokConnected, setTikTokConnected] = useState(false);
-  const [tiktokName, setTikTokName] = useState<string | null>(null);
+  const [meta, setMeta] = useState<MetaAccount | null>(null);
+  const [tiktok, setTikTok] = useState<TikTokAccount | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const error = new URLSearchParams(window.location.search).get("error");
-    const messages: Record<string, string> = {
-      no_page: "Meta no encontró una Página que puedas administrar. Revisa que tu usuario tenga acceso a la Página de la clínica e inténtalo otra vez.",
-      pages_failed: "Meta no pudo consultar tus Páginas. Revisa los permisos concedidos e inténtalo otra vez.",
-      token_failed: "Meta no pudo completar la autorización. Inténtalo de nuevo.",
-      token_exchange_failed: "Meta no pudo completar la autorización de larga duración. Reconecta la Página e inténtalo otra vez.",
-      invalid_state: "La autorización de Meta caducó o no coincide. Inténtalo de nuevo.",
-    };
-    if (error && messages[error]) setConnectionMessage(messages[error]);
+    const search = new URLSearchParams(window.location.search);
+    const metaError = search.get("error");
+    const tiktokResult = search.get("tiktok");
 
-    fetch("/api/social/tiktok", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((account) => {
-        setTikTokConnected(Boolean(account.connected));
-        setTikTokName(account.userName || null);
-      })
-      .catch(() => setTikTokConnected(false));
-    const tiktokStatus = new URLSearchParams(window.location.search).get("tiktok");
-    if (tiktokStatus && tiktokStatus !== "connected") {
-      setConnectionMessage(tiktokStatus === "scope_missing"
-        ? "TikTok no concedió video.publish. Reautoriza el acceso en TikTok."
-        : "No se pudo completar la conexión a TikTok. Comprueba la configuración y los permisos.");
-    }
-    fetch("/api/social/accounts", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        setAccount(data);
-      })
-      .catch((err) => console.error("Error al obtener la cuenta:", err));
+    if (metaError && META_ERRORS[metaError]) setMessage(META_ERRORS[metaError]);
+    if (tiktokResult === "connected") setMessage("TikTok se conectó correctamente.");
+    else if (tiktokResult === "scope_missing") {
+      setMessage("TikTok no concedió el permiso video.publish. Vuelve a conectar la cuenta.");
+    } else if (tiktokResult) setMessage("No se pudo conectar TikTok. Comprueba los permisos y la configuración OAuth.");
+
+    let active = true;
+    void Promise.all([
+      fetch("/api/social/accounts", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : { connected: false })
+        .catch(() => ({ connected: false })),
+      fetch("/api/social/tiktok", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : { connected: false })
+        .catch(() => ({ connected: false })),
+    ]).then(([metaAccount, tiktokAccount]) => {
+      if (!active) return;
+      setMeta(metaAccount);
+      setTikTok(tiktokAccount);
+    });
+    return () => { active = false; };
   }, []);
 
   return (
-    <section className="mb-6 space-y-4" aria-label="Redes sociales conectadas">
-      {connectionMessage && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {connectionMessage}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#d9e5df] bg-white p-5">
+    <section className="space-y-4" aria-label="Conexiones con redes sociales">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-[#173b3a]">Facebook e Instagram</h2>
-          <p className="mt-1 text-sm text-[#607771]">
-            {account?.connected ? `Página vinculada: ${account.pageName || "Página principal"}`
-              : "Conecta tu Página de Facebook y la cuenta profesional de Instagram."}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[.13em] text-[#6e9687]">Canales de publicación</p>
+          <h2 className="mt-1 text-lg font-semibold text-[#183d37]">Tus redes sociales</h2>
+          <p className="mt-1 text-sm text-[#667d72]">Conecta cada plataforma una sola vez y gestiona las publicaciones desde Pendientes.</p>
         </div>
-        <a href="/api/auth/meta" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63]">
-          {account?.connected ? "Reconectar Meta" : "Conectar Meta"}
-        </a>
+        <span className="rounded-full border border-[#d6e5dc] bg-white px-3 py-1 text-xs text-[#607970]">
+          {[meta?.connected, meta?.instagramConnected, tiktok?.connected].filter(Boolean).length} de 3 canales conectados
+        </span>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#d9e5df] bg-white p-5">
-        <div>
-          <h2 className="font-semibold text-[#173b3a]">TikTok</h2>
-          <p className="mt-1 text-sm text-[#607771]">
-            {tiktokConnected ? `Cuenta conectada${tiktokName ? ` · ${tiktokName}` : ""}`
-              : "Conecta TikTok para publicar fotografías o videos."}
-          </p>
-          <p className="mt-1 text-xs text-[#72847d]">
-            Requiere permiso video.publish y un dominio HTTPS verificado en TikTok.
-          </p>
-        </div>
-        <a href="/api/auth/tiktok" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63]">
-          {tiktokConnected ? "Reconectar TikTok" : "Conectar TikTok"}
-        </a>
+      {message && <p role="status" className="rounded-xl border border-[#cde4d6] bg-[#f0f8f2] px-4 py-3 text-sm text-[#245e4a]">{message}</p>}
+      <div className="space-y-3">
+        <ConnectionCard
+          name="Facebook"
+          connected={Boolean(meta?.connected)}
+          description={meta?.connected ? `Página: ${meta.pageName || "Página principal"}` : "Publica fotografías y videos en la Página de la clínica."}
+          detail="Facebook e Instagram se autorizan mediante Meta."
+          href="/api/auth/meta"
+          action={meta?.connected ? "Reconectar Meta" : "Conectar Meta"}
+        />
+        <ConnectionCard
+          name="Instagram"
+          connected={Boolean(meta?.instagramConnected)}
+          description={meta?.instagramConnected ? "Cuenta profesional vinculada a la Página." : "Vincula una cuenta profesional de Instagram a tu Página de Facebook."}
+          detail="Comparte la autorización de Meta con Facebook."
+          href="/api/auth/meta"
+          action={meta?.instagramConnected ? "Reconectar Meta" : "Configurar Meta"}
+        />
+        <ConnectionCard
+          name="TikTok"
+          connected={Boolean(tiktok?.connected)}
+          description={tiktok?.connected ? `Cuenta vinculada${tiktok.userName ? `: ${tiktok.userName}` : ""}` : "Conecta TikTok para publicar fotografías o videos desde Dental Studio."}
+          detail="Requiere Login Kit, video.publish y un dominio HTTPS verificado por TikTok."
+          href="/api/auth/tiktok"
+          action={tiktok?.connected ? "Reconectar TikTok" : "Conectar TikTok"}
+        />
       </div>
+      <p className="text-xs leading-5 text-[#74877e]">Cada red mantiene su autorización y estado de envío. La publicación conjunta se incorporará en una actualización posterior.</p>
     </section>
   );
 }
