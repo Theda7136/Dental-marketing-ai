@@ -187,8 +187,8 @@ export function ApprovalQueue({
         .slice()
         .sort(
           (left, right) =>
-            new Date(left.createdAt).getTime() -
-            new Date(right.createdAt).getTime(),
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime(),
         ),
     [posts],
   );
