@@ -687,3 +687,38 @@ body { background: var(--canvas); color: var(--ink); }
 @media (max-width: 720px) {
   .studio-preview-panel.has-media .studio-preview-canvas { max-height: 65vh; }
 }
+
+/* Review queue: natural media proportions and a distinct clinical checkpoint */
+.studio-proposal-grid { align-items: start; }
+.studio-proposal-media {
+  display: block;
+  align-self: start;
+  min-height: 0;
+  height: auto;
+  padding: 10px;
+  background: #f5f8f6;
+}
+.studio-proposal-media .studio-proposal-media-content {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.studio-clinical-review {
+  color: #745a37;
+  background: #fff9ed;
+  border: 1px solid #ebdbbb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: .78rem;
+  line-height: 1.55;
+}
+@media (max-width: 720px) {
+  .studio-single-view .studio-proposal-media {
+    height: auto;
+    padding: 12px;
+  }
+  .studio-proposal-media .studio-proposal-media-content { max-height: 300px; }
+}

@@ -94,23 +94,37 @@ function checkDraft(raw: unknown): DentalPost {
   return post;
 }
 
-async function geminiDraft(procedure: string, context: string, style: "educativo" | "comercial"): Promise<DentalPost> {
+async function geminiVariants(procedure: string, context: string) {
   const system = [
     "Eres un redactor profesional de marketing odontológico en Colombia.",
     "Escribe español natural y humano, sin diagnósticos ni promesas clínicas.",
     "Nunca infieras enfermedades, resultados, características personales o hechos que no consten en el contexto.",
     `Solo menciona procedimientos permitidos: ${clinicalGuardrails.allowedDentalTerms.join(", ")}.`,
     `Evita estas expresiones: ${clinicalGuardrails.prohibitedRiskPhrases.join(", ")}.`,
-    "Devuelve solamente JSON con caption (string), hashtags (lista de strings que empiezan con #) y suggestedCallToAction (string).",
+    "Devuelve solo JSON con dos claves: educational y commercial.",
+    "Cada clave contiene caption (string), hashtags (lista de strings iniciados con #) y suggestedCallToAction (string).",
+    "educational: informa de forma accesible sin afirmar hallazgos del paciente.",
+    "commercial: invita a valoración profesional sin garantizar beneficios.",
+    "No presupongas que la fotografía confirma el procedimiento seleccionado.",
   ].join("\n");
-  const answer = await queryGemini([{ text: `Procedimiento: ${procedure}\nContexto: ${context}\nEstilo: ${style}. Para el comercial, invita a una valoración sin garantizar beneficios. No inventes información.` }], system, true);
+  const prompt = `Procedimiento declarado por la clínica: ${procedure}\nContexto confirmado: ${context}\nRedacta ambas versiones sin inventar datos.`;
+  const answer = await queryGemini([{ text: prompt }], system, true);
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(answer);
   } catch {
     throw new AIProviderError("Gemini no devolvió JSON válido.", 502);
   }
-  return checkDraft(parsed);
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new AIProviderError("Gemini no devolvió ambas versiones del contenido.", 502);
+  }
+  const drafts = parsed as Record<string, unknown>;
+  return {
+    educational: checkDraft(drafts.educational),
+    commercial: checkDraft(drafts.commercial),
+  };
 }
 
 export async function generateDentalVariants(procedure: string, context: string) {
@@ -120,11 +134,7 @@ export async function generateDentalVariants(procedure: string, context: string)
   }
 
   try {
-    const [educational, commercial] = await Promise.all([
-      geminiDraft(procedure, context, "educativo"),
-      geminiDraft(procedure, context, "comercial"),
-    ]);
-    return { educational, commercial };
+    return await geminiVariants(procedure, context);
   } catch (error) {
     // Only infrastructure and quota failures may trigger text fallback.
     if (error instanceof AIProviderError &&
