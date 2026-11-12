@@ -166,7 +166,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
   }
 
   const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
-  if (!post || post.status !== "PENDING_APPROVAL" || !canEditUnsentProposal(post)) {
+  if (!post || post.status !== "PENDING_APPROVAL" || !canEditUnsentProposal(post) || post.facebookRetryCount > 0 || post.instagramRetryCount > 0) {
     return { ok: false, message: "La propuesta ya inició su publicación o no está pendiente." };
   }
 
@@ -247,6 +247,9 @@ export async function approveAndPublishPost(
     }
     if (!post.mediaUrl) {
       return { ok: false, message: "Las ideas de texto no se pueden publicar como una imagen." };
+    }
+    if (post.facebookRetryCount > 0 || post.instagramRetryCount > 0) {
+      return { ok: false, message: "Este registro ya tuvo un intento incierto. Publica únicamente en la red autorizada para reintento." };
     }
     if (!canStartInitialPublication(post)) {
       return { ok: false, message: "Una red ya tiene un envío iniciado o confirmado. Consulta el historial; solo es seguro enviar a una red pendiente." };
