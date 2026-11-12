@@ -133,9 +133,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const [procedureName, setProcedureName] = useState("");
   const [notes, setNotes] = useState("");
   const [copyStyle, setCopyStyle] = useState<"EDUCATIONAL" | "COMMERCIAL">("EDUCATIONAL");
-  const [photoLayout, setPhotoLayout] = useState<"AUTO" | "CONTAIN" | "COVER">("AUTO");
-  const [photoBackground, setPhotoBackground] = useState<"LIGHT" | "BLUR">("LIGHT");
-  const [photoPreset, setPhotoPreset] = useState<"CLINICAL" | "EDUCATIONAL" | "COMMERCIAL">("CLINICAL");
   const [photoZoom, setPhotoZoom] = useState(1);
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
@@ -144,7 +141,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
   const [savedProposal, setSavedProposal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dragStart = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const dragStart = useRef<{ pointerId: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -175,9 +172,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     const timeout = setTimeout(async () => {
       const body = new FormData();
       body.set("photo", selectedPhoto);
-      body.set("photoLayout", photoLayout);
-      body.set("photoBackground", photoBackground);
-      body.set("photoPreset", photoPreset);
+      body.set("photoLayout", "AUTO");
+      body.set("photoBackground", "LIGHT");
+      body.set("photoPreset", "CLINICAL");
       body.set("photoZoom", String(photoZoom));
       body.set("photoOffsetX", String(photoOffsetX));
       body.set("photoOffsetY", String(photoOffsetY));
@@ -205,7 +202,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       clearTimeout(timeout);
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [format, selectedPhoto, photoLayout, photoBackground, photoPreset, photoZoom, photoOffsetX, photoOffsetY]);
+  }, [format, selectedPhoto, photoZoom, photoOffsetX, photoOffsetY]);
 
   useEffect(() => {
     let mounted = true;
@@ -261,9 +258,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("procedureName", procedureName);
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
-    formData.set("photoLayout", photoLayout);
-    formData.set("photoBackground", photoBackground);
-    formData.set("photoPreset", photoPreset);
+    formData.set("photoLayout", "AUTO");
+    formData.set("photoBackground", "LIGHT");
+    formData.set("photoPreset", "CLINICAL");
     formData.set("photoZoom", String(photoZoom));
     formData.set("photoOffsetX", String(photoOffsetX));
     formData.set("photoOffsetY", String(photoOffsetY));
@@ -748,28 +745,34 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
-            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && !showOriginal ? "is-adjustable" : ""}`} aria-live="polite"
+            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && photoPreview && !showOriginal && !isPending ? "is-adjustable" : ""}`} aria-live="polite"
               onPointerDown={(event) => {
                 if (format !== "photo" || !selectedPhoto || isPending || showOriginal) return;
-                dragStart.current = { x: event.clientX, y: event.clientY, offsetX: photoOffsetX, offsetY: photoOffsetY };
+                if (event.button !== 0 || !photoPreview) return;
+                dragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, offsetX: photoOffsetX, offsetY: photoOffsetY };
                 event.currentTarget.setPointerCapture(event.pointerId);
               }}
               onPointerMove={(event) => {
                 const origin = dragStart.current;
-                if (!origin || format !== "photo") return;
+                if (!origin || origin.pointerId !== event.pointerId || format !== "photo" || showOriginal) return;
                 const frame = event.currentTarget.getBoundingClientRect();
                 if (!frame.width || !frame.height) return;
                 setPhotoOffsetX(Math.max(-100, Math.min(100, Math.round(origin.offsetX + (event.clientX - origin.x) / frame.width * 180))));
                 setPhotoOffsetY(Math.max(-100, Math.min(100, Math.round(origin.offsetY + (event.clientY - origin.y) / frame.height * 180))));
               }}
-              onPointerUp={() => { dragStart.current = null; }}
+              onPointerUp={(event) => {
+                if (dragStart.current?.pointerId !== event.pointerId) return;
+                dragStart.current = null;
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+              }}
               onPointerCancel={() => { dragStart.current = null; }}
+              onLostPointerCapture={() => { dragStart.current = null; }}
             >
               {format === "video" && mediaPreviewUrl ? (
                 <video key={mediaPreviewUrl} src={mediaPreviewUrl} controls playsInline preload="metadata"
                   className="studio-preview-video" aria-label="Reproducción local del video seleccionado" />
               ) : format === "photo" && (showOriginal ? mediaPreviewUrl : photoPreview) ? (
-                <img src={(showOriginal ? mediaPreviewUrl : photoPreview)!} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" draggable={false} />
+                <img src={(showOriginal ? mediaPreviewUrl : photoPreview)!} alt={showOriginal ? "Fotografía original seleccionada" : "Previsualización de la fotografía procesada para el feed"} className="studio-preview-image" draggable={false} />
               ) : (
                 <div className="studio-preview-placeholder">
                   <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -785,7 +788,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
                 <div className="studio-image-toolbar">
-                  <strong>Encuadre <small>{showOriginal ? "Original" : "Resultado 4:5"}</small></strong>
+                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · 4:5"}</small></strong>
                   <div className="studio-image-toolbar-actions">
                     <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
                     <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
@@ -801,46 +804,10 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                     onClick={() => setPhotoZoom((z) => Math.min(1.6, Math.round((z + .05) * 100) / 100))}>+</button>
                   <output>{photoZoom.toFixed(2)}×</output>
                 </div>
-                <details className="studio-image-more">
-                  <summary>Posición y opciones avanzadas</summary>
-                <div className="studio-image-direction">
-                  <label>Horizontal
-                    <input type="range" min="-100" max="100" step="10" value={photoOffsetX} disabled={isPending}
-                      onChange={(event) => setPhotoOffsetX(Number(event.target.value))}/>
-                  </label>
-                  <label>Vertical
-                    <input type="range" min="-100" max="100" step="10" value={photoOffsetY} disabled={isPending}
-                      onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
-                  </label>
-                </div>
-
-                  <div className="studio-image-more-grid">
-                    <label>Encuadre
-                      <select value={photoLayout} onChange={(event) => setPhotoLayout(event.target.value as typeof photoLayout)} disabled={isPending}>
-                        <option value="AUTO">Automático</option>
-                        <option value="CONTAIN">Foto completa</option>
-                        <option value="COVER">Rellenar</option>
-                      </select>
-                    </label>
-                    <label>Fondo
-                      <select value={photoBackground} onChange={(event) => setPhotoBackground(event.target.value as typeof photoBackground)} disabled={isPending}>
-                        <option value="LIGHT">Claro</option>
-                        <option value="BLUR">Desenfocado</option>
-                      </select>
-                    </label>
-                    <label>Estilo
-                      <select value={photoPreset} onChange={(event) => setPhotoPreset(event.target.value as typeof photoPreset)} disabled={isPending}>
-                        <option value="CLINICAL">Clínico</option>
-                        <option value="EDUCATIONAL">Educativo</option>
-                        <option value="COMMERCIAL">Comercial</option>
-                      </select>
-                    </label>
-                  </div>
-                </details>
               </div>
             )}
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" ? "Formato feed 4:5. Revisa el encuadre antes de generar." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" ? "Arrastra la fotografía para moverla. Ajusta el zoom antes de generar." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
