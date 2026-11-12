@@ -644,7 +644,7 @@ export function ApprovalQueue({
                       </p>
                     ) : null}
 
-                    <div className="studio-proposal-actions mt-auto flex flex-col gap-2 sm:flex-row">
+                    <div className="studio-proposal-actions mt-auto flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         disabled={isBusy || isTextIdea || editingId === post.id}
@@ -669,9 +669,9 @@ export function ApprovalQueue({
                       >
                         Editar texto
                       </button>
+                      <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
                       {deleteButton(post)}
                     </div>
-                    <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
                   </div>
                 </article>
               </li>
