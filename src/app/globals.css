@@ -924,3 +924,30 @@ body { background: var(--canvas); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .studio-format-picker button, .studio-tone-picker button { transition: none; }
 }
+
+/* Compact publication cards keep the content and decisions in one reading flow. */
+.studio-proposal .studio-proposal-body { gap: 10px; padding: 20px 23px; }
+.studio-proposal .studio-proposal-body > div:first-child { margin-bottom: 2px; }
+.studio-proposal .studio-proposal-actions {
+  align-items: center;
+  padding-top: 14px;
+  margin-top: 5px;
+  border-top: 1px solid #e9efeb;
+}
+.studio-proposal .studio-proposal-actions button {
+  min-height: 39px;
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-size: .8rem;
+  font-weight: 680;
+}
+.studio-proposal .studio-proposal-actions button:hover:not(:disabled) { transform: translateY(-1px); }
+.studio-proposal .studio-proposal-actions button:disabled { transform: none; }
+@media (max-width: 720px) {
+  .studio-proposal .studio-proposal-body { padding: 17px; }
+  .studio-proposal .studio-proposal-actions { align-items: stretch; }
+  .studio-proposal .studio-proposal-actions button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-proposal .studio-proposal-actions button { transform: none !important; }
+}
