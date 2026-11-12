@@ -367,10 +367,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       return;
     }
 
-    if (!window.confirm("La aprobación publicará este contenido inmediatamente en las redes conectadas. ¿Confirmas que el material y el texto están autorizados para publicar?")) {
-      return;
-    }
-
     startTransition(async () => {
       const result = await approveAndPublishPost(targetPost.id);
 
@@ -463,22 +459,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     const payload = await response.json();
     setPosts(payload.posts as ApprovalQueuePost[]);
     setNotice(review.message);
-  }
-
-  async function confirmClinical(postId: string) {
-    const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/clinical-review`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ confirmed: true }),
-    });
-    const payload = await response.json() as { ok?: boolean; message?: string; clinicalVerifiedAt?: string };
-    if (!response.ok || !payload.ok || !payload.clinicalVerifiedAt) {
-      throw new Error(payload.message || "No se pudo registrar la revisión clínica.");
-    }
-    setPosts((current) => current.map((post) =>
-      post.id === postId ? { ...post, clinicalVerifiedAt: payload.clinicalVerifiedAt } : post,
-    ));
-    setNotice("Revisión clínica registrada. Ahora puedes aprobar la publicación.");
   }
 
   async function deletePost(postId: string) {
@@ -844,7 +824,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
           onApprove={approvePost}
-          onConfirmClinical={confirmClinical}
           onDelete={deletePost}
           onEdit={handleEditPost}
           onRetry={retryNetwork}
