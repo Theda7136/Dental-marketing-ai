@@ -79,3 +79,16 @@ npm run dev
 La nueva tabla `BrandProfile` es aditiva. No realizar `migrate reset`, `db push --force-reset` ni eliminar `dev.db`.
 
 Las pruebas automáticas siguen pendientes a petición del propietario. La apariencia y el funcionamiento aún no se han validado en su equipo.
+
+## Mejoras del editor — archivos y branding
+
+- Carga de imágenes y videos con miniatura local, nombre, peso, tipo y reemplazo en el mismo control.
+- Vista previa de videos mediante `<video controls>` y URL local del navegador; no es una simulación del render final por FFmpeg ni de Meta.
+- Los controles de posición y zoom están asociados al escenario fotográfico 4:5 y solo aparecen con fotografía seleccionada. Incluyen botón Restablecer y arrastre con puntero; la vista final sigue dependiendo del renderer del servidor.
+- Tras crear una propuesta, se muestra una confirmación con enlace directo a `/dashboard/pendientes`.
+- En `/dashboard/conexiones` se agregó identidad de marca: nombre, color principal, tipografía predefinida y logotipo rasterizado. `/api/brand` usa la autenticación actual y almacena los datos en SQLite (`BrandProfile`).
+- La marca configura la identidad interna del estudio y una tarjeta demostrativa. **No se imprime automáticamente sobre material clínico o publicaciones existentes**; el uso de plantillas gráficas de marca para nuevas piezas requiere una fase independiente de aprobación de contenidos.
+
+### Actualización local
+
+Como se añadió un modelo Prisma, hacer copia de seguridad de `prisma/dev.db`, aplicar `npx prisma migrate deploy`, generar el cliente y compilar cuando se reanuden las pruebas. No ejecutar `prisma migrate reset`.
