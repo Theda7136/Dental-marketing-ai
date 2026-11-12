@@ -547,7 +547,7 @@ export function ApprovalQueue({
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        El resultado de publicación de una red no está confirmado. Comprueba la publicación directamente en Meta antes de intentar de nuevo.
+                        El envío no pudo confirmarse. Revisa la publicación en Meta y utiliza «Registrar comprobación» para resolver el estado antes de reintentar.
                       </p>
                     )}
 
