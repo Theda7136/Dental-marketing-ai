@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry } from "./actions";
+import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, confirmMissingAndRetry } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -218,6 +218,44 @@ export default function DashboardPage() {
 
     const targetPost = posts.find((p) => p.id === postId);
     if (!targetPost) return;
+
+    const uncertain = (["facebook", "instagram"] as const).filter((network) =>
+      targetPost[network === "facebook" ? "facebookStatus" : "instagramStatus"] === "UNKNOWN",
+    );
+    if (uncertain.length > 0) {
+      if (uncertain.length !== 1) {
+        setErrorMessage("Hay más de una red sin confirmar. Revisa los estados por separado antes de volver a enviar.");
+        return;
+      }
+
+      const network = uncertain[0];
+      const label = network === "facebook" ? "Facebook" : "Instagram";
+      const confirmed = window.confirm(
+        `Meta no confirmó el envío anterior a ${label}. ¿Revisaste la página y confirmas que NO existe la publicación? Si continúas, se intentará enviar una sola vez. Si sí aparece en Meta, cancela para evitar duplicados.`,
+      );
+      if (!confirmed) return;
+
+      startTransition(async () => {
+        const attempt = await confirmMissingAndRetry(postId, network);
+        try {
+          const response = await fetch("/api/posts", { cache: "no-store" });
+          if (!response.ok) throw new Error("No se pudo recargar la información.");
+          const payload = await response.json();
+          setPosts(payload.posts as ApprovalQueuePost[]);
+        } catch {
+          setErrorMessage("El intento pudo haberse procesado. Recarga el historial antes de otra acción.");
+          return;
+        }
+
+        if (attempt.ok) setNotice(attempt.message);
+        else setErrorMessage(attempt.message);
+      });
+      return;
+    }
+    if (targetPost.facebookStatus !== "PENDING" || targetPost.instagramStatus !== "PENDING") {
+      setErrorMessage("La publicación ya fue enviada a una red. Revisa el estado de cada plataforma antes de continuar.");
+      return;
+    }
 
     if (!window.confirm("La aprobación publicará este contenido inmediatamente en las redes conectadas. ¿Confirmas que el material y el texto están autorizados para publicar?")) {
       return;
