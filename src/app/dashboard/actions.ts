@@ -103,6 +103,10 @@ export async function createTextProposal(formData: FormData) {
   try {
     const procedureName = formData.get("procedureName") as string;
     const notes = formData.get("notes") as string;
+    const selectedStyle = formData.get("selectedStyle");
+    if (selectedStyle !== "EDUCATIONAL" && selectedStyle !== "COMMERCIAL") {
+      return { ok: false, message: "Elige una versión educativa o comercial." };
+    }
 
     if (!procedureName) {
       return { ok: false, message: "El procedimiento es obligatorio." };
@@ -129,10 +133,10 @@ export async function createTextProposal(formData: FormData) {
       data: {
         procedureName,
         mediaType: "IMAGE",
-        generatedCaption: educationalCaption,
+        generatedCaption: selectedStyle === "COMMERCIAL" ? commercialCaption : educationalCaption,
         educationalCaption,
         commercialCaption,
-        selectedStyle: "EDUCATIONAL",
+        selectedStyle,
         mediaUrl: "",
         status: "PENDING_APPROVAL",
       },
