@@ -404,7 +404,7 @@ function buildCaption(draft: {
 async function prepareImage(
   procedureName: string,
   media: Uint8Array,
-  notes?: string,
+  notes: string | undefined,
   enableVision: boolean,
   photoOptions: PhotoOptions,
 ) {
@@ -567,7 +567,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision, input.photoOptions)
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision === true, input.photoOptions)
         : await prepareVideo(
             procedureName,
             input.media,
