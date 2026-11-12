@@ -243,3 +243,11 @@ Se eliminó del formulario la entrada manual de subtítulos SRT y del backend su
 El control «Comprobar acceso HTTPS de imagen» desaparece del dashboard; el servicio HTTPS se conserva como dependencia técnica de publicación y el diagnóstico de red sigue disponible en el backend.
 
 **Corrección de recuperación visible:** las tarjetas pendientes con Facebook o Instagram en `UNKNOWN` ahora muestran directamente «Registrar comprobación», antes solo se mostraba dentro del historial, fuera de la tarjeta en pantalla. Después de registrar `NOT_FOUND` con evidencia y confirmar un reintento, se habilita «Publicar solo en Facebook/Instagram» según corresponda. Para un envío incierto se oculta «Aprobar y publicar» (ambas redes) en vez de exhibir un botón deshabilitado que no explica cómo proceder. Se mantiene la restricción de un reintento documentado para prevenir duplicaciones.
+
+## Acción principal accesible para envíos inciertos
+
+La tarjeta pendiente conserva «Aprobar y publicar» como acción primaria visible y habilitada para fotografías y videos. Al detectar un único estado `UNKNOWN`, solicita confirmación específica de que el operador revisó la red y **no encontró** el contenido. Si confirma, registra evidencia de esa declaración, habilita un solo reintento para **esa red** y ejecuta el envío selectivo. Si cancela, no se envía nada. Si hay varios estados desconocidos o ya hubo un reintento, no intenta publicar de nuevo de forma automática.
+
+Una petición enviada no se marca `SUCCEEDED` ni `PUBLISHED` a menos que Meta devuelva evidencia suficiente de éxito. Las limitaciones de la API no permiten garantizar que cada solicitud sin respuesta haya fracasado. El botón siempre visible no implica un reenvío automático ni una confirmación ficticia.
+
+La recuperación avanzada del historial mantiene su capacidad de inspección. Para las tarjetas pendientes, el botón primario sustituye al formulario de comprobación técnica.
