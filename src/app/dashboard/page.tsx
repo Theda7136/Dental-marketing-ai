@@ -507,21 +507,27 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         <div className="studio-sidebar-label">ESPACIO DE TRABAJO</div>
         <nav className="studio-nav" aria-label="Secciones">
           {([
-            { id: "create", href: "/dashboard/crear", label: "Crear contenido" },
-            { id: "pending", href: "/dashboard/pendientes", label: "Pendientes" },
-            { id: "history", href: "/dashboard/historial", label: "Historial" },
-            { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
-          ] as const).map((destination) => (
-            <a
-              key={destination.id}
-              className={`studio-nav-link ${view === destination.id ? "is-current" : ""}`}
-              href={destination.href}
-              aria-current={view === destination.id ? "page" : undefined}
-            >
-              {destination.label}
-            </a>
-          ))}
-        </nav>
+             { id: "create", href: "/dashboard/crear", label: "Crear contenido" },
+             { id: "pending", href: "/dashboard/pendientes", label: "Pendientes" },
+             { id: "history", href: "/dashboard/historial", label: "Historial" },
+             { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
+           ] as const).map((destination) => (
+             <a key={destination.id}
+               className={`studio-nav-link ${view === destination.id ? "is-current" : ""}`}
+               href={destination.href}
+               aria-current={view === destination.id ? "page" : undefined}>
+               <svg viewBox="0 0 24 24" aria-hidden="true" className="studio-nav-icon" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                 {destination.id === "create" ? <><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10M7 12h10"/></>
+                   : destination.id === "pending" ? <><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 10h4"/></>
+                   : destination.id === "history" ? <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>
+                   : <><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="white"/><circle cx="15" cy="12" r="2" fill="white"/><circle cx="10" cy="17" r="2" fill="white"/></>}
+               </svg>
+               <span>{destination.label}</span>
+               {destination.id === "pending" && posts.some((post) => post.status === "PENDING_APPROVAL") && (
+                 <span className="studio-nav-count">{posts.filter((post) => post.status === "PENDING_APPROVAL").length}</span>
+               )}
+             </a>
+           ))}       </nav>
         <div className="studio-sidebar-footer">
           <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
           <p>Todo contenido requiere revisión antes de publicarse.</p>
@@ -530,7 +536,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       <div className="studio-main" id="studio-main">
         <header className="studio-topbar">
           <div>
-            <p className="eyebrow">ESTUDIO / CONTENIDO</p>
+            <p className="eyebrow">{view === "create" ? "ESTUDIO CREATIVO" : view === "pending" ? "FLUJO DE REVISIÓN" : "DENTAL STUDIO"}</p>
             <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : "Conexiones"}</h1>
             <p>{view === "create"
               ? "Prepara fotografías, videos e ideas listas para revisar."
@@ -540,7 +546,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   ? "Consulta las publicaciones y sus estados por red."
                   : "Administra las cuentas sociales de la clínica."}</p>
           </div>
-          {view !== "create" && <a href="/dashboard/crear" className="studio-topbar-link">Nueva propuesta</a>}
+          <div className="studio-topbar-actions">{view === "create" ? <a href="/dashboard/pendientes" className="studio-topbar-link">Ver pendientes <span aria-hidden="true">↗</span></a> : <a href="/dashboard/crear" className="studio-topbar-link"><span aria-hidden="true">＋</span> Nueva propuesta</a>}</div>
         </header>
         <div className="studio-content">
           {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
@@ -564,7 +570,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
         {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="studio-form-intro">
-            <h2 id="new-case-title">Nueva propuesta</h2>
+            <span className="studio-section-kicker">01 / CONFIGURACIÓN</span>
+             <h2 id="new-case-title">Nueva propuesta</h2>
             <p>Prepara el contenido para revisión y publicación.</p>
           </div>
 
@@ -750,7 +757,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           <aside className={`studio-preview-panel ${!hasMedia ? "is-empty" : "has-media"}`} aria-label="Previsualización de contenido">
             <div className="studio-preview-heading">
               <div>
-                <h2>Vista previa</h2>
+                <span className="studio-section-kicker">02 / COMPOSICIÓN</span>
+                 <h2>Vista previa</h2>
                 <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? "Video para redes" : "Idea de contenido"}</p>
               </div>
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
