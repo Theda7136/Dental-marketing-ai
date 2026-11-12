@@ -679,6 +679,23 @@ export function ApprovalQueue({
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
                   </div>
                 )}
+                {post.mediaUrl && !post.clinicalVerifiedAt && (
+                  <div className="mt-3 rounded-lg border border-[#cbdcd4] bg-[#f5faf7] p-3 text-sm">
+                    <label className="flex items-start gap-2">
+                      <input type="checkbox" className="mt-1" checked={Boolean(clinicalChecks[post.id])}
+                        disabled={busyId === post.id}
+                        onChange={(event) => setClinicalChecks((current) => ({ ...current, [post.id]: event.target.checked }))}/>
+                      <span>He comprobado que el procedimiento, el contenido y las autorizaciones corresponden a este caso.</span>
+                    </label>
+                    <button type="button" disabled={busyId === post.id || !clinicalChecks[post.id] ||
+                      ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
+                      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus || "")}
+                      className="mt-2 rounded-lg border border-[#b7d7ce] bg-white px-3 py-2 font-semibold text-[#176c63] disabled:opacity-50"
+                      onClick={() => void runAction(post.id, () => onConfirmClinical(post.id))}>
+                      Confirmar revisión clínica
+                    </button>
+                  </div>
+                )}
                 {post.status === "PUBLISHED" && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {retryButton(post, "facebook")}
