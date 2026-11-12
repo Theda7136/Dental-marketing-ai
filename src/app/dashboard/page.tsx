@@ -500,7 +500,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         </p>
       ) : null}
 
-      <div className={view === "create" ? `studio-editor-grid ${format === "photo" && selectedPhoto ? "has-preview" : "without-preview"}` : "studio-single-view"}>
+      <div className={view === "create" ? "studio-editor-grid" : "studio-single-view"}>
         {view === "create" && <section id="create-content" aria-labelledby="new-case-title" className="app-card studio-form-panel rounded-3xl p-5 sm:p-6">
           <div className="studio-form-intro">
             <h2 id="new-case-title">Nueva propuesta</h2>
@@ -609,8 +609,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
             ) : null}
 
-            {format === "photo" && (
-              <section className="space-y-3 rounded-2xl border border-[#d7e5df] bg-[#f7faf8] p-3" aria-label="Ajuste visual de foto">
+            {format === "photo" && selectedPhoto && (
+              <section className="studio-photo-tools space-y-3 rounded-2xl border border-[#d7e5df] bg-[#f7faf8] p-3" aria-label="Ajuste visual de foto">
                 <div>
                   <p className="text-sm font-semibold text-[#173b3a]">Ajuste visual</p>
                   <p className="text-xs text-[#637773]">La foto se prepara para el feed en 4:5 (1080 × 1350), sin marcos negros.</p>
@@ -719,28 +719,32 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </button>
           </form>
         </section>}
-        {view === "create" && format === "photo" && selectedPhoto && (
+        {view === "create" && (
           <aside className="studio-preview-panel" aria-label="Previsualización de fotografía">
             <div className="studio-preview-heading">
               <div>
                 <h2>Vista previa</h2>
-                <p>Imagen final para el feed</p>
+                <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? "Video para redes" : "Idea de contenido"}</p>
               </div>
-              <span className="studio-preview-format">4:5</span>
+              <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
             <div className="studio-preview-canvas" aria-live="polite">
-              {photoPreview ? (
+              {format === "photo" && photoPreview ? (
                 <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" />
               ) : (
-                <p className="studio-preview-loading" role="status">
-                  {photoPreviewError ? "No se pudo generar la imagen" : "Preparando imagen…"}
-                </p>
+                <div className="studio-preview-placeholder">
+                  <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                    <rect x="7" y="9" width="34" height="30" rx="4" />
+                    <circle cx="19" cy="20" r="3.2" />
+                    <path d="m11 34 10-10 7 7 6-6 4 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <strong>{format === "photo" ? "Tu fotografía aparecerá aquí" : format === "video" ? "Prepara tu video" : "Prepara tu guion"}</strong>
+                  <span>{format === "photo" && selectedPhoto && !photoPreviewError ? "Procesando vista previa…" : format === "photo" ? "Selecciona una fotografía para visualizar el encuadre." : format === "video" ? "Selecciona un video para generar una propuesta." : "Selecciona un procedimiento y describe tu idea."}</span>
+                </div>
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">
-              Comprueba el encuadre antes de generar. La visualización final puede variar ligeramente según la red social.
-            </p>
+            <p className="studio-preview-caption">{format === "photo" ? "Formato feed 4:5. Revisa el encuadre antes de generar." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
