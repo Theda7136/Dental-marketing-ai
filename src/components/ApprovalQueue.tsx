@@ -470,7 +470,7 @@ export function ApprovalQueue({
                       />
                     )}
                   </div>
-                  <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5">
+                  <div className="studio-proposal-body flex min-w-0 flex-col gap-3 p-4 sm:p-5">
                     <div>
                       <h3 className="text-lg font-semibold tracking-tight text-[#173b3a]">
                         {post.procedureName}
@@ -647,7 +647,7 @@ export function ApprovalQueue({
                       </p>
                     ) : null}
 
-                    <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+                    <div className="studio-proposal-actions mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
                         disabled={isBusy || isTextIdea || editingId === post.id}
