@@ -17,7 +17,7 @@ export async function generateClinicalPost({ procedure, notes }: GeneratePostPar
   }
 
   const selected = procedure.trim();
-  if (!clinicalGuardrails.allowedDentalTerms.includes(selected)) {
+  if (!clinicalGuardrails.allowedDentalTerms.some((term) => term === selected)) {
     return { success: false, error: "Selecciona un procedimiento odontológico permitido." };
   }
 
