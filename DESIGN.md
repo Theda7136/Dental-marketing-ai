@@ -32,3 +32,18 @@ Workspace clínico profesional: sereno, legible, seguro y rápido. Interfaz de o
 
 ## Referencia
 `pbakaus/impeccable` (Apache 2.0). La implementación del producto aplica sus criterios de diseño, sin copiar componentes ni afirmar que el detector se ejecutó.
+
+## Navegación revisada — páginas independientes
+
+Dental Studio emplea una navegación superior horizontal, deliberadamente distinta del dashboard de Auditor Inteligente. Cada enlace abre una ruta real:
+
+- `/dashboard/crear`: formulario completo de creación y ajustes visuales
+- `/dashboard/pendientes`: cola de propuestas, revisión de texto y aprobación por red
+- `/dashboard/historial`: historial con filtros y comprobación de publicaciones
+- `/dashboard/conexiones`: vinculación de Meta y estado de las cuentas
+
+La ruta previa `/dashboard` se conserva como alias de creación para no romper accesos anteriores. La navegación marca la ruta activa con `aria-current="page"`, y el resto de la interfaz conserva el mismo motor de datos y acciones.
+
+La distribución pasa a navegación horizontal y superficie de trabajo principal, con el formulario ancho y las tarjetas de aprobación más legibles. En móvil, las rutas quedan en una barra desplazable horizontal.
+
+No se han ejecutado pruebas funcionales en esta fase, conforme a la decisión de posponerlas.
