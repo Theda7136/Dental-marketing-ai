@@ -1,5 +1,6 @@
 
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { isClinicAuthorized, unauthorizedResponse } from "../../../lib/clinicAuth";
 import {
   ClinicalGuardrailWarning,
@@ -9,7 +10,8 @@ import { prisma } from "../../../lib/prisma";
 import { deletePostMedia, storePostMedia } from "../../../services/mediaStorage";
 import {
   GrokServiceError,
-  generateDentalPost,
+  generateDentalVariants,
+  describeDentalImage,
 } from "../../../services/grokService";
 import {
   ImageServiceError,
@@ -49,6 +51,7 @@ interface CreatePostInput {
   media: Uint8Array;
   transcript?: TranscriptWord[];
   notes?: string;
+  enableVision?: boolean;
 }
 
 function normalize(value: string): string {
@@ -248,6 +251,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(form.get("transcript")),
       notes: readNotes(form.get("notes")),
+      enableVision: form.get("enableVision") === "true",
     };
   }
 
@@ -303,6 +307,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(record.transcript),
       notes: readNotes(record.notes),
+      enableVision: record.enableVision === true,
     };
   }
 
@@ -366,28 +371,35 @@ async function prepareImage(
   procedureName: string,
   media: Uint8Array,
   notes?: string,
+  enableVision = false,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
-    throw new RequestInputError(
-      400,
-      "FILE_TOO_LARGE",
-      "La imagen supera el máximo de 20 MB.",
-    );
+    throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
   }
 
-  const cleanImage = await removeClinicalBackground(media);
-  const draft = await generateDentalPost(
-    procedureName,
-    imageContextFor(procedureName, notes),
-  );
-  const generatedCaption = buildCaption(draft);
-  clinicalGuardrails.validate(generatedCaption);
-  const composed = await overlayOnClinicTemplate({
-    cleanImage,
-    procedureName,
-  });
+  let visualSummary: string | null = null;
+  if (enableVision) {
+    const reducedJpeg = await sharp(media).rotate().resize(768, 768, { fit: "inside" })
+      .jpeg({ quality: 68 }).toBuffer();
+    visualSummary = await describeDentalImage(reducedJpeg);
+  }
 
-  return { media: composed, generatedCaption, mediaType: "IMAGE" as const };
+  const context = imageContextFor(procedureName, notes) +
+    (visualSummary ? `\nObservaciones visuales no diagnósticas: ${visualSummary}. No las conviertas en afirmaciones clínicas.` : "");
+  const variants = await generateDentalVariants(procedureName, context);
+  const educationalCaption = buildCaption(variants.educational);
+  const commercialCaption = buildCaption(variants.commercial);
+  clinicalGuardrails.validate(educationalCaption);
+  clinicalGuardrails.validate(commercialCaption);
+
+  const cleanImage = await removeClinicalBackground(media);
+  const composed = await overlayOnClinicTemplate({ cleanImage, procedureName });
+
+  return {
+    media: composed, generatedCaption: educationalCaption, educationalCaption,
+    commercialCaption, selectedStyle: "EDUCATIONAL" as const,
+    visualSummary, mediaType: "IMAGE" as const,
+  };
 }
 
 async function prepareVideo(
@@ -397,17 +409,21 @@ async function prepareVideo(
   notes?: string,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
-  const rendered = transcript
-    ? await overlayKaraokeSubtitles(vertical, transcript)
-    : vertical;
-  const draft = await generateDentalPost(
+  const rendered = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
+  const variants = await generateDentalVariants(
     procedureName,
     videoContextFor(procedureName, transcript !== undefined, notes),
   );
-  const generatedCaption = buildCaption(draft);
-  clinicalGuardrails.validate(generatedCaption);
+  const educationalCaption = buildCaption(variants.educational);
+  const commercialCaption = buildCaption(variants.commercial);
+  clinicalGuardrails.validate(educationalCaption);
+  clinicalGuardrails.validate(commercialCaption);
 
-  return { media: rendered, generatedCaption, mediaType: "VIDEO" as const };
+  return {
+    media: rendered, generatedCaption: educationalCaption, educationalCaption,
+    commercialCaption, selectedStyle: "EDUCATIONAL" as const,
+    visualSummary: null, mediaType: "VIDEO" as const,
+  };
 }
 
 function errorResponse(
@@ -508,7 +524,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes)
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision)
         : await prepareVideo(
             procedureName,
             input.media,
@@ -529,6 +545,10 @@ export async function POST(request: Request) {
         mediaType: prepared.mediaType,
         mediaUrl,
         generatedCaption: prepared.generatedCaption,
+        educationalCaption: prepared.educationalCaption,
+        commercialCaption: prepared.commercialCaption,
+        selectedStyle: prepared.selectedStyle,
+        visualSummary: prepared.visualSummary,
         status: "PENDING_APPROVAL",
       },
     });
@@ -542,6 +562,10 @@ export async function POST(request: Request) {
           mediaType: post.mediaType,
           mediaUrl: post.mediaUrl,
           generatedCaption: post.generatedCaption,
+          educationalCaption: post.educationalCaption,
+          commercialCaption: post.commercialCaption,
+          selectedStyle: post.selectedStyle,
+          visualSummary: post.visualSummary,
           status: post.status,
           createdAt: post.createdAt.toISOString(),
           approvedAt: post.approvedAt?.toISOString() ?? null,
