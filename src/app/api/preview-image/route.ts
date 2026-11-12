@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
-import { ImageServiceError, parsePhotoOptions, renderSocialPhoto } from "@/services/imageService";
+import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate } from "@/services/imageService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
       offsetX: form.get("photoOffsetX"),
       offsetY: form.get("photoOffsetY"),
     });
-    const preview = await renderSocialPhoto(new Uint8Array(await file.arrayBuffer()), options);
+    const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
+    const preview = await overlayOnClinicTemplate({ cleanImage: new Uint8Array(await file.arrayBuffer()), procedureName: String(form.get("procedureName") || ""), options, brand });
     return new NextResponse(Buffer.from(preview), {
       status: 200,
       headers: {
