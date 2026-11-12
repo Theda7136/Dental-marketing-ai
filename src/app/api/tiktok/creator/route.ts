@@ -12,6 +12,8 @@ export async function GET(request: Request) {
       nickname: creator.creator_nickname,
       privacyOptions: creator.privacy_level_options,
       commentsDisabled: creator.comment_disabled,
+      duetDisabled: creator.duet_disabled,
+      stitchDisabled: creator.stitch_disabled,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "TikTok no disponible." }, { status: 503 });
