@@ -11,6 +11,7 @@ export async function GET(request: Request) {
 
   try {
     const posts = await prisma.scheduledPost.findMany({
+      where: { archivedAt: null },
       orderBy: { createdAt: "desc" },
     });
 
