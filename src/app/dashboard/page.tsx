@@ -6,7 +6,7 @@ import {
   type ApprovalQueuePost,
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
-import { checkPublicMediaAccess, createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry } from "./actions";
+import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -297,10 +297,6 @@ export default function DashboardPage() {
     setNotice(style === "EDUCATIONAL" ? "Versión educativa seleccionada." : "Versión comercial seleccionada.");
   }
 
-  async function checkMedia(postId: string) {
-    return checkPublicMediaAccess(postId);
-  }
-
   async function lookupMetaId(postId: string, network: "facebook" | "instagram") {
     return verifyMetaObject(postId, network);
   }
@@ -492,21 +488,6 @@ export default function DashboardPage() {
                   <input type="checkbox" name="muteAudio" value="true" disabled={isPending} />
                   Silenciar audio original
                 </label>
-                <label className="block space-y-2 text-sm text-[#46615b]">
-                  <span className="block font-semibold text-[#173b3a]">Subtítulos temporizados (opcional)</span>
-                  <textarea
-                    name="subtitleSrt"
-                    rows={7}
-                    maxLength={12000}
-                    disabled={isPending}
-                    placeholder={"1\\n00:00:00,000 --> 00:00:03,000\\nBienvenidos a nuestra clínica\\n\\n2\\n00:00:03,000 --> 00:00:06,000\\nHoy hablaremos de salud dental"}
-                    className="field-control w-full resize-y rounded-xl px-3 py-3 font-mono text-xs text-stone-900"
-                  />
-                  <span className="block text-xs leading-5 text-[#637773]">
-                    Pega subtítulos en formato SRT, con tiempos reales. Se incrustarán en el video.
-                    Esta versión no transcribe la voz automáticamente: revisa ortografía y sincronización antes de publicar.
-                  </span>
-                </label>
               </fieldset>
             )}
 
@@ -559,7 +540,6 @@ export default function DashboardPage() {
           onRetry={retryNetwork}
           onVerify={verifyNetwork}
           onLookup={lookupMetaId}
-          onCheckMedia={checkMedia}
           onChooseStyle={changeCopyStyle}
           onAuthorizeRetry={reconcileRetry}
         />
