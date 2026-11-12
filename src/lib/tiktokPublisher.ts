@@ -71,7 +71,7 @@ export async function publishToTikTok(postId: string, privacy: string) {
       data: {
         tiktokStatus: "PROCESSING",
         tiktokPublishId: initiated.publish_id,
-        ...(post.status === "PENDING_APPROVAL" ? { status: "PUBLISHED", approvedAt: new Date() } : {}),
+        ...(post.status === "PENDING_APPROVAL" ? { approvedAt: new Date() } : {}),
       },
     });
     return { status: "PROCESSING", publishId: initiated.publish_id };
@@ -99,6 +99,7 @@ export async function refreshTikTokPostStatus(postId: string) {
     where: { id: postId },
     data: {
       tiktokStatus: completed ? "SUCCEEDED" : failed ? "FAILED" : "PROCESSING",
+      ...(completed && post.status === "PENDING_APPROVAL" ? { status: "PUBLISHED" } : {}),
       tiktokError: failed ? (status.fail_reason || "TikTok rechazó el envío.").slice(0, 400) : null,
     },
   });
