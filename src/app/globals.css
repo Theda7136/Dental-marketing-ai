@@ -564,3 +564,10 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-preview-canvas.is-adjustable img { user-select: none; pointer-events: none; }
 
 .studio-file-thumb video { width:100%; height:100%; object-fit:cover; pointer-events:none; }
+
+.studio-header-logo { display: block; width: 100%; height: 100%; padding: 3px; border-radius: inherit; object-fit: contain; }
+.studio-preview-canvas[aria-label="Arrastra para ajustar la posición de la fotografía"] { touch-action: none; cursor: grab; }
+.studio-preview-canvas[aria-label="Arrastra para ajustar la posición de la fotografía"]:active { cursor: grabbing; }
+.studio-brand-color-control input:focus-visible,
+.studio-file-replace:focus-visible,
+.studio-upload-button:focus-visible { outline: 3px solid #82b5a4; outline-offset: 3px; }
