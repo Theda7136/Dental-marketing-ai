@@ -48,7 +48,11 @@ before(async () => {
       "facebookRetryCount" INTEGER NOT NULL DEFAULT 0,
       "instagramRetryCount" INTEGER NOT NULL DEFAULT 0,
       "facebookLastRetryAt" DATETIME,
-      "instagramLastRetryAt" DATETIME
+      "instagramLastRetryAt" DATETIME,
+      "tiktokStatus" TEXT NOT NULL DEFAULT 'PENDING',
+      "tiktokPublishId" TEXT,
+      "tiktokError" TEXT,
+      "tiktokPrivacy" TEXT
     )
   `);
 });
