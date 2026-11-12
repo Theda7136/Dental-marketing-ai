@@ -32,28 +32,48 @@ async function queryGemini(parts: object[], systemInstruction: string, json = fa
   const key = geminiKey();
   if (!key) throw new AIProviderError("Falta GEMINI_API_KEY en .env.");
 
-  let response: Response;
-  try {
-    response = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: "user", parts }],
-        generationConfig: json ? { responseMimeType: "application/json", temperature: 0.5 } : { temperature: 0.2 },
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-  } catch {
-    throw new AIProviderError("No se pudo conectar con Gemini.", 503);
-  }
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: "user", parts }],
+    generationConfig: json ? { responseMimeType: "application/json", temperature: 0.5 } : { temperature: 0.2 },
+  });
 
-  if (!response.ok) {
-    if (response.status === 429) throw new AIProviderError("Se alcanzó el límite de Gemini.", 429);
-    if (response.status === 401 || response.status === 403) throw new AIProviderError("La clave de Gemini no está autorizada.", response.status);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body,
+        signal: AbortSignal.timeout(45000),
+      });
+    } catch {
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
+        continue;
+      }
+      throw new AIProviderError("No se pudo conectar con Gemini después de varios intentos.", 503);
+    }
+
+    if (response.ok) return textOf(await response.json());
+
+    if ([500, 503, 504].includes(response.status) && attempt < 2) {
+      await response.body?.cancel();
+      await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
+      continue;
+    }
+
+    if (response.status === 429) throw new AIProviderError("Gemini alcanzó su límite de solicitudes.", 429);
+    if (response.status === 401 || response.status === 403) {
+      throw new AIProviderError("La clave de Gemini no está autorizada.", response.status);
+    }
+    if (response.status === 503) {
+      throw new AIProviderError("Gemini sigue temporalmente saturado (HTTP 503). Puedes desactivar el análisis visual para continuar con una foto sin enviarla a Google.", 503);
+    }
     throw new AIProviderError(`Gemini no pudo responder (HTTP ${response.status}).`, response.status);
   }
-  return textOf(await response.json());
+
+  throw new AIProviderError("Gemini no está disponible.", 503);
 }
 
 function checkDraft(raw: unknown): DentalPost {
