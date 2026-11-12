@@ -120,7 +120,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const formRef = useRef<HTMLFormElement>(null);
   const [format, setFormat] = useState<ContentFormat>("photo");
   const [posts, setPosts] = useState<ApprovalQueuePost[]>([]);
-  const [fileLabel, setFileLabel] = useState("Ningún archivo seleccionado");
   const [fileKey, setFileKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -142,7 +141,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
-  const [previewNetwork, setPreviewNetwork] = useState<"FACEBOOK" | "INSTAGRAM">("FACEBOOK");
 
   const [isPending, startTransition] = useTransition();
 
@@ -274,7 +272,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         formRef.current?.reset();
         setProcedureName("");
         setNotes("");
-        setFileLabel("Ningún archivo seleccionado");
         setSelectedPhoto(null);
         setSelectedMedia(null);
         setFileKey((current) => current + 1);
@@ -288,7 +285,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
   function changeFormat(next: ContentFormat) {
     setFormat(next);
-    setFileLabel("Ningún archivo seleccionado");
     setSelectedPhoto(null);
     setSelectedMedia(null);
     setSavedProposal(false);
@@ -618,7 +614,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   onChange={(event) => {
                     const media = event.currentTarget.files?.[0] ?? null;
                     setSelectedMedia(media);
-                    setFileLabel(media ? media.name : "Ningún archivo seleccionado");
                     setSelectedPhoto(format === "photo" ? media : null);
                     setPhotoZoom(1);
                     setPhotoOffsetX(0);
