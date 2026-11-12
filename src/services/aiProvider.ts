@@ -62,7 +62,7 @@ function checkDraft(raw: unknown): DentalPost {
   if (typeof draft.caption !== "string" || !draft.caption.trim() ||
       typeof draft.suggestedCallToAction !== "string" || !draft.suggestedCallToAction.trim() ||
       !Array.isArray(draft.hashtags) || draft.hashtags.length === 0 ||
-      !draft.hashtags.every((tag) => typeof tag === "string" && /^#[\\p{L}\\p{N}_]+$/u.test(tag))) {
+      !draft.hashtags.every((tag) => typeof tag === "string" && /^#[\p{L}\p{N}_]+$/u.test(tag))) {
     throw new AIProviderError("Gemini devolvió una propuesta incompleta.", 502);
   }
   const post: DentalPost = {
