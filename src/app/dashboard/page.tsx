@@ -700,8 +700,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 <input type="checkbox" name="visionConsent" value="true" disabled={isPending} className="mt-1" />
                 <span>
                   <strong className="block text-sm text-[#173b3a]">Gemini Vision · análisis opcional</strong>
-                  Activa esta opción solo si autorizas enviar una versión reducida de la foto a Google Gemini. Sin marcarla, se genera el texto usando el procedimiento y tus notas, sin enviar la foto a Google. Confirmo, al activarla,
-                  que no contiene datos identificables y que la revisión clínica será humana. En el nivel gratuito, Google puede usar contenido enviado para mejorar sus productos; utiliza solo material de prueba o debidamente autorizado.
+                  Si activas esta casilla, autorizas enviar una versión reducida de la fotografía a Google Gemini para un análisis visual no diagnóstico. Confirma que cuentas con permiso y que la imagen no contiene datos identificables. Sin marcarla, la IA redactará usando el procedimiento y las notas, sin enviar la fotografía a Gemini. Google puede usar el contenido del nivel gratuito para mejorar sus productos.
                 </span>
               </label>
             )}
