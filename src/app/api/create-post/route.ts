@@ -543,7 +543,7 @@ export async function POST(request: Request) {
     const input = await readRequestInput(request);
     const procedureName = resolveProcedureName(input.procedureName);
     const kind = detectMediaKind(input.media);
-    if (kind === "image" && input.enableVision && !input.visionConsent) {
+    if (kind === "image" && !input.visionConsent) {
       throw new RequestInputError(
         400, "VISION_CONSENT_REQUIRED",
         "Confirma la autorización para enviar esta fotografía a Google Gemini Vision.",
@@ -560,7 +560,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision === true, input.photoOptions)
+        ? await prepareImage(procedureName, input.media, input.notes, true, input.photoOptions)
         : await prepareVideo(
             procedureName,
             input.media,
