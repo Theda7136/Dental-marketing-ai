@@ -17,7 +17,7 @@ export function platformCaptions(caption) {
   const plain = sections.filter((part) => !/^\s*(?:#[\p{L}\p{N}_]+\s*)+$/u.test(part));
   let body = sentencesWithoutTrailingCTA(plain[0] || "");
   const explicitCta = plain.slice(1).join(" ").trim();
-  const hasCallToAction = /(?:agenda|escr[ií]benos|cont[aá]ctanos|consulta|valoraci[oó]n|te invitamos|¿te gustar[ií]a)/iu.test(body);
+  const hasCallToAction = /(?:agenda (?:tu|una)|escr[ií]benos|cont[aá]ctanos|solicita (?:una|tu)|te invitamos|¿te gustar[ií]a|¿quieres conocer)/iu.test(body);
 
   if (!body) body = "Consulta con nuestro equipo odontológico para recibir información sobre el procedimiento.";
   const facebookCta = /biograf[ií]a|enlace de (?:nuestro|el) perfil/iu.test(explicitCta)
