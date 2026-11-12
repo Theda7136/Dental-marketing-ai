@@ -53,6 +53,7 @@ interface CreatePostInput {
   notes?: string;
   enableVision?: boolean;
   selectedStyle: "EDUCATIONAL" | "COMMERCIAL";
+  visionConsent: boolean;
 }
 
 function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
@@ -259,6 +260,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       notes: readNotes(form.get("notes")),
       enableVision: true,
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
+      visionConsent: form.get("visionConsent") === "true",
     };
   }
 
@@ -316,6 +318,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       notes: readNotes(record.notes),
       enableVision: true,
       selectedStyle: readCopyStyle(record.selectedStyle),
+      visionConsent: record.visionConsent === true,
     };
   }
 
@@ -521,19 +524,12 @@ export async function POST(request: Request) {
     const input = await readRequestInput(request);
     const procedureName = resolveProcedureName(input.procedureName);
     const kind = detectMediaKind(input.media);
-    if (kind === "image") {
-      const contentType = request.headers.get("content-type") ?? "";
-      const approved = contentType.includes("multipart/form-data")
-        ? (await request.clone().formData()).get("visionConsent") === "true"
-        : false;
-      if (!approved) {
-        throw new RequestInputError(
-          400, "VISION_CONSENT_REQUIRED",
-          "Confirma la autorización para analizar una fotografía con Grok Vision.",
-        );
-      }
+    if (kind === "image" && !input.visionConsent) {
+      throw new RequestInputError(
+        400, "VISION_CONSENT_REQUIRED",
+        "Confirma la autorización para analizar una fotografía con Grok Vision.",
+      );
     }
-
 
     if (kind === "image" && input.transcript) {
       throw new RequestInputError(
