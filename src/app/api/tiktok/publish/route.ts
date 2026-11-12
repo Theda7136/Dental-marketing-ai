@@ -7,14 +7,18 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   if (!isClinicAuthorized(request.headers.get("authorization"))) return unauthorizedResponse(true);
-  let params: { postId?: string; privacy?: string };
+  let params: { postId?: string; privacy?: string; disableComment?: boolean; disableDuet?: boolean; disableStitch?: boolean };
   try { params = await request.json(); }
   catch { return NextResponse.json({ error: "Datos de publicación inválidos." }, { status: 400 }); }
   if (!params.postId || !/^[\w-]{8,64}$/.test(params.postId) || !params.privacy) {
     return NextResponse.json({ error: "Selecciona una publicación y su privacidad." }, { status: 400 });
   }
   try {
-    const publication = await publishToTikTok(params.postId, params.privacy);
+    const publication = await publishToTikTok(params.postId, params.privacy, {
+      disableComment: params.disableComment === true,
+      disableDuet: params.disableDuet === true,
+      disableStitch: params.disableStitch === true,
+    });
     return NextResponse.json({ ok: true, ...publication });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo iniciar el envío." }, { status: 409 });
