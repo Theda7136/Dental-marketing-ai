@@ -143,6 +143,38 @@ export async function createTextProposal(formData: FormData) {
   }
 }
 
+export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "COMMERCIAL") {
+  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para editar propuestas." };
+  if (style !== "EDUCATIONAL" && style !== "COMMERCIAL") {
+    return { ok: false, message: "Estilo de contenido no válido." };
+  }
+
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  if (!post || post.status !== "PENDING_APPROVAL" || !canEditUnsentProposal(post)) {
+    return { ok: false, message: "La propuesta ya inició su publicación o no está pendiente." };
+  }
+
+  const caption = style === "EDUCATIONAL" ? post.educationalCaption : post.commercialCaption;
+  if (!caption) return { ok: false, message: "Esta propuesta no tiene generada esa versión de texto." };
+
+  try {
+    clinicalGuardrails.validate(caption);
+    const saved = await prisma.scheduledPost.updateMany({
+      where: {
+        id: postId, status: "PENDING_APPROVAL",
+        facebookStatus: "PENDING", instagramStatus: "PENDING",
+      },
+      data: { selectedStyle: style, generatedCaption: caption },
+    });
+
+    return saved.count === 1
+      ? { ok: true, caption, style }
+      : { ok: false, message: "La propuesta cambió de estado; recarga la página." };
+  } catch {
+    return { ok: false, message: "No se pudo seleccionar esta versión." };
+  }
+}
+
 export async function updatePendingCaption(postId: string, caption: string) {
   if (!(await hasClinicAccess())) {
     return { ok: false, message: "Inicia sesión para editar propuestas." };
@@ -157,14 +189,19 @@ export async function updatePendingCaption(postId: string, caption: string) {
     clinicalGuardrails.validate(revisedCaption);
     const currentPost = await prisma.scheduledPost.findUnique({
       where: { id: postId },
-      select: { facebookStatus: true, instagramStatus: true },
+      select: { facebookStatus: true, instagramStatus: true, selectedStyle: true },
     });
     if (!currentPost || !canEditUnsentProposal(currentPost)) {
       return { ok: false, message: "No puedes modificar el texto después de iniciar la publicación." };
     }
     const updated = await prisma.scheduledPost.updateMany({
       where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING" },
-      data: { generatedCaption: revisedCaption },
+      data: {
+        generatedCaption: revisedCaption,
+        ...(currentPost.selectedStyle === "COMMERCIAL"
+          ? { commercialCaption: revisedCaption }
+          : { educationalCaption: revisedCaption }),
+      },
     });
 
     return updated.count === 1
