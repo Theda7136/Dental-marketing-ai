@@ -54,3 +54,28 @@ Las pruebas completas continúan pendientes por elección del propietario. Antes
 - Identidad de marca editable en `/dashboard/conexiones`: nombre, color, tipografía y logotipo JPG/PNG/WebP. El perfil se guarda en SQLite y se muestra en una muestra de marca. No modifica publicaciones previas ni incrusta automáticamente logotipos sobre fotografías clínicas.
 
 Migración aditiva: `20261112163000_brand_settings`. Antes de utilizar el editor de marca hay que ejecutar `npx prisma migrate deploy` y `npx prisma generate`. Las pruebas de funcionamiento permanecen pendientes por decisión del propietario.
+
+## Nuevas herramientas del estudio
+
+- Carga de archivo: tarjeta compacta con miniatura local, nombre, tamaño, formato y reemplazo. Las URLs temporales de imagen y video se revocan al cambiar de archivo.
+- Video: reproducción local con controles en el panel derecho antes de generar; no es todavía la exportación procesada por FFmpeg.
+- Fotografía: previsualización renderizada en servidor a 4:5 con zoom y movimiento horizontal/vertical por deslizadores o arrastre; el formulario conserva estilo, fondo y tipo de recorte.
+- Al generar: mensaje de éxito en el editor y enlace directo a `/dashboard/pendientes`. Un error no muestra confirmación de guardado.
+- Marca: nuevo bloque en `/dashboard/conexiones`. Guarda el nombre, color, familia tipográfica y un logo optimizado, con una representación visual de identidad. Estos ajustes son para uso futuro; todavía **no se aplican automáticamente a fotografías de pacientes** ni publicaciones anteriores.
+
+### Migración necesaria
+
+Antes de iniciar con la nueva configuración de marca, respaldar `prisma/dev.db` y ejecutar:
+
+```powershell
+git pull origin feature/safe-content-review
+if (Test-Path prisma/dev.db) { Copy-Item prisma/dev.db prisma/dev.db.backup }
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npx prisma generate
+npm run build
+npm run dev
+```
+
+La nueva tabla `BrandProfile` es aditiva. No realizar `migrate reset`, `db push --force-reset` ni eliminar `dev.db`.
+
+Las pruebas automáticas siguen pendientes a petición del propietario. La apariencia y el funcionamiento aún no se han validado en su equipo.
