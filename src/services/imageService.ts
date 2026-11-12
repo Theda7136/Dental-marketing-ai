@@ -177,7 +177,7 @@ export async function overlayOnClinicTemplate(input: {
   options?: PhotoOptions;
   brand?: PhotoBrand | null;
 }): Promise<Uint8Array> {
-  assertProcedure(input.procedureName);
+  if (input.procedureName) assertProcedure(input.procedureName);
   const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, input.options));
   const brand = input.brand;
   if (!brand) return new Uint8Array(photo);
