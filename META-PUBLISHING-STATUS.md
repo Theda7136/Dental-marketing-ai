@@ -251,3 +251,20 @@ La tarjeta pendiente conserva «Aprobar y publicar» como acción primaria visib
 Una petición enviada no se marca `SUCCEEDED` ni `PUBLISHED` a menos que Meta devuelva evidencia suficiente de éxito. Las limitaciones de la API no permiten garantizar que cada solicitud sin respuesta haya fracasado. El botón siempre visible no implica un reenvío automático ni una confirmación ficticia.
 
 La recuperación avanzada del historial mantiene su capacidad de inspección. Para las tarjetas pendientes, el botón primario sustituye al formulario de comprobación técnica.
+
+## Mejora de composición visual para feed (2026-11-12)
+
+La generación de imágenes deja de incrustar las fotografías en un lienzo corporativo oscuro. El procesador `src/services/imageService.ts` exporta PNG a **1080×1350 (4:5)** para el feed de Facebook e Instagram, con fondos neutros. No aplica cambios artificiales de color, brillo o blanqueamiento dental.
+
+Controles integrados en el formulario Foto:
+- Preset **Clínico**, **Educativo** o **Comercial**: cambia suavemente el tono del fondo claro y mantiene la foto sin textos invasivos.
+- Encuadre **Automático**, **Foto completa**, o **Rellenar lienzo**: el modo automático preserva la imagen cuando un recorte podría eliminar detalles clínicos; el recorte explícito permite llenar el lienzo a costa de cortar bordes.
+- Fondo **Claro** o **Desenfocado**: evita bandas negras en fotos horizontales o especialmente estrechas.
+- Ajuste avanzado de zoom (1–1.6×) y posición horizontal/vertical.
+- Vista previa en el formulario con el archivo renderizado por **el mismo procesador** usado al generar y guardar la publicación. Alterna etiquetas Facebook/Instagram feed, pero ambas muestran el mismo asset 4:5; las plataformas pueden encuadrar distinto en su propia interfaz.
+
+Endpoint privado de vista previa: `POST /api/preview-image`, con autenticación existente, límite de 20 MB y sin persistencia ni llamadas a Meta o Grok. Al pulsar «Generar propuesta», se envían exactamente las mismas opciones al backend de creación. La interfaz solo muestra la vista previa si se adjuntó una foto; no está disponible para registros anteriores sin fuente original.
+
+**Límites:** no existe detección de bocas/dientes por landmarks en esta versión; la composición automática es conservadora según proporciones, con encuadre manual para correcciones. La salida 9:16 para Stories no está conectada porque actualmente la publicación de Stories no forma parte del flujo Meta existente; no se debe insinuar compatibilidad no implementada. La vista previa garantiza el archivo renderizado por la aplicación, no todos los efectos de presentación de Facebook o Instagram.
+
+Prueba con fotografías ficticias horizontales, verticales estrechas y con orientación EXIF. Revisa que el resultado 4:5 preserve el área odontológica importante. Las imágenes antiguas no se reeditan automáticamente y los posts ya publicados en Meta no se modifican.
