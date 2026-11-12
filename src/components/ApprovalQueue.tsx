@@ -41,6 +41,7 @@ export interface ApprovalQueuePost {
 }
 
 interface ApprovalQueueProps {
+  mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
@@ -123,6 +124,7 @@ function isVideoUrl(url: string): boolean {
 
 export function ApprovalQueue({
   posts,
+  mode = "both",
   onApprove,
   onEdit,
   onRetry,
@@ -135,7 +137,7 @@ export function ApprovalQueue({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftCaption, setDraftCaption] = useState("");
   const [expandedPosts, setExpandedPosts] = useState<string[]>([]);
-  const [showPublished, setShowPublished] = useState(false);
+  const [showPublished, setShowPublished] = useState(mode === "history");
   const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram">("all");
   const [historyStatus, setHistoryStatus] = useState("all");
   const [reviewKey, setReviewKey] = useState<string | null>(null);
@@ -308,6 +310,7 @@ export function ApprovalQueue({
 
   return (
     <section aria-labelledby="approval-queue-title" className="w-full min-w-0">
+      {mode !== "history" && <>
       <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <div>
@@ -585,22 +588,23 @@ export function ApprovalQueue({
         </ul>
       )}
 
-      <section className="mt-8 border-t border-[#d7e5df] pt-6" aria-labelledby="published-history-title">
+      </>}
+      {mode !== "pending" && <section className="studio-history-section" aria-labelledby="published-history-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 id="published-history-title" className="text-lg font-semibold text-[#173b3a]">Historial de publicaciones</h3>
             <p className="mt-1 text-sm text-[#637773]">{reviewedPosts.length} {reviewedPosts.length === 1 ? "propuesta registrada" : "propuestas registradas"} en el historial.</p>
           </div>
-          <button
+          {mode === "both" && <button
             type="button"
             aria-expanded={showPublished}
             onClick={() => setShowPublished((current) => !current)}
             className="rounded-xl border border-[#d7e5df] bg-white px-4 py-2 text-sm font-medium text-[#176c63]"
           >
             {showPublished ? "Ocultar historial" : "Ver historial"}
-          </button>
+          </button>}
         </div>
-        {showPublished && (
+        {(mode === "history" || showPublished) && (
           <>
             <div className="mt-4 grid gap-3 rounded-xl bg-[#f2f7f4] p-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs font-semibold text-[#46615b]">
@@ -695,7 +699,7 @@ export function ApprovalQueue({
           </ul>
           </>
         )}
-      </section>
+      </section>}
     </section>
   );
 }
