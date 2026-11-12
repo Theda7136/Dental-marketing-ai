@@ -590,6 +590,7 @@ export function ApprovalQueue({
                     <div className="studio-proposal-networks flex flex-wrap gap-2" aria-label="Estado por red social">
                       {networkStatus("Facebook", post.facebookStatus)}
                       {networkStatus("Instagram", post.instagramStatus)}
+                      {post.tiktokStatus && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus)}
                     </div>
 
                     {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) && (
@@ -655,6 +656,7 @@ export function ApprovalQueue({
 
                     <div className="studio-proposal-actions mt-auto flex flex-wrap items-center gap-2">
                       <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
+                      {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                       <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
@@ -787,7 +789,8 @@ export function ApprovalQueue({
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
+                  <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
+                  {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                   {deleteButton(post)}
                 </div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
