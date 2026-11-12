@@ -36,6 +36,7 @@ export interface ApprovalQueuePost {
   instagramReviewedAt?: string | null;
   createdAt: Date | string;
   approvedAt?: Date | string | null;
+  clinicalVerifiedAt?: string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
   mediaKind?: "image" | "video" | "text";
 }
@@ -44,6 +45,7 @@ interface ApprovalQueueProps {
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
+  onConfirmClinical: (postId: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
@@ -139,6 +141,7 @@ export function ApprovalQueue({
   posts,
   mode = "both",
   onApprove,
+  onConfirmClinical,
   onDelete,
   onEdit,
   onRetry,
@@ -160,6 +163,12 @@ export function ApprovalQueue({
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
+  const [clinicalChecks, setClinicalChecks] = useState<Record<string, boolean>>({});
+  const [pendingQuery, setPendingQuery] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [pendingPage, setPendingPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const pageSize = 10;
 
   const reviewedPosts = useMemo(
     () => posts.filter((post) => post.status !== "PENDING_APPROVAL")
@@ -186,6 +195,30 @@ export function ApprovalQueue({
         ),
     [posts],
   );
+
+  const pendingMatches = useMemo(() =>
+    pendingPosts.filter((post) => post.procedureName.toLocaleLowerCase("es").includes(pendingQuery.trim().toLocaleLowerCase("es"))),
+    [pendingPosts, pendingQuery],
+  );
+  const historyMatches = useMemo(() =>
+    filteredHistory.filter((post) => post.procedureName.toLocaleLowerCase("es").includes(historyQuery.trim().toLocaleLowerCase("es"))),
+    [filteredHistory, historyQuery],
+  );
+  const pendingPages = Math.max(1, Math.ceil(pendingMatches.length / pageSize));
+  const historyPages = Math.max(1, Math.ceil(historyMatches.length / pageSize));
+  const pendingVisible = pendingMatches.slice((Math.min(pendingPage, pendingPages) - 1) * pageSize, Math.min(pendingPage, pendingPages) * pageSize);
+  const historyVisible = historyMatches.slice((Math.min(historyPage, historyPages) - 1) * pageSize, Math.min(historyPage, historyPages) * pageSize);
+
+  function pageNav(page: number, pages: number, setPage: (page: number) => void) {
+    if (pages <= 1) return null;
+    return <nav aria-label="Paginación" className="mt-4 flex items-center justify-end gap-3 text-sm text-[#46615b]">
+      <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page <= 1}
+        onClick={() => setPage(page - 1)}>Anterior</button>
+      <span>Página {page} de {pages}</span>
+      <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page >= pages}
+        onClick={() => setPage(page + 1)}>Siguiente</button>
+    </nav>;
+  }
 
   function verificationControl(post: ApprovalQueuePost, network: "facebook" | "instagram") {
     const status = network === "facebook" ? post.facebookStatus : post.instagramStatus;
@@ -373,7 +406,11 @@ export function ApprovalQueue({
         </span>
       </header>
 
-      {pendingPosts.length === 0 ? (
+      <label className="mb-4 flex max-w-md flex-col gap-1 text-sm font-medium text-[#46615b]">Buscar procedimiento
+        <input type="search" value={pendingQuery} onChange={(event) => { setPendingQuery(event.target.value); setPendingPage(1); }}
+          placeholder="Ej. Implantes Dentales" className="min-h-11 rounded-lg border border-[#cadbd1] bg-white px-3" />
+      </label>
+      {pendingMatches.length === 0 ? (
         <div className="app-card flex min-h-64 flex-col items-center justify-center rounded-3xl border-dashed px-6 py-10 text-center">
           <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#edf5f1] text-[#398e82]" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="1.6"><path d="M7 3.75h7l4 4V20a.75.75 0 0 1-.75.75h-10.5A.75.75 0 0 1 6 20V4.5a.75.75 0 0 1 1-.75Z" strokeLinejoin="round"/><path d="M14 4v4h4M9 13h6M9 16.5h6" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -385,7 +422,7 @@ export function ApprovalQueue({
         </div>
       ) : (
         <ul className="flex flex-col gap-4">
-          {pendingPosts.map((post) => {
+          {pendingVisible.map((post) => {
             const isBusy = busyId === post.id;
             const isTextIdea = post.mediaKind === "text" || post.mediaUrl.length === 0;
             const isVideo = post.mediaKind === "video" || isVideoUrl(post.mediaUrl);
@@ -451,6 +488,28 @@ export function ApprovalQueue({
                         Verifica que el procedimiento seleccionado corresponda realmente a este caso.
                         La IA redacta a partir de la información proporcionada; una fotografía no confirma por sí sola el tratamiento realizado.
                       </p>
+                    )}
+
+                    {!isTextIdea && (
+                      <div className="rounded-lg border border-[#cbdcd4] bg-[#f5faf7] p-3 text-sm">
+                        {post.clinicalVerifiedAt ? (
+                          <p className="font-semibold text-[#126b5d]">Revisión clínica confirmada</p>
+                        ) : (
+                          <>
+                            <label className="flex items-start gap-2">
+                              <input type="checkbox" checked={Boolean(clinicalChecks[post.id])}
+                                onChange={(event) => setClinicalChecks((current) => ({ ...current, [post.id]: event.target.checked }))}
+                                disabled={isBusy} className="mt-1" />
+                              <span>He verificado que el procedimiento, la fotografía, el texto y las autorizaciones corresponden a este caso.</span>
+                            </label>
+                            <button type="button" className="mt-2 rounded-lg border border-[#b7d7ce] bg-white px-3 py-2 font-semibold text-[#176c63] disabled:opacity-50"
+                              disabled={isBusy || !clinicalChecks[post.id] || editingId === post.id}
+                              onClick={() => void runAction(post.id, () => onConfirmClinical(post.id))}>
+                              Confirmar revisión clínica
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
 
                     {(post.educationalCaption || post.commercialCaption) && (
@@ -622,7 +681,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id}
+                        disabled={isBusy || isTextIdea || editingId === post.id || !post.clinicalVerifiedAt}
                         onClick={() => runAction(post.id, onApprove)}
                         className="studio-primary-action rounded-lg bg-[#116f64] px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -653,6 +712,7 @@ export function ApprovalQueue({
           })}
         </ul>
       )}
+      {pageNav(Math.min(pendingPage, pendingPages), pendingPages, setPendingPage)}
 
       </>}
       {mode !== "pending" && <section className="studio-history-section" aria-labelledby="published-history-title">
@@ -700,11 +760,13 @@ export function ApprovalQueue({
                 </select>
               </label>
             </div>
-            <p role="status" className="mt-3 text-xs text-[#637773]">
-              {filteredHistory.length} de {reviewedPosts.length} registros
-            </p>
+            <label className="mt-3 flex max-w-md flex-col gap-1 text-sm font-medium text-[#46615b]">Buscar procedimiento
+              <input type="search" value={historyQuery} onChange={(event) => { setHistoryQuery(event.target.value); setHistoryPage(1); }}
+                placeholder="Ej. Ortodoncia" className="min-h-11 rounded-lg border border-[#cadbd1] bg-white px-3" />
+            </label>
+            <p role="status" className="mt-3 text-xs text-[#637773]">{historyMatches.length} de {reviewedPosts.length} registros</p>
             <ul className="mt-3 space-y-3">
-            {filteredHistory.length ? filteredHistory.map((post) => (
+            {historyMatches.length ? historyVisible.map((post) => (
               <li key={post.id} className="rounded-2xl border border-[#d7e5df] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -764,6 +826,7 @@ export function ApprovalQueue({
               </li>
             )) : <li className="text-sm text-[#637773]">No hay registros que coincidan con los filtros.</li>}
           </ul>
+          {pageNav(Math.min(historyPage, historyPages), historyPages, setHistoryPage)}
           </>
         )}
       </section>}
