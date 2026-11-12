@@ -263,7 +263,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(form.get("transcript")),
       notes: readNotes(form.get("notes")),
-      enableVision: true,
+      enableVision: form.get("visionConsent") === "true",
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
       visionConsent: form.get("visionConsent") === "true",
       muteAudio: form.get("muteAudio") === "true",
@@ -330,7 +330,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       media,
       transcript: parseTranscript(record.transcript),
       notes: readNotes(record.notes),
-      enableVision: true,
+      enableVision: record.visionConsent === true,
       selectedStyle: readCopyStyle(record.selectedStyle),
       visionConsent: record.visionConsent === true,
       muteAudio: record.muteAudio === true,
@@ -543,7 +543,7 @@ export async function POST(request: Request) {
     const input = await readRequestInput(request);
     const procedureName = resolveProcedureName(input.procedureName);
     const kind = detectMediaKind(input.media);
-    if (kind === "image" && !input.visionConsent) {
+    if (kind === "image" && input.enableVision && !input.visionConsent) {
       throw new RequestInputError(
         400, "VISION_CONSENT_REQUIRED",
         "Confirma la autorización para enviar esta fotografía a Google Gemini Vision.",
