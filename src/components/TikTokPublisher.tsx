@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Info = { nickname?: string; username?: string; privacyOptions: string[] };
+type Info = { nickname?: string; username?: string; privacyOptions: string[]; commentsDisabled?: boolean; duetDisabled?: boolean; stitchDisabled?: boolean };
 const PRIVACY_LABELS: Record<string, string> = {
   PUBLIC_TO_EVERYONE: "Público",
   MUTUAL_FOLLOW_FRIENDS: "Amigos",
@@ -21,6 +21,9 @@ export function TikTokPublisher({
 }) {
   const [creator, setCreator] = useState<Info | null>(null);
   const [privacy, setPrivacy] = useState("");
+  const [disableComment, setDisableComment] = useState(false);
+  const [disableDuet, setDisableDuet] = useState(false);
+  const [disableStitch, setDisableStitch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState(status);
   const [message, setMessage] = useState("");
@@ -34,6 +37,9 @@ export function TikTokPublisher({
       if (!response.ok) throw new Error(info.error || "No se pudo consultar TikTok.");
       setCreator(info);
       setPrivacy("");
+      setDisableComment(Boolean(info.commentsDisabled));
+      setDisableDuet(Boolean(info.duetDisabled));
+      setDisableStitch(Boolean(info.stitchDisabled));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo preparar TikTok.");
     } finally { setBusy(false); }
@@ -47,7 +53,7 @@ export function TikTokPublisher({
       const response = await fetch("/api/tiktok/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, privacy }),
+        body: JSON.stringify({ postId, privacy, disableComment, disableDuet, disableStitch }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "No se pudo iniciar el envío.");
@@ -67,6 +73,10 @@ export function TikTokPublisher({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "No se pudo comprobar TikTok.");
       setLocalStatus(payload.status);
+      if (payload.status === "SUCCEEDED") {
+        window.location.assign("/dashboard/historial");
+        return;
+      }
       setMessage(payload.status === "SUCCEEDED" ? "TikTok confirmó la publicación."
         : payload.status === "FAILED" ? "TikTok rechazó el envío. " + (payload.message || "")
         : "TikTok sigue procesando el contenido.");
@@ -90,6 +100,25 @@ export function TikTokPublisher({
                 <option key={option} value={option}>{PRIVACY_LABELS[option] || option}</option>)}
             </select>
           </label>
+          <div className="flex flex-wrap gap-3 text-xs text-[#46615b]">
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" checked={!disableComment} disabled={busy || creator.commentsDisabled}
+                onChange={(event) => setDisableComment(!event.target.checked)}/>
+              Comentarios
+            </label>
+            {mediaKind === "video" && <>
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={!disableDuet} disabled={busy || creator.duetDisabled}
+                  onChange={(event) => setDisableDuet(!event.target.checked)}/>
+                Dúos
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={!disableStitch} disabled={busy || creator.stitchDisabled}
+                  onChange={(event) => setDisableStitch(!event.target.checked)}/>
+                Pegar
+              </label>
+            </>}
+          </div>
           <button type="button" disabled={busy || !privacy} onClick={() => void send()}
             className="rounded-lg bg-[#173b3a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
             {busy ? "Enviando..." : "Publicar en TikTok"}
