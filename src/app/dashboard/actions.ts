@@ -528,6 +528,54 @@ export async function authorizeManualRetry(
   };
 }
 
+export async function confirmMissingAndRetry(postId: string, network: "facebook" | "instagram") {
+  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para publicar." };
+  if (network !== "facebook" && network !== "instagram") {
+    return { ok: false, message: "Red social no válida." };
+  }
+
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const status = network === "facebook" ? post?.facebookStatus : post?.instagramStatus;
+  const postIdFromMeta = network === "facebook" ? post?.facebookPostId : post?.instagramPostId;
+  const retries = network === "facebook" ? post?.facebookRetryCount : post?.instagramRetryCount;
+
+  if (!post || post.status !== "PENDING_APPROVAL" || status !== "UNKNOWN" ||
+      postIdFromMeta || retries !== 0) {
+    return { ok: false, message: "Este envío no admite recuperación automática. Revisa el historial." };
+  }
+
+  const reviewedAt = new Date();
+  const evidence = "El operador confirmó expresamente que revisó la red y no encontró la publicación antes de reintentar.";
+  const changed = await prisma.scheduledPost.updateMany({
+    where: network === "facebook"
+      ? { id: postId, status: "PENDING_APPROVAL", facebookStatus: "UNKNOWN", facebookPostId: null, facebookRetryCount: 0 }
+      : { id: postId, status: "PENDING_APPROVAL", instagramStatus: "UNKNOWN", instagramPostId: null, instagramRetryCount: 0 },
+    data: network === "facebook"
+      ? {
+        facebookStatus: "PENDING",
+        facebookReviewOutcome: "NOT_FOUND",
+        facebookReviewEvidence: evidence,
+        facebookReviewedAt: reviewedAt,
+        facebookRetryCount: { increment: 1 },
+        facebookLastRetryAt: reviewedAt,
+      }
+      : {
+        instagramStatus: "PENDING",
+        instagramReviewOutcome: "NOT_FOUND",
+        instagramReviewEvidence: evidence,
+        instagramReviewedAt: reviewedAt,
+        instagramRetryCount: { increment: 1 },
+        instagramLastRetryAt: reviewedAt,
+      },
+  });
+
+  if (changed.count !== 1) {
+    return { ok: false, message: "La publicación cambió de estado; recarga el panel." };
+  }
+
+  return retryPendingNetwork(postId, network);
+}
+
 export async function rejectPost(postId: string) {
   if (!(await hasClinicAccess())) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
