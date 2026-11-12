@@ -7,6 +7,7 @@ import {
 } from "../../components/ApprovalQueue";
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
 import BrandSettings from "../../components/BrandSettings";
+import { AccountConnector } from "../../components/AccountConnector";
 import { createTextProposal, approveAndPublishPost, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, confirmMissingAndRetry } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
@@ -16,96 +17,6 @@ const FORMATS: { id: ContentFormat; label: string; ariaLabel: string }[] = [
   { id: "video", label: "Video", ariaLabel: "Video o Reel" },
   { id: "text", label: "Guion", ariaLabel: "Idea de texto o guion" },
 ];
-
-// Componente visual optimizado para consultar el estado real de la cuenta vinculada
-function AccountConnector() {
-  const [accountInfo, setAccountInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const error = new URLSearchParams(window.location.search).get("error");
-    const messages: Record<string, string> = {
-      no_page: "Meta no encontró una Página que puedas administrar. Revisa el acceso del usuario a la Página de la clínica e inténtalo otra vez.",
-      multiple_pages: "Tu usuario administra varias Páginas. Configura META_PAGE_ID con el ID de la Página de la clínica en .env y vuelve a conectar Meta.",
-      page_not_found: "No se encontró la Página indicada en META_PAGE_ID. Revisa el ID y vuelve a conectar Meta.",
-      pages_failed: "Meta no pudo consultar tus Páginas. Revisa los permisos concedidos e inténtalo otra vez.",
-      token_failed: "Meta no pudo completar la autorización. Inténtalo de nuevo.",
-      token_exchange_failed: "Meta no pudo completar la autorización de larga duración. Reconecta la Página e inténtalo otra vez.",
-      invalid_state: "La autorización de Meta caducó o no coincide. Inténtalo de nuevo.",
-    };
-    if (error && messages[error]) setConnectionMessage(messages[error]);
-    fetch("/api/social/accounts")
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted) {
-          setAccountInfo(data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const handleConnect = () => {
-    window.location.href = "/api/auth/meta";
-  };
-
-  return (
-    <div className="app-card rounded-3xl p-5 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e8f4f0] text-[#176c63]" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.7"><path d="M8 12a4 4 0 0 1 4-4h2a4 4 0 1 1 0 8h-2M16 12a4 4 0 0 1-4 4h-2a4 4 0 1 1 0-8h2" strokeLinecap="round"/></svg>
-          </span>
-          <div>
-          <p className="eyebrow mb-1">Canales conectados</p>
-          <h3 className="text-base font-semibold tracking-tight text-[#173b3a]">Cuentas de redes sociales</h3>
-          {connectionMessage ? (
-            <p role="alert" className="mt-2 max-w-xl text-sm text-red-700">{connectionMessage}</p>
-          ) : null}
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-[#637773]">
-            {loading
-              ? "Verificando estado de conexión..."
-              : accountInfo?.connected
-              ? accountInfo.instagramConnected
-                ? `Conectado como ${accountInfo.userName} (${accountInfo.pageName}) en Facebook e Instagram.`
-                : `Página ${accountInfo.pageName} conectada; falta vincular Instagram Business. Los posts se publicarán solo en Facebook.`
-              : "Vincula la cuenta de Instagram Business para habilitar la publicación en Instagram."}
-          </p>
-          </div>
-        </div>
-
-        {accountInfo?.connected ? (
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Conectado
-            </span>
-            <button
-              onClick={handleConnect}
-              className="text-xs font-medium text-stone-500 underline decoration-stone-300 underline-offset-4 transition hover:text-[#176c63]"
-            >
-              Reconectar
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleConnect}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-10px_rgba(13,98,91,0.8)] transition hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            Conectar cuenta
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 type StudioView = "create" | "pending" | "history" | "connections";
 
