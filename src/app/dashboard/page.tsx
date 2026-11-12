@@ -147,8 +147,11 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const dragStart = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
 
   const [isPending, startTransition] = useTransition();
+  const hasMedia = Boolean(selectedMedia);
+  const canConfigure = format === "text" || hasMedia;
 
   useEffect(() => {
     if (!selectedMedia) {
@@ -602,33 +605,6 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </select>
             </label>
 
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-semibold text-stone-800">Tipo de mensaje</legend>
-              <div className="studio-tone-picker grid grid-cols-2 gap-2 p-1.5">
-                {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => (
-                  <button
-                    key={style}
-                    type="button"
-                    aria-pressed={copyStyle === style}
-                    disabled={isPending}
-                    onClick={() => setCopyStyle(style)}
-                    className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
-                      copyStyle === style
-                        ? "bg-white text-[#176c63] shadow-sm ring-1 ring-[#bfd8d0]"
-                        : "text-[#55736b] hover:bg-white/70"
-                    }`}
-                  >
-                    {style === "EDUCATIONAL" ? "Educativa" : "Comercial"}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs leading-5 text-[#637773]">
-                {copyStyle === "EDUCATIONAL"
-                  ? "Contenido informativo para orientar a pacientes."
-                  : "Contenido que invita a agendar una valoración sin prometer resultados."}
-              </p>
-            </fieldset>
-
             {format !== "text" && (
               <div className="studio-file-field">
                 <span className="studio-field-label">{format === "video" ? "Video clínico" : "Fotografía clínica"}</span>
@@ -645,6 +621,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   onChange={(event) => {
                     const media = event.currentTarget.files?.[0] ?? null;
                     setSelectedMedia(media);
+                    setShowOriginal(false);
                     setSelectedPhoto(format === "photo" ? media : null);
                     setPhotoZoom(1);
                     setPhotoOffsetX(0);
@@ -680,7 +657,38 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
             )}
 
-            {format === "video" && (
+            {canConfigure && <div className="studio-progressive-content">
+              <p className="studio-stage-label">Personaliza tu propuesta</p>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-semibold text-stone-800">Tipo de mensaje</legend>
+              <div className="studio-tone-picker grid grid-cols-2 gap-2 p-1.5">
+                {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    aria-pressed={copyStyle === style}
+                    disabled={isPending}
+                    onClick={() => setCopyStyle(style)}
+                    className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                      copyStyle === style
+                        ? "bg-white text-[#176c63] shadow-sm ring-1 ring-[#bfd8d0]"
+                        : "text-[#55736b] hover:bg-white/70"
+                    }`}
+                  >
+                    {style === "EDUCATIONAL" ? "Educativa" : "Comercial"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs leading-5 text-[#637773]">
+                {copyStyle === "EDUCATIONAL"
+                  ? "Contenido informativo para orientar a pacientes."
+                  : "Contenido que invita a agendar una valoración sin prometer resultados."}
+              </p>
+            </fieldset>
+
+            </div>}
+
+            {format === "video" && hasMedia && (
               <fieldset className="space-y-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3">
                 <legend className="px-1 text-sm font-semibold text-[#173b3a]">Edición de video</legend>
                 <label className="flex items-center gap-3 text-sm text-[#46615b]">
@@ -690,7 +698,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </fieldset>
             )}
 
-            {format === "photo" && (
+            {format === "photo" && hasMedia && (
               <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
                 <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} className="mt-1" />
                 <span>
@@ -701,7 +709,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </label>
             )}
 
-            <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
+            {canConfigure && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
               <textarea
                 name="notes"
@@ -713,11 +721,11 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 placeholder="Paciente con hipersensibilidad..."
               className="field-control resize-y rounded-xl px-3 py-3 text-base leading-6 text-stone-900 outline-none placeholder:text-stone-400 disabled:opacity-60"
               />
-            </label>
+            </label>}
 
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || (format !== "text" && !hasMedia)}
               className="studio-generate flex min-h-12 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold leading-5 text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? (
@@ -732,7 +740,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           </form>
         </section>}
         {view === "create" && (
-          <aside className="studio-preview-panel" aria-label="Previsualización de fotografía">
+          <aside className={`studio-preview-panel ${!hasMedia ? "is-empty" : "has-media"}`} aria-label="Previsualización de contenido">
             <div className="studio-preview-heading">
               <div>
                 <h2>Vista previa</h2>
@@ -740,9 +748,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
-            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto ? "is-adjustable" : ""}`} aria-live="polite"
+            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && !showOriginal ? "is-adjustable" : ""}`} aria-live="polite"
               onPointerDown={(event) => {
-                if (format !== "photo" || !selectedPhoto || isPending) return;
+                if (format !== "photo" || !selectedPhoto || isPending || showOriginal) return;
                 dragStart.current = { x: event.clientX, y: event.clientY, offsetX: photoOffsetX, offsetY: photoOffsetY };
                 event.currentTarget.setPointerCapture(event.pointerId);
               }}
@@ -760,8 +768,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               {format === "video" && mediaPreviewUrl ? (
                 <video key={mediaPreviewUrl} src={mediaPreviewUrl} controls playsInline preload="metadata"
                   className="studio-preview-video" aria-label="Reproducción local del video seleccionado" />
-              ) : format === "photo" && photoPreview ? (
-                <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" draggable={false} />
+              ) : format === "photo" && (showOriginal ? mediaPreviewUrl : photoPreview) ? (
+                <img src={(showOriginal ? mediaPreviewUrl : photoPreview)!} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" draggable={false} />
               ) : (
                 <div className="studio-preview-placeholder">
                   <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -776,15 +784,25 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </div>
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
-                <div className="studio-image-control-head">
-                  <strong>Ajustar encuadre</strong>
-                  <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); }}
-                    disabled={isPending}>Restablecer</button>
+                <div className="studio-image-toolbar">
+                  <strong>Encuadre <small>{showOriginal ? "Original" : "Resultado 4:5"}</small></strong>
+                  <div className="studio-image-toolbar-actions">
+                    <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
+                    <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
+                  </div>
                 </div>
-                <label>Zoom <output>{photoZoom.toFixed(2)}×</output>
-                  <input type="range" min="1" max="1.6" step="0.05" value={photoZoom} disabled={isPending}
-                    onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
-                </label>
+                <div className="studio-zoom-toolbar">
+                  <span>Zoom</span>
+                  <button type="button" aria-label="Reducir zoom" disabled={isPending || showOriginal || photoZoom <= 1}
+                    onClick={() => setPhotoZoom((z) => Math.max(1, Math.round((z - .05) * 100) / 100))}>−</button>
+                  <input type="range" aria-label="Zoom de fotografía" min="1" max="1.6" step="0.05" value={photoZoom}
+                    disabled={isPending || showOriginal} onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
+                  <button type="button" aria-label="Aumentar zoom" disabled={isPending || showOriginal || photoZoom >= 1.6}
+                    onClick={() => setPhotoZoom((z) => Math.min(1.6, Math.round((z + .05) * 100) / 100))}>+</button>
+                  <output>{photoZoom.toFixed(2)}×</output>
+                </div>
+                <details className="studio-image-more">
+                  <summary>Posición y opciones avanzadas</summary>
                 <div className="studio-image-direction">
                   <label>Horizontal
                     <input type="range" min="-100" max="100" step="10" value={photoOffsetX} disabled={isPending}
@@ -795,8 +813,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                       onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
                   </label>
                 </div>
-                <details className="studio-image-more">
-                  <summary>Opciones de imagen</summary>
+
                   <div className="studio-image-more-grid">
                     <label>Encuadre
                       <select value={photoLayout} onChange={(event) => setPhotoLayout(event.target.value as typeof photoLayout)} disabled={isPending}>
