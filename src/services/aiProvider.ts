@@ -6,7 +6,7 @@ import {
 } from "./grokService";
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
 export class AIProviderError extends Error {
   constructor(message: string, readonly statusCode = 503) {
