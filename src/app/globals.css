@@ -1095,3 +1095,85 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-proposal-media { width: 100%; }
   .studio-proposal-media .studio-proposal-media-content { max-height: 260px; }
 }
+
+/* Compact photo editor: controls and complete 4:5 preview in one viewport. */
+@media (min-width: 1100px) {
+  .studio-preview-panel.has-media {
+    position: sticky;
+    top: 12px;
+    padding: 12px;
+  }
+  .studio-preview-panel.has-media .studio-preview-heading {
+    margin-bottom: 8px;
+  }
+  .studio-preview-panel.has-media .studio-image-controls {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+  .studio-preview-panel.has-media .studio-image-toolbar {
+    margin-bottom: 5px;
+  }
+  .studio-preview-panel.has-media .studio-preview-canvas {
+    width: min(100%, 370px, 42vh);
+    max-height: none;
+    aspect-ratio: 4 / 5;
+    height: auto;
+    margin-inline: auto;
+  }
+  .studio-preview-panel.has-media .studio-preview-caption {
+    margin-top: 6px;
+  }
+}
+@media (max-height: 800px) and (min-width: 1100px) {
+  .studio-preview-panel.has-media .studio-preview-canvas {
+    width: min(100%, 315px, 38vh);
+  }
+  .studio-preview-panel.has-media .studio-image-controls {
+    padding: 6px 9px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1099px) {
+  .studio-preview-panel.has-media .studio-preview-canvas {
+    width: min(100%, 330px, 43vh);
+    max-height: none;
+  }
+}
+@media (max-width: 720px) {
+  .studio-preview-panel.has-media .studio-preview-canvas {
+    width: min(100%, 350px);
+    max-height: none;
+  }
+}
+.studio-proposal-grid {
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  align-items: stretch;
+}
+.studio-proposal-media {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 100%;
+  padding: 12px;
+  background: #f8faf9;
+}
+.studio-proposal-media .studio-proposal-media-content {
+  display: block;
+  flex: 0 1 auto;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 225px;
+  margin: auto;
+  object-fit: contain;
+}
+@media (max-width: 720px) {
+  .studio-proposal-grid { display: block; }
+  .studio-proposal-media {
+    height: auto;
+    min-height: 180px;
+    padding: 12px;
+  }
+  .studio-proposal-media .studio-proposal-media-content { max-height: 260px; }
+}
