@@ -13,6 +13,7 @@
 - Buscar propuestas por procedimiento y consultar Pendientes e Historial en páginas de diez resultados.
 - Retirar publicaciones de Pendientes o Historial mediante «Eliminar», sin borrar los registros de auditoría ni las publicaciones realizadas en Meta. El sistema bloquea la retirada de envíos con estado pendiente de conciliación.
 - Conectar una Página de Facebook y, si está vinculada, una cuenta profesional de Instagram.
+- Elegir Facebook, Instagram y/o TikTok desde un único control de publicación, sin enviar a redes no seleccionadas y con estado de entrega separado por plataforma.
 - Guardar propuestas en SQLite y medios en el disco local o en almacenamiento compatible con S3.
 
 La aplicación no programa publicaciones futuras. La aprobación inicia la publicación inmediata en las redes conectadas.
@@ -106,7 +107,7 @@ La revisión de Meta y el modo de la aplicación pueden limitar qué cuentas pue
 7. En **Pendientes** o **Historial**, selecciona **Preparar publicación TikTok**. Elige la privacidad ofrecida por la cuenta y las opciones de interacción, revisa el texto y pulsa **Publicar en TikTok**.
 8. Pulsa **Comprobar TikTok** para confirmar el procesamiento. No repitas envíos si su estado es incierto; el programa los bloquea para evitar duplicaciones.
 
-TikTok restringe a **Solo yo** las publicaciones hechas por aplicaciones sin auditoría hasta que se apruebe la integración. La API puede aceptar una solicitud y continuar procesándola: recibir un `publish_id` no garantiza que el contenido ya esté publicado. La fotografía se envía como un post fotográfico de TikTok; los videos usan Direct Post con URL verificada. Publicar en TikTok es una acción separada de **Aprobar y publicar** en Meta, para que cada publicación respete la configuración de privacidad de TikTok.
+TikTok restringe a **Solo yo** las publicaciones hechas por aplicaciones sin auditoría hasta que se apruebe la integración. La API puede aceptar una solicitud y continuar procesándola: recibir un `publish_id` no garantiza que el contenido ya esté publicado. La fotografía se envía como un post fotográfico de TikTok; los videos usan Direct Post con URL verificada. En **Pendientes** y **Historial**, el control **Publicar en redes** permite seleccionar las plataformas conectadas cuyo envío siga pendiente. Solo se contactan las redes seleccionadas. TikTok solicita privacidad e interacciones antes de enviar; Meta y TikTok registran sus resultados por separado. La acción confirma el material clínico y no reenvía automáticamente entregas con estado incierto.
 
 La base SQLite del piloto guarda tokens de TikTok y Meta sin cifrado de aplicación. Protege estrictamente `prisma/dev.db`, sus copias de seguridad y el servidor. Antes de ofrecerlo a otras clínicas, implementa cifrado de credenciales, roles y segregación por cliente.
 
