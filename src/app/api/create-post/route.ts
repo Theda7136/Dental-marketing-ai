@@ -21,7 +21,6 @@ import {
 import {
   VideoServiceError,
   overlayKaraokeSubtitles,
-  overlaySrtSubtitles,
   muteClinicalVideo,
   renderVerticalClinicalVideo,
   type TranscriptWord,
@@ -57,15 +56,6 @@ interface CreatePostInput {
   selectedStyle: "EDUCATIONAL" | "COMMERCIAL";
   visionConsent: boolean;
   muteAudio: boolean;
-  subtitleSrt?: string;
-}
-
-function readSubtitleSrt(value: unknown): string | undefined {
-  if (value === undefined || value === null || value === "") return undefined;
-  if (typeof value !== "string" || value.length > 12000) {
-    throw new RequestInputError(400, "INVALID_SUBTITLES", "Los subtítulos SRT superan el máximo o no son texto.");
-  }
-  return value.trim() || undefined;
 }
 
 function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
@@ -274,7 +264,6 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
       visionConsent: form.get("visionConsent") === "true",
       muteAudio: form.get("muteAudio") === "true",
-      subtitleSrt: readSubtitleSrt(form.get("subtitleSrt")),
     };
   }
 
@@ -334,7 +323,6 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(record.selectedStyle),
       visionConsent: record.visionConsent === true,
       muteAudio: record.muteAudio === true,
-      subtitleSrt: readSubtitleSrt(record.subtitleSrt),
     };
   }
 
@@ -435,21 +423,13 @@ async function prepareVideo(
   transcript: TranscriptWord[] | undefined,
   notes?: string,
   muteAudio = false,
-  subtitleSrt?: string,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
-  if (transcript && subtitleSrt) {
-    throw new RequestInputError(400, "CONFLICTING_SUBTITLES", "Envía una transcripción por palabras o subtítulos SRT, no ambos.");
-  }
-  const captioned = transcript
-    ? await overlayKaraokeSubtitles(vertical, transcript)
-    : subtitleSrt
-      ? await overlaySrtSubtitles(vertical, subtitleSrt)
-      : vertical;
+  const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
   const rendered = muteAudio ? await muteClinicalVideo(captioned) : captioned;
   const variants = await generateDentalVariants(
     procedureName,
-    videoContextFor(procedureName, transcript !== undefined || subtitleSrt !== undefined, notes),
+    videoContextFor(procedureName, transcript !== undefined, notes),
   );
   const educationalCaption = buildCaption(variants.educational);
   const commercialCaption = buildCaption(variants.commercial);
@@ -557,7 +537,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (kind === "image" && (input.transcript || input.subtitleSrt || input.muteAudio)) {
+    if (kind === "image" && (input.transcript || input.muteAudio)) {
       throw new RequestInputError(
         400,
         "INVALID_TRANSCRIPT",
@@ -574,7 +554,6 @@ export async function POST(request: Request) {
             input.transcript,
             input.notes,
             input.muteAudio,
-            input.subtitleSrt,
           );
 
     const id = crypto.randomUUID();
