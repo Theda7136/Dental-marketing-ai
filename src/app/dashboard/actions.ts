@@ -125,6 +125,7 @@ export async function createTextProposal(formData: FormData) {
         ...post,
         createdAt: post.createdAt.toISOString(),
         approvedAt: post.approvedAt?.toISOString() ?? null,
+        clinicalVerifiedAt: post.clinicalVerifiedAt?.toISOString() ?? null,
         facebookReviewedAt: post.facebookReviewedAt?.toISOString() ?? null,
         instagramReviewedAt: post.instagramReviewedAt?.toISOString() ?? null,
         mediaKind: "text" as const,
