@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { TikTokPublisher } from "./TikTokPublisher";
 
 export const POST_STATUSES = [
   "PENDING_APPROVAL",
@@ -28,6 +29,9 @@ export interface ApprovalQueuePost {
   instagramStatus?: string;
   facebookPostId?: string | null;
   instagramPostId?: string | null;
+  tiktokStatus?: string;
+  tiktokPublishId?: string | null;
+  tiktokError?: string | null;
   facebookReviewOutcome?: string | null;
   facebookReviewEvidence?: string | null;
   facebookReviewedAt?: string | null;
@@ -667,6 +671,7 @@ export function ApprovalQueue({
                       </button>
                       {deleteButton(post)}
                     </div>
+                    <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
                   </div>
                 </article>
               </li>
@@ -780,7 +785,10 @@ export function ApprovalQueue({
                 )}
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
-                <div className="mt-3 flex justify-end">{deleteButton(post)}</div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
+                  {deleteButton(post)}
+                </div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                   post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                     <p className="mt-3 text-sm text-amber-800">Estado sin confirmar: verifica directamente en Meta antes de cualquier nuevo envío.</p>
