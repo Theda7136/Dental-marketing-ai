@@ -651,8 +651,10 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   <div className="studio-file-selected">
                     <div className="studio-file-thumb">
                       {mediaPreviewUrl && format === "photo"
-                        ? <img src={mediaPreviewUrl} alt="Miniatura del archivo seleccionado" />
-                        : <span aria-hidden="true">▶</span>}
+                        ? <img src={mediaPreviewUrl} alt="Miniatura de la fotografía seleccionada" />
+                        : mediaPreviewUrl && format === "video"
+                          ? <video src={mediaPreviewUrl} muted playsInline preload="metadata" aria-label="Miniatura del video seleccionado" />
+                          : <span aria-hidden="true">▶</span>}
                     </div>
                     <div className="studio-file-info">
                       <strong title={selectedMedia.name}>{selectedMedia.name}</strong>
