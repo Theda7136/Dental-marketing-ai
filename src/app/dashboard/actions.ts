@@ -205,9 +205,9 @@ export async function updatePendingCaption(postId: string, caption: string) {
     clinicalGuardrails.validate(revisedCaption);
     const currentPost = await prisma.scheduledPost.findUnique({
       where: { id: postId },
-      select: { facebookStatus: true, instagramStatus: true, selectedStyle: true },
+      select: { facebookStatus: true, instagramStatus: true, selectedStyle: true, facebookRetryCount: true, instagramRetryCount: true },
     });
-    if (!currentPost || !canEditUnsentProposal(currentPost)) {
+    if (!currentPost || !canEditUnsentProposal(currentPost) || currentPost.facebookRetryCount > 0 || currentPost.instagramRetryCount > 0) {
       return { ok: false, message: "No puedes modificar el texto después de iniciar la publicación." };
     }
     const updated = await prisma.scheduledPost.updateMany({
