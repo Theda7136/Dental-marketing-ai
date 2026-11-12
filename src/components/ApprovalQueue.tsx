@@ -495,7 +495,7 @@ export function ApprovalQueue({
                               type="button"
                               aria-pressed={chosen}
                               disabled={isBusy || !available || editingId === post.id ||
-                                post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"}
+                                post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" || (post.tiktokStatus && post.tiktokStatus !== "PENDING")}
                               onClick={() => void runAction(post.id, () => onChooseStyle(post.id, style))}
                               className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
                                 chosen
@@ -655,7 +655,7 @@ export function ApprovalQueue({
                       </button>
                       <button
                         type="button"
-                        disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
+                        disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus && post.tiktokStatus !== "PENDING")}
                         onClick={() => {
                           setErrors((current) => {
                             const next = { ...current };
