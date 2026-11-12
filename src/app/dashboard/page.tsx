@@ -465,6 +465,21 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     setNotice(review.message);
   }
 
+  async function deletePost(postId: string) {
+    const response = await fetch(`/api/posts/${encodeURIComponent(postId)}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+    const payload = await response.json() as { ok?: boolean; message?: string };
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.message || "No se pudo retirar la publicación.");
+    }
+
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    setNotice(payload.message || "Publicación retirada de la lista.");
+  }
+
   async function handleEditPost(post: ApprovalQueuePost, caption: string) {
     const revised = await updatePendingCaption(post.id, caption);
     if (!revised.ok || !revised.caption) {
@@ -813,6 +828,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
           onApprove={approvePost}
+          onDelete={deletePost}
           onEdit={handleEditPost}
           onRetry={retryNetwork}
           onVerify={verifyNetwork}
