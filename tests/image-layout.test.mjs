@@ -13,7 +13,7 @@ const compiled = ts.transpileModule(
 ).outputText;
 
 const module = { exports: {} };
-runInNewContext(`(function(require, module, exports) { ${compiled} })`)(
+runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer, Uint8Array })(
   (name) => {
     if (name === "sharp") return { __esModule: true, default: sharp };
     if (name === "../config/clinicalGuardrails") {
