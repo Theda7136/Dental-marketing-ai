@@ -485,6 +485,31 @@ export default function DashboardPage() {
               </div>
             ) : null}
 
+            {format === "video" && (
+              <fieldset className="space-y-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3">
+                <legend className="px-1 text-sm font-semibold text-[#173b3a]">Edición de video</legend>
+                <label className="flex items-center gap-3 text-sm text-[#46615b]">
+                  <input type="checkbox" name="muteAudio" value="true" disabled={isPending} />
+                  Silenciar audio original
+                </label>
+                <label className="block space-y-2 text-sm text-[#46615b]">
+                  <span className="block font-semibold text-[#173b3a]">Subtítulos temporizados (opcional)</span>
+                  <textarea
+                    name="subtitleSrt"
+                    rows={7}
+                    maxLength={12000}
+                    disabled={isPending}
+                    placeholder={"1\\n00:00:00,000 --> 00:00:03,000\\nBienvenidos a nuestra clínica\\n\\n2\\n00:00:03,000 --> 00:00:06,000\\nHoy hablaremos de salud dental"}
+                    className="field-control w-full resize-y rounded-xl px-3 py-3 font-mono text-xs text-stone-900"
+                  />
+                  <span className="block text-xs leading-5 text-[#637773]">
+                    Pega subtítulos en formato SRT, con tiempos reales. Se incrustarán en el video.
+                    Esta versión no transcribe la voz automáticamente: revisa ortografía y sincronización antes de publicar.
+                  </span>
+                </label>
+              </fieldset>
+            )}
+
             {format === "photo" && (
               <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
                 <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} className="mt-1" />
