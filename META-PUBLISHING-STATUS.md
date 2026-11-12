@@ -179,3 +179,28 @@ Requisitos:
 El servidor genera una URL firmada, solicita la imagen por HTTPS y verifica HTTP 200, `Content-Type: image/*` y presencia de bytes. No revela la firma en el navegador, no sigue redirecciones y usa un tiempo límite de 12 segundos. Solo admite hosts `.trycloudflare.com` para esta comprobación local; no debe reutilizarse tal cual como mecanismo genérico de publicación en producción.
 
 Que esta comprobación sea correcta **no garantiza** que Meta acepte la publicación, ni autoriza repetir una publicación anterior con resultado `UNKNOWN`. Para el ensayo de Meta utiliza una fotografía ficticia nueva, con la página de pruebas correctamente conectada.
+
+## Grok: versiones educativa y comercial + visión opcional
+
+Nuevos borradores de fotografía, video y guion generan **dos** propuestas de texto: `educationalCaption` y `commercialCaption`. Se almacena `selectedStyle=EDUCATIONAL` por defecto; el dashboard permite elegir Educativa/Comercial, y guarda la elección en `generatedCaption` antes de publicar. Editar el texto modifica únicamente la variante seleccionada. Los cambios están bloqueados una vez que se ha intentado enviar a una red.
+
+Las fotos incluyen una casilla opcional «Analizar imagen con Grok Vision». Si se activa, el servidor genera una imagen JPEG reducida (768×768 máximo) y la envía a xAI para obtener una descripción **solo visual y no diagnóstica**; no pide un diagnóstico ni resultados clínicos. Sin seleccionar la casilla, no se envían imágenes a Grok: el copy se basa en el procedimiento y las notas.
+
+Recomendaciones:
+- Solo utilizar imágenes sin datos identificables y con autorización para procesarlas por un servicio externo; no subir casos de pacientes para probar nuevas funciones.
+- Mantener la revisión clínica humana de ambos textos, especialmente la versión comercial.
+- Las nuevas columnas se añaden mediante una migración aditiva. Los registros anteriores continúan sin variantes y conservan su texto.
+- La generación de dos versiones implica dos llamadas al modelo de texto y aumenta el consumo de API.
+- Esta fase no cambia la publicación en Meta ni desbloquea propuestas cuyo estado sea `UNKNOWN`.
+
+Verificación local tras `git pull`:
+
+```powershell
+if (Test-Path prisma/dev.db) { Copy-Item prisma/dev.db prisma/dev.db.backup }
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npm test
+npm run build
+npm run dev
+```
+
+Prueba una propuesta nueva con imagen **ficticia**, sin activar visión primero. Confirma que ambas versiones cambian al seleccionar cada estilo, que pueden editarse individualmente y que no se publica nada antes de aprobar manualmente. Después, prueba visión solo con una imagen sintética.
