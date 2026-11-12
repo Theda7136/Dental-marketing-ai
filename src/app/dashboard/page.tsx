@@ -701,7 +701,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 <span>
                   <strong className="block text-sm text-[#173b3a]">Gemini Vision · autorización necesaria</strong>
                   Se analizará una versión reducida de la foto con Google Gemini. Confirmo que tengo autorización para enviarla a Google,
-                  que no contiene datos identificables y que la revisión clínica será humana.
+                  que no contiene datos identificables y que la revisión clínica será humana. En el nivel gratuito, Google puede usar contenido enviado para mejorar sus productos; utiliza solo material de prueba o debidamente autorizado.
                 </span>
               </label>
             )}
