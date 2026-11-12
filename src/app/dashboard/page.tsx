@@ -139,6 +139,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
   const [savedProposal, setSavedProposal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragStart = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
 
@@ -750,12 +751,28 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
-            <div className="studio-preview-canvas" aria-live="polite">
+            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto ? "is-adjustable" : ""}`} aria-live="polite"
+              onPointerDown={(event) => {
+                if (format !== "photo" || !selectedPhoto || isPending) return;
+                dragStart.current = { x: event.clientX, y: event.clientY, offsetX: photoOffsetX, offsetY: photoOffsetY };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const origin = dragStart.current;
+                if (!origin || format !== "photo") return;
+                const frame = event.currentTarget.getBoundingClientRect();
+                if (!frame.width || !frame.height) return;
+                setPhotoOffsetX(Math.max(-100, Math.min(100, Math.round(origin.offsetX + (event.clientX - origin.x) / frame.width * 180))));
+                setPhotoOffsetY(Math.max(-100, Math.min(100, Math.round(origin.offsetY + (event.clientY - origin.y) / frame.height * 180))));
+              }}
+              onPointerUp={() => { dragStart.current = null; }}
+              onPointerCancel={() => { dragStart.current = null; }}
+            >
               {format === "video" && mediaPreviewUrl ? (
                 <video key={mediaPreviewUrl} src={mediaPreviewUrl} controls playsInline preload="metadata"
                   className="studio-preview-video" aria-label="Reproducción local del video seleccionado" />
               ) : format === "photo" && photoPreview ? (
-                <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" />
+                <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" draggable={false} />
               ) : (
                 <div className="studio-preview-placeholder">
                   <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
