@@ -235,3 +235,11 @@ El formulario Video dispone de:
 La generación de subtítulos **no es automática** en esta versión. Un SRT preparado por un humano permite controlar ortografía, términos clínicos y sincronización; requiere revisión visual de la vista previa. «Sin margen de error» no puede garantizarse para archivos variables, codificaciones, codecs y las APIs de Meta.
 
 Probar con clips ficticios, incluyendo: sin audio, con audio, solo silencio, solo SRT, ambas opciones y SRT inválido. Ejecutar `npm test` y `npm run build` tras actualizar. La compatibilidad real con FFmpeg y publicación debe verificarse en la máquina del piloto.
+
+## Simplificación de interfaz (2026-11-12)
+
+Se eliminó del formulario la entrada manual de subtítulos SRT y del backend su renderizador. La opción «Silenciar audio original» permanece. Las transcripciones estructuradas de la integración existente siguen siendo compatibles; ya no se solicita al usuario pegar SRT.
+
+El control «Comprobar acceso HTTPS de imagen» desaparece del dashboard; el servicio HTTPS se conserva como dependencia técnica de publicación y el diagnóstico de red sigue disponible en el backend.
+
+**Corrección de recuperación visible:** las tarjetas pendientes con Facebook o Instagram en `UNKNOWN` ahora muestran directamente «Registrar comprobación», antes solo se mostraba dentro del historial, fuera de la tarjeta en pantalla. Después de registrar `NOT_FOUND` con evidencia y confirmar un reintento, se habilita «Publicar solo en Facebook/Instagram» según corresponda. Para un envío incierto se oculta «Aprobar y publicar» (ambas redes) en vez de exhibir un botón deshabilitado que no explica cómo proceder. Se mantiene la restricción de un reintento documentado para prevenir duplicaciones.
