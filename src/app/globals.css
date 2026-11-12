@@ -609,3 +609,55 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-form-panel { padding: 17px !important; }
   .studio-preview-canvas { max-height: 520px; }
 }
+
+/* Progressive creator: compact until media is ready */
+.studio-progressive-content { display: grid; gap: 12px; border-top: 1px solid #e4ede7; padding-top: 14px; }
+.studio-stage-label { font-size: .72rem; font-weight: 750; color: #628176; letter-spacing: .055em; text-transform: uppercase; }
+.studio-preview-panel.is-empty { position: sticky; top: 18px; }
+.studio-preview-panel.is-empty .studio-preview-canvas {
+  aspect-ratio: auto;
+  min-height: 240px;
+  height: clamp(240px, 28vw, 310px);
+  max-height: 310px;
+  background: linear-gradient(145deg, #f2f7f3, #eaf2ec);
+  border: 1px dashed #d6e5da;
+}
+.studio-preview-panel.is-empty .studio-preview-placeholder { max-width: 265px; }
+.studio-preview-panel.has-media .studio-preview-canvas { aspect-ratio: 4 / 5; }
+.studio-image-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-image-toolbar strong { display: flex; align-items: center; gap: 8px; font-size: .84rem; color: #20453b; }
+.studio-image-toolbar small { font-size: .71rem; font-weight: 550; color: #6c8174; }
+.studio-image-toolbar-actions { display: flex; align-items: center; gap: 7px; }
+.studio-image-toolbar-actions button {
+  padding: 7px 9px;
+  background: white;
+  border: 1px solid #d4e4da;
+  border-radius: 7px;
+  color: #146b5d;
+  font-size: .75rem;
+  font-weight: 650;
+}
+.studio-image-toolbar-actions button:hover:not(:disabled) { background: #edf6f0; }
+.studio-image-toolbar button:disabled, .studio-zoom-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+.studio-zoom-toolbar { display: flex; align-items: center; gap: 10px; }
+.studio-zoom-toolbar span { font-size: .79rem; font-weight: 600; color: #4e665b; }
+.studio-zoom-toolbar input { min-width: 0; flex: 1; accent-color: #116d60; }
+.studio-zoom-toolbar button {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 7px;
+  border: 1px solid #d1e3d9;
+  background: white;
+  color: #146b5d;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.studio-zoom-toolbar output { width: 42px; text-align: right; color: #126b5d; font-size: .76rem; font-variant-numeric: tabular-nums; }
+.studio-image-more { margin-top: 0; }
+.studio-image-more summary { padding-block: 5px; }
+.studio-image-more .studio-image-direction { margin-top: 12px; }
+@media (max-width: 720px) {
+  .studio-preview-panel.is-empty { position: static; }
+  .studio-preview-panel.is-empty .studio-preview-canvas { height: 230px; min-height: 230px; }
+}
