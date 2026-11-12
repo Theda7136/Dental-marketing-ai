@@ -5,6 +5,7 @@ import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
 import { publishToMeta } from "@/lib/metaPublish";
+import { publishToTikTok } from "@/lib/tiktokPublisher";
 import { inspectMetaObject } from "@/lib/metaVerification";
 import { generateDentalVariants } from "@/services/aiProvider";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
@@ -598,4 +599,74 @@ export async function rejectPost(postId: string) {
     console.error("Error al rechazar publicación:", error);
     return { ok: false, message: "No se pudo actualizar la publicación." };
   }
+}
+
+export type PublishNetwork = "facebook" | "instagram" | "tiktok";
+
+export async function publishSelectedNetworks(
+  postId: string,
+  networks: PublishNetwork[],
+  tiktok?: { privacy: string; disableComment: boolean; disableDuet: boolean; disableStitch: boolean },
+): Promise<{ ok: boolean; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[]; message: string }> {
+  if (!(await hasClinicAccess())) {
+    return { ok: false, results: [], message: "Inicia sesión para publicar." };
+  }
+
+  const selected = [...new Set(networks)];
+  if (!selected.length || selected.length > 3 ||
+      selected.some((network) => !["facebook", "instagram", "tiktok"].includes(network))) {
+    return { ok: false, results: [], message: "Selecciona al menos una red social válida." };
+  }
+  if (selected.includes("tiktok") && !tiktok?.privacy) {
+    return { ok: false, results: [], message: "Selecciona la privacidad de TikTok antes de publicar." };
+  }
+
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  if (!post || post.archivedAt || !post.mediaUrl || !["PENDING_APPROVAL", "PUBLISHED"].includes(post.status)) {
+    return { ok: false, results: [], message: "La propuesta no está disponible para publicar." };
+  }
+
+  const results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] = [];
+  for (const network of selected) {
+    if (network === "facebook" || network === "instagram") {
+      const sent = await retryPendingNetwork(postId, network);
+      results.push({
+        network,
+        outcome: sent.ok ? "confirmed" : "uncertain",
+        message: sent.message,
+      });
+      continue;
+    }
+
+    try {
+      const approval = await prisma.scheduledPost.updateMany({
+        where: { id: postId, archivedAt: null, clinicalVerifiedAt: null },
+        data: { clinicalVerifiedAt: new Date() },
+      });
+      if (approval.count === 0) {
+        const current = await prisma.scheduledPost.findUnique({ where: { id: postId }, select: { archivedAt: true } });
+        if (!current || current.archivedAt) throw new Error("La publicación ya no está disponible.");
+      }
+      await publishToTikTok(postId, tiktok!.privacy, {
+        disableComment: tiktok!.disableComment,
+        disableDuet: tiktok!.disableDuet,
+        disableStitch: tiktok!.disableStitch,
+      });
+      results.push({ network, outcome: "processing", message: "TikTok recibió el archivo y continúa procesándolo." });
+    } catch (error) {
+      results.push({
+        network,
+        outcome: "uncertain",
+        message: error instanceof Error ? error.message : "No se pudo confirmar el envío a TikTok.",
+      });
+    }
+  }
+
+  const confirmed = results.filter((result) => result.outcome === "confirmed").length;
+  const processing = results.filter((result) => result.outcome === "processing").length;
+  return {
+    ok: results.every((result) => result.outcome !== "uncertain"),
+    results,
+    message: `${confirmed} confirmadas, ${processing} procesando, ${results.length - confirmed - processing} requieren revisión. Consulta el estado por red antes de otro envío.`,
+  };
 }
