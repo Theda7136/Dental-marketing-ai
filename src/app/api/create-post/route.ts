@@ -570,8 +570,7 @@ export async function POST(request: Request) {
           );
 
     const id = crypto.randomUUID();
-    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
-    const mediaUrl = new URL(`/api/media/${id}`, appBaseUrl).toString();
+    const mediaUrl = `/api/media/${id}`;
     await storePostMedia(id, kind, prepared.media);
     storedMedia = { id, kind };
 
