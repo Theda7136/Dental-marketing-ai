@@ -8,7 +8,7 @@
 - Procesar imágenes y videos desde el servidor antes de mostrarlos en la cola.
 - Generar copies, hashtags y llamados a la acción con Google Gemini; Grok es un respaldo opcional para texto.
 - Revisar cada propuesta manualmente antes de publicarla.
-- Confirmar expresamente la relación entre caso clínico, procedimiento, fotografía/video y copy antes de publicar; la revisión se registra en SQLite y se invalida si se modifica el texto.
+- Revisar el caso y su texto antes de pulsar «Aprobar y publicar»: esa acción registra la aprobación en SQLite sin formularios de confirmación adicionales.
 - Adaptar el texto al canal de publicación: Facebook con tono natural y pocos hashtags, Instagram con copy más breve y hashtags seleccionados. Las fotografías se mantienen en formato feed 4:5, sin recortar datos clínicos.
 - Buscar propuestas por procedimiento y consultar Pendientes e Historial en páginas de diez resultados.
 - Retirar publicaciones de Pendientes o Historial mediante «Eliminar», sin borrar los registros de auditoría ni las publicaciones realizadas en Meta. El sistema bloquea la retirada de envíos con estado pendiente de conciliación.
