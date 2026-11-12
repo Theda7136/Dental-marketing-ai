@@ -9,6 +9,8 @@ export function AccountConnector() {
     pageName?: string;
   } | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+  const [tiktokConnected, setTikTokConnected] = useState(false);
+  const [tiktokName, setTikTokName] = useState<string | null>(null);
 
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get("error");
@@ -21,6 +23,19 @@ export function AccountConnector() {
     };
     if (error && messages[error]) setConnectionMessage(messages[error]);
 
+    fetch("/api/social/tiktok", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((account) => {
+        setTikTokConnected(Boolean(account.connected));
+        setTikTokName(account.userName || null);
+      })
+      .catch(() => setTikTokConnected(false));
+    const tiktokStatus = new URLSearchParams(window.location.search).get("tiktok");
+    if (tiktokStatus && tiktokStatus !== "connected") {
+      setConnectionMessage(tiktokStatus === "scope_missing"
+        ? "TikTok no concedió video.publish. Reautoriza el acceso en TikTok."
+        : "No se pudo completar la conexión a TikTok. Comprueba la configuración y los permisos.");
+    }
     fetch("/api/social/accounts", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -66,6 +81,19 @@ export function AccountConnector() {
           </a>
         )}
       </div>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#d9e5df] bg-white p-5">
+      <div>
+        <p className="font-semibold text-[#173b3a]">TikTok</p>
+        <p className="mt-1 text-sm text-[#607771]">
+          {tiktokConnected ? `Conectado${tiktokName ? ` · ${tiktokName}` : ""}`
+            : "Vincula TikTok para publicar fotos o videos aprobados."}
+        </p>
+        <p className="mt-1 text-xs text-[#72847d]">Necesita Login Kit, permiso video.publish y un dominio de medios verificado.</p>
+      </div>
+      <a href="/api/auth/tiktok" className="rounded-lg border border-[#b9d6ca] px-4 py-2.5 text-sm font-semibold text-[#176c63] hover:bg-[#edf5f1]">
+        {tiktokConnected ? "Reconectar TikTok" : "Conectar TikTok"}
+      </a>
+    </div>
     </div>
   );
 }
