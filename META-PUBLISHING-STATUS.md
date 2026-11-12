@@ -223,3 +223,15 @@ Hay una migración aditiva: `20261112130000_manual_meta_retry_audit`. No se elim
 El selector «Enfoque de la propuesta» aparece **antes** de adjuntar archivo y de pulsar «Generar propuesta». Grok crea variantes Educativa/Comercial y selecciona como `generatedCaption` la elegida desde el formulario. La tarjeta permite cambiarla mientras no haya habido envíos.
 
 Grok Vision se integra al envío de fotografías mediante xAI Responses API `grok-4.7`. No hay opción técnica de habilitar/deshabilitar Vision; para procesar una imagen es obligatorio marcar la casilla de consentimiento específico (sin datos identificables). El backend también valida esa condición. El uso de fotos reales requiere controles de privacidad y autorizaciones adicionales. Videos y guiones no hacen análisis de imagen.
+
+## Opciones de edición de video (2026-11-12)
+
+El formulario Video dispone de:
+- «Silenciar audio original»: remueve las pistas de audio del MP4 final con FFmpeg `-an`. Se conserva el video y la capacidad de publicar con aprobación humana.
+- «Subtítulos temporizados (opcional)»: admite texto SRT manual (bloques numerados, marcas de tiempo `HH:MM:SS,mmm`, texto), lo valida en servidor e incrusta en el video con FFmpeg y `libass`.
+- Los controles son independientes y se aplican antes de guardar la propuesta. No modifican videos ya guardados ni provocan publicación.
+- Límites: videos de hasta 60 segundos y 80 MB, hasta 150 bloques y 12.000 caracteres de SRT. Tiempos ordenados, sin solapamientos y dentro de la duración real del archivo.
+
+La generación de subtítulos **no es automática** en esta versión. Un SRT preparado por un humano permite controlar ortografía, términos clínicos y sincronización; requiere revisión visual de la vista previa. «Sin margen de error» no puede garantizarse para archivos variables, codificaciones, codecs y las APIs de Meta.
+
+Probar con clips ficticios, incluyendo: sin audio, con audio, solo silencio, solo SRT, ambas opciones y SRT inválido. Ejecutar `npm test` y `npm run build` tras actualizar. La compatibilidad real con FFmpeg y publicación debe verificarse en la máquina del piloto.
