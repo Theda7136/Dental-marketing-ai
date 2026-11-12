@@ -63,7 +63,7 @@ export function parsePhotoOptions(input: Record<string, unknown>): PhotoOptions 
 }
 
 function assertProcedure(procedure: string): void {
-  if (!clinicalGuardrails.allowedDentalTerms.includes(procedure)) {
+  if (!clinicalGuardrails.allowedDentalTerms.some((term) => term === procedure)) {
     throw new ImageServiceError("Selecciona un procedimiento permitido.", "INVALID_PROCEDURE");
   }
 }
