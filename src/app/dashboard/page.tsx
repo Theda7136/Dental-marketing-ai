@@ -173,7 +173,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       const body = new FormData();
       body.set("photo", selectedPhoto);
       body.set("photoLayout", "AUTO");
-      body.set("photoBackground", "LIGHT");
+      body.set("photoBackground", "BLUR");
       body.set("photoPreset", "CLINICAL");
       body.set("photoZoom", String(photoZoom));
       body.set("photoOffsetX", String(photoOffsetX));
@@ -259,7 +259,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
     formData.set("photoLayout", "AUTO");
-    formData.set("photoBackground", "LIGHT");
+    formData.set("photoBackground", "BLUR");
     formData.set("photoPreset", "CLINICAL");
     formData.set("photoZoom", String(photoZoom));
     formData.set("photoOffsetX", String(photoOffsetX));
