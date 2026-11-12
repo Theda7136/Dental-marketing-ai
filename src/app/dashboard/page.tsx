@@ -295,15 +295,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       }
 
       if (result.ok && result.post) {
-        setPosts((current) => [result.post!, ...current]);
-        formRef.current?.reset();
-        setProcedureName("");
-        setNotes("");
-        setSelectedPhoto(null);
-        setSelectedMedia(null);
-        setFileKey((current) => current + 1);
-        setSavedProposal(true);
-        setNotice("Propuesta guardada y lista para revisión.");
+        window.location.assign("/dashboard/pendientes");
       } else {
         setErrorMessage(result.message || "No se pudo crear la propuesta.");
       }
