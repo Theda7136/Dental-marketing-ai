@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { platformCaptions } from "@/lib/platformCopy.mjs";
 
 export const POST_STATUSES = [
   "PENDING_APPROVAL",
@@ -46,7 +45,6 @@ interface ApprovalQueueProps {
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onApprove: (postId: string) => void | Promise<void>;
-  onConfirmClinical: (postId: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
@@ -142,7 +140,6 @@ export function ApprovalQueue({
   posts,
   mode = "both",
   onApprove,
-  onConfirmClinical,
   onDelete,
   onEdit,
   onRetry,
@@ -164,8 +161,6 @@ export function ApprovalQueue({
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
-  const [clinicalChecks, setClinicalChecks] = useState<Record<string, boolean>>({});
-  const [platformPreview, setPlatformPreview] = useState<Record<string, "facebook" | "instagram">>({});
   const [pendingQuery, setPendingQuery] = useState("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [pendingPage, setPendingPage] = useState(1);
@@ -430,8 +425,6 @@ export function ApprovalQueue({
             const isVideo = post.mediaKind === "video" || isVideoUrl(post.mediaUrl);
             const error = errors[post.id];
             const mediaError = mediaErrors[post.id];
-            const networkPreview = platformPreview[post.id] || "facebook";
-            const previewCaption = platformCaptions(post.generatedCaption)[networkPreview];
 
             return (
               <li
@@ -487,35 +480,6 @@ export function ApprovalQueue({
                       </p>
                     </div>
 
-                    {!isTextIdea && (
-                      <p className="studio-clinical-review" role="note">
-                        Verifica que el procedimiento seleccionado corresponda realmente a este caso.
-                        La IA redacta a partir de la información proporcionada; una fotografía no confirma por sí sola el tratamiento realizado.
-                      </p>
-                    )}
-
-                    {!isTextIdea && (
-                      <div className="rounded-lg border border-[#cbdcd4] bg-[#f5faf7] p-3 text-sm">
-                        {post.clinicalVerifiedAt ? (
-                          <p className="font-semibold text-[#126b5d]">Revisión clínica confirmada</p>
-                        ) : (
-                          <>
-                            <label className="flex items-start gap-2">
-                              <input type="checkbox" checked={Boolean(clinicalChecks[post.id])}
-                                onChange={(event) => setClinicalChecks((current) => ({ ...current, [post.id]: event.target.checked }))}
-                                disabled={isBusy} className="mt-1" />
-                              <span>He verificado que el procedimiento, la fotografía, el texto y las autorizaciones corresponden a este caso.</span>
-                            </label>
-                            <button type="button" className="mt-2 rounded-lg border border-[#b7d7ce] bg-white px-3 py-2 font-semibold text-[#176c63] disabled:opacity-50"
-                              disabled={isBusy || !clinicalChecks[post.id] || editingId === post.id}
-                              onClick={() => void runAction(post.id, () => onConfirmClinical(post.id))}>
-                              Confirmar revisión clínica
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-
                     {(post.educationalCaption || post.commercialCaption) && (
                       <div className="flex flex-wrap items-center gap-2" aria-label="Elegir estilo de copy">
                         {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => {
@@ -542,25 +506,10 @@ export function ApprovalQueue({
                       </div>
                     )}
                     {post.visualSummary && (
-                      <p className="text-xs leading-5 text-[#607771]">
-                        Observación visual IA (no diagnóstica): {post.visualSummary}
-                      </p>
-                    )}
-
-                    {!isTextIdea && editingId !== post.id && (
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#526762]" aria-label="Vista previa del texto por plataforma">
-                        <span>Vista del copy:</span>
-                        {(["facebook", "instagram"] as const).map((network) =>
-                          <button key={network} type="button" aria-pressed={networkPreview === network}
-                            onClick={() => setPlatformPreview((current) => ({ ...current, [post.id]: network }))}
-                            className={networkPreview === network
-                              ? "rounded-full bg-[#176c63] px-3 py-1.5 font-semibold text-white"
-                              : "rounded-full border border-[#cbdcd4] bg-white px-3 py-1.5 font-semibold text-[#176c63]"}>
-                            {network === "facebook" ? "Facebook" : "Instagram"}
-                          </button>
-                        )}
-                        <span>Imagen 4:5, sin recorte clínico</span>
-                      </div>
+                      <details className="text-xs text-[#607771]">
+                        <summary className="w-fit cursor-pointer font-medium text-[#176c63]">Análisis visual opcional</summary>
+                        <p className="mt-2 leading-5">{post.visualSummary}</p>
+                      </details>
                     )}
 
                     {editingId === post.id ? (
@@ -613,9 +562,9 @@ export function ApprovalQueue({
                         <p className={expandedPosts.includes(post.id)
                           ? "whitespace-pre-wrap text-sm leading-6 text-[#526762]"
                           : "line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-[#526762]"}>
-                          {isTextIdea ? post.generatedCaption : previewCaption}
+                          {post.generatedCaption}
                         </p>
-                        {(isTextIdea ? post.generatedCaption : previewCaption).length > 170 && (
+                        {post.generatedCaption.length > 170 && (
                           <button
                             type="button"
                             aria-expanded={expandedPosts.includes(post.id)}
@@ -679,23 +628,6 @@ export function ApprovalQueue({
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
                   </div>
                 )}
-                {post.mediaUrl && !post.clinicalVerifiedAt && (
-                  <div className="mt-3 rounded-lg border border-[#cbdcd4] bg-[#f5faf7] p-3 text-sm">
-                    <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-1" checked={Boolean(clinicalChecks[post.id])}
-                        disabled={busyId === post.id}
-                        onChange={(event) => setClinicalChecks((current) => ({ ...current, [post.id]: event.target.checked }))}/>
-                      <span>He comprobado que el procedimiento, el contenido y las autorizaciones corresponden a este caso.</span>
-                    </label>
-                    <button type="button" disabled={busyId === post.id || !clinicalChecks[post.id] ||
-                      ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
-                      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus || "")}
-                      className="mt-2 rounded-lg border border-[#b7d7ce] bg-white px-3 py-2 font-semibold text-[#176c63] disabled:opacity-50"
-                      onClick={() => void runAction(post.id, () => onConfirmClinical(post.id))}>
-                      Confirmar revisión clínica
-                    </button>
-                  </div>
-                )}
                 {post.status === "PUBLISHED" && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {retryButton(post, "facebook")}
@@ -718,7 +650,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id || !post.clinicalVerifiedAt}
+                        disabled={isBusy || isTextIdea || editingId === post.id}
                         onClick={() => runAction(post.id, onApprove)}
                         className="studio-primary-action rounded-lg bg-[#116f64] px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
                       >

@@ -233,6 +233,21 @@ export async function approveAndPublishPost(
     if (!canStartInitialPublication(post)) {
       return { ok: false, message: "Una red ya tiene un envío iniciado o confirmado. Consulta el historial; solo es seguro enviar a una red pendiente." };
     }
+    const confirmed = await prisma.scheduledPost.updateMany({
+      where: {
+        id: post.id,
+        status: "PENDING_APPROVAL",
+        archivedAt: null,
+        facebookStatus: "PENDING",
+        instagramStatus: "PENDING",
+        facebookRetryCount: 0,
+        instagramRetryCount: 0,
+      },
+      data: { clinicalVerifiedAt: new Date() },
+    });
+    if (confirmed.count !== 1) {
+      return { ok: false, message: "La publicación cambió de estado. Actualiza Pendientes antes de aprobar." };
+    }
     const result = await publishToMeta({
       id: post.id,
       mediaUrl: post.mediaUrl,
@@ -281,6 +296,16 @@ export async function retryPendingNetwork(
         ok: false,
         message: "Esta red ya fue utilizada o tiene un resultado incierto. Verifica el estado en Meta antes de continuar.",
       };
+    }
+
+    if (!post.clinicalVerifiedAt) {
+      const confirmed = await prisma.scheduledPost.updateMany({
+        where: { id: post.id, archivedAt: null, clinicalVerifiedAt: null },
+        data: { clinicalVerifiedAt: new Date() },
+      });
+      if (confirmed.count !== 1) {
+        return { ok: false, message: "No se pudo registrar la aprobación. Actualiza el panel." };
+      }
     }
 
     const result = await publishToMeta({
