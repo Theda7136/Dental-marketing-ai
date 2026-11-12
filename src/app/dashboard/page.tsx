@@ -602,35 +602,55 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </p>
             </fieldset>
 
-            {format !== "text" ? (
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-stone-800">
-                  {format === "video" ? "Video clínico" : "Foto clínica"}
-                </span>
-                <label className="studio-upload group flex min-h-36 cursor-pointer flex-col items-center justify-center px-4 py-6 text-center">
-                  <span className="mb-2 grid h-9 w-9 place-items-center rounded-xl bg-white text-[#398e82] shadow-sm transition group-hover:scale-105" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.7"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span className="text-sm font-semibold text-[#245e57]">
-                    {format === "video" ? "Elegir video" : "Elegir foto"}
-                  </span>
-                  <span className="mt-1 max-w-full truncate text-xs text-[#82928e]">{fileLabel}</span>
-                  <input
-                    key={fileKey}
-                    name="photo"
-                    type="file"
-                    required
-                    disabled={isPending}
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      setFileLabel(file ? file.name : "Ningún archivo seleccionado");
-                      setSelectedPhoto(format === "photo" ? file || null : null);
-                    }}
-                  />
-                </label>
+            {format !== "text" && (
+              <div className="studio-file-field">
+                <span className="studio-field-label">{format === "video" ? "Video clínico" : "Fotografía clínica"}</span>
+                <input
+                  ref={fileInputRef}
+                  key={fileKey}
+                  name="photo"
+                  type="file"
+                  accept={format === "video" ? "video/mp4,video/quicktime,video/webm" : "image/jpeg,image/png,image/webp"}
+                  required
+                  disabled={isPending}
+                  className="sr-only"
+                  aria-label={format === "video" ? "Seleccionar video" : "Seleccionar fotografía"}
+                  onChange={(event) => {
+                    const media = event.currentTarget.files?.[0] ?? null;
+                    setSelectedMedia(media);
+                    setFileLabel(media ? media.name : "Ningún archivo seleccionado");
+                    setSelectedPhoto(format === "photo" ? media : null);
+                    setPhotoZoom(1);
+                    setPhotoOffsetX(0);
+                    setPhotoOffsetY(0);
+                  }}
+                />
+                {selectedMedia ? (
+                  <div className="studio-file-selected">
+                    <div className="studio-file-thumb">
+                      {mediaPreviewUrl && format === "photo"
+                        ? <img src={mediaPreviewUrl} alt="Miniatura del archivo seleccionado" />
+                        : <span aria-hidden="true">▶</span>}
+                    </div>
+                    <div className="studio-file-info">
+                      <strong title={selectedMedia.name}>{selectedMedia.name}</strong>
+                      <span>{(selectedMedia.size / 1024 / 1024).toFixed(2)} MB · {format === "photo" ? "Imagen" : "Video"}</span>
+                    </div>
+                    <button type="button" className="studio-file-replace" disabled={isPending}
+                      onClick={() => fileInputRef.current?.click()}>
+                      Reemplazar
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="studio-upload-button" disabled={isPending}
+                    onClick={() => fileInputRef.current?.click()}>
+                    <span className="studio-upload-icon" aria-hidden="true">＋</span>
+                    <span><strong>{format === "video" ? "Agregar video" : "Agregar fotografía"}</strong>
+                    <small>{format === "video" ? "MP4, MOV o WebM" : "JPG, PNG o WebP"}</small></span>
+                  </button>
+                )}
               </div>
-            ) : null}
+            )}
 
             {format === "photo" && selectedPhoto && (
               <section className="studio-photo-tools space-y-3 rounded-2xl border border-[#d7e5df] bg-[#f7faf8] p-3" aria-label="Ajuste visual de foto">
@@ -671,23 +691,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                     </select>
                   </label>
                 </div>
-                <details className="text-xs text-[#46615b]">
-                  <summary className="cursor-pointer font-medium">Ajustar zoom y posición</summary>
-                  <div className="mt-3 space-y-2">
-                    <label className="block">Zoom: {photoZoom.toFixed(2)}×
-                      <input className="w-full" type="range" min="1" max="1.6" step="0.05" value={photoZoom} disabled={isPending}
-                        onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
-                    </label>
-                    <label className="block">Mover horizontalmente
-                      <input className="w-full" type="range" min="-100" max="100" step="10" value={photoOffsetX} disabled={isPending}
-                        onChange={(event) => setPhotoOffsetX(Number(event.target.value))}/>
-                    </label>
-                    <label className="block">Mover verticalmente
-                      <input className="w-full" type="range" min="-100" max="100" step="10" value={photoOffsetY} disabled={isPending}
-                        onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
-                    </label>
-                  </div>
-                </details>
+
               </section>
             )}
 
@@ -752,7 +756,10 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
             </div>
             <div className="studio-preview-canvas" aria-live="polite">
-              {format === "photo" && photoPreview ? (
+              {format === "video" && mediaPreviewUrl ? (
+                <video key={mediaPreviewUrl} src={mediaPreviewUrl} controls playsInline preload="metadata"
+                  className="studio-preview-video" aria-label="Reproducción local del video seleccionado" />
+              ) : format === "photo" && photoPreview ? (
                 <img src={photoPreview} alt="Previsualización de la fotografía procesada para el feed" className="studio-preview-image" />
               ) : (
                 <div className="studio-preview-placeholder">
@@ -766,6 +773,29 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 </div>
               )}
             </div>
+            {format === "photo" && selectedPhoto && (
+              <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
+                <div className="studio-image-control-head">
+                  <strong>Ajustar encuadre</strong>
+                  <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); }}
+                    disabled={isPending}>Restablecer</button>
+                </div>
+                <label>Zoom <output>{photoZoom.toFixed(2)}×</output>
+                  <input type="range" min="1" max="1.6" step="0.05" value={photoZoom} disabled={isPending}
+                    onChange={(event) => setPhotoZoom(Number(event.target.value))}/>
+                </label>
+                <div className="studio-image-direction">
+                  <label>Horizontal
+                    <input type="range" min="-100" max="100" step="10" value={photoOffsetX} disabled={isPending}
+                      onChange={(event) => setPhotoOffsetX(Number(event.target.value))}/>
+                  </label>
+                  <label>Vertical
+                    <input type="range" min="-100" max="100" step="10" value={photoOffsetY} disabled={isPending}
+                      onChange={(event) => setPhotoOffsetY(Number(event.target.value))}/>
+                  </label>
+                </div>
+              </div>
+            )}
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
             <p className="studio-preview-caption">{format === "photo" ? "Formato feed 4:5. Revisa el encuadre antes de generar." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
