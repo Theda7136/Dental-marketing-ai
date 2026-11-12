@@ -405,7 +405,7 @@ async function prepareImage(
   procedureName: string,
   media: Uint8Array,
   notes?: string,
-  enableVision = false,
+  enableVision: boolean,
   photoOptions: PhotoOptions,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
