@@ -562,3 +562,5 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-preview-canvas.is-adjustable { cursor: grab; touch-action: none; }
 .studio-preview-canvas.is-adjustable:active { cursor: grabbing; }
 .studio-preview-canvas.is-adjustable img { user-select: none; pointer-events: none; }
+
+.studio-file-thumb video { width:100%; height:100%; object-fit:cover; pointer-events:none; }
