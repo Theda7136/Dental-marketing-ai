@@ -527,7 +527,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                  <span className="studio-nav-count">{posts.filter((post) => post.status === "PENDING_APPROVAL").length}</span>
                )}
              </a>
-           ))}       </nav>
+           ))}
+         </nav>
         <div className="studio-sidebar-footer">
           <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
           <p>Todo contenido requiere revisión antes de publicarse.</p>
