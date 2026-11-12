@@ -439,7 +439,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
     setPosts((current) => current.map((post) =>
       post.id === postId
-        ? { ...post, selectedStyle: style, generatedCaption: chosen.caption! }
+        ? { ...post, selectedStyle: style, generatedCaption: chosen.caption!, clinicalVerifiedAt: null }
         : post,
     ));
     setNotice(style === "EDUCATIONAL" ? "Versión educativa seleccionada." : "Versión comercial seleccionada.");
@@ -504,7 +504,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
     setPosts((current) => current.map((savedPost) =>
       savedPost.id === post.id
-        ? { ...savedPost, generatedCaption: revised.caption! }
+        ? { ...savedPost, generatedCaption: revised.caption!, clinicalVerifiedAt: null }
         : savedPost,
     ));
     setNotice("Texto actualizado. La propuesta conserva su archivo y sigue pendiente de aprobación.");
