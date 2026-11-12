@@ -20,6 +20,10 @@ export async function GET(request: Request) {
         procedureName: string;
         mediaUrl: string;
         generatedCaption: string;
+        educationalCaption: string | null;
+        commercialCaption: string | null;
+        selectedStyle: string;
+        visualSummary: string | null;
         status: string;
         createdAt: Date;
         approvedAt: Date | null;
@@ -39,6 +43,10 @@ export async function GET(request: Request) {
         procedureName: post.procedureName,
         mediaUrl: post.mediaUrl,
         generatedCaption: post.generatedCaption,
+        educationalCaption: post.educationalCaption,
+        commercialCaption: post.commercialCaption,
+        selectedStyle: post.selectedStyle,
+        visualSummary: post.visualSummary,
         status: post.status,
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
