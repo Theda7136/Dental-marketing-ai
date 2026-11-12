@@ -453,6 +453,74 @@ export async function recordDeliveryReview(
   }
 }
 
+export async function authorizeManualRetry(
+  postId: string,
+  network: "facebook" | "instagram",
+): Promise<{ ok: boolean; message: string }> {
+  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para continuar." };
+  if (network !== "facebook" && network !== "instagram") {
+    return { ok: false, message: "Red social no válida." };
+  }
+
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  if (!post || !post.mediaUrl || post.status !== "PENDING_APPROVAL") {
+    return { ok: false, message: "La propuesta no está pendiente de aprobación." };
+  }
+
+  const status = network === "facebook" ? post.facebookStatus : post.instagramStatus;
+  const outcome = network === "facebook" ? post.facebookReviewOutcome : post.instagramReviewOutcome;
+  const reviewedAt = network === "facebook" ? post.facebookReviewedAt : post.instagramReviewedAt;
+  const objectId = network === "facebook" ? post.facebookPostId : post.instagramPostId;
+  const notes = network === "facebook" ? post.facebookReviewEvidence : post.instagramReviewEvidence;
+  const retries = network === "facebook" ? post.facebookRetryCount : post.instagramRetryCount;
+
+  if (status !== "UNKNOWN" || outcome !== "NOT_FOUND" || objectId || !notes || !reviewedAt) {
+    return {
+      ok: false,
+      message: "Antes de reintentar debes comprobar la red, registrar que no encontraste la publicación y conservar la evidencia. Si existe un ID de Meta, resuélvelo primero.",
+    };
+  }
+  if (Date.now() - reviewedAt.getTime() > 30 * 60 * 1000) {
+    return { ok: false, message: "La comprobación tiene más de 30 minutos. Verifica nuevamente la red." };
+  }
+  if (retries >= 1) {
+    return { ok: false, message: "Ya se autorizó un reintento manual. Requiere revisión técnica para evitar duplicados." };
+  }
+
+  const fields = network === "facebook"
+    ? {
+      facebookStatus: "PENDING",
+      facebookRetryCount: { increment: 1 },
+      facebookLastRetryAt: new Date(),
+    }
+    : {
+      instagramStatus: "PENDING",
+      instagramRetryCount: { increment: 1 },
+      instagramLastRetryAt: new Date(),
+    };
+  const where = network === "facebook"
+    ? {
+      id: postId, status: "PENDING_APPROVAL" as const, facebookStatus: "UNKNOWN",
+      facebookReviewOutcome: "NOT_FOUND", facebookPostId: null, facebookRetryCount: 0,
+      facebookReviewedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+    }
+    : {
+      id: postId, status: "PENDING_APPROVAL" as const, instagramStatus: "UNKNOWN",
+      instagramReviewOutcome: "NOT_FOUND", instagramPostId: null, instagramRetryCount: 0,
+      instagramReviewedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+    };
+
+  const updated = await prisma.scheduledPost.updateMany({ where, data: fields });
+  if (updated.count !== 1) {
+    return { ok: false, message: "El registro cambió. Actualiza el panel y vuelve a revisar Meta." };
+  }
+
+  return {
+    ok: true,
+    message: "Se habilitó un único reintento manual para esta red. Comprueba la imagen HTTPS y confirma antes de publicar.",
+  };
+}
+
 export async function rejectPost(postId: string) {
   if (!(await hasClinicAccess())) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
