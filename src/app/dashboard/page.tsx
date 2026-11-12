@@ -699,9 +699,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               <label className="flex gap-3 rounded-xl border border-[#d7e5df] bg-[#f7faf8] p-3 text-xs leading-5 text-[#46615b]">
                 <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} className="mt-1" />
                 <span>
-                  <strong className="block text-sm text-[#173b3a]">Grok Vision integrado</strong>
-                  Se analizará una versión reducida de la foto. Confirmo que tengo autorización para enviarla a xAI,
-                  que no contiene datos identificables y que la revisión clínica será humana.
+                  <strong className="block text-sm text-[#173b3a]">Gemini Vision · autorización necesaria</strong>
+                  Se analizará una versión reducida de la foto con Google Gemini. Confirmo que tengo autorización para enviarla a Google,
+                  que no contiene datos identificables y que la revisión clínica será humana. En el nivel gratuito, Google puede usar contenido enviado para mejorar sus productos; utiliza solo material de prueba o debidamente autorizado.
                 </span>
               </label>
             )}
@@ -728,7 +728,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               {isPending ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Grok está preparando el contenido...
+                  La IA está preparando el contenido...
                 </>
               ) : (
                 "Generar propuesta"

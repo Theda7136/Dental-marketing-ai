@@ -1,8 +1,9 @@
 "use server";
 
 import { headers } from "next/headers";
-import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized } from "@/lib/clinicAuth";
+import { clinicalGuardrails } from "@/config/clinicalGuardrails";
+import { generateDentalVariants } from "@/services/aiProvider";
 
 interface GeneratePostParams {
   procedure: string;
@@ -10,63 +11,31 @@ interface GeneratePostParams {
   notes?: string;
 }
 
-export async function generateClinicalPost({ procedure, imageUrl, notes }: GeneratePostParams) {
+export async function generateClinicalPost({ procedure, notes }: GeneratePostParams) {
   if (!isClinicAuthorized((await headers()).get("authorization"))) {
     throw new Error("Inicia sesión para usar el panel.");
   }
 
-  const apiKey = process.env.XAI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Falta la API Key de xAI (Grok)");
+  const selected = procedure.trim();
+  if (!clinicalGuardrails.allowedDentalTerms.includes(selected)) {
+    return { success: false, error: "Selecciona un procedimiento odontológico permitido." };
   }
 
-  // Prompt clínico estructurado para el tono odontológico profesional
-  const systemPrompt = `Eres un experto en marketing digital especializado en clínicas dentales y odontología estética. 
-Tu objetivo es generar publicaciones atractivas, profesionales, éticas y orientadas a la conversión para Instagram y Facebook.
-La publicación debe incluir:
-1. Un gancho llamativo relacionado con la salud o estética dental.
-2. Una explicación breve y sencilla del procedimiento (${procedure}).
-3. Un llamado a la acción (CTA) claro para agendar una cita de valoración.
-4. Hashtags estratégicos al final.`;
-
-  const userPrompt = `Genera un post para redes sociales sobre el siguiente procedimiento dental: "${procedure}". 
-${notes ? `Notas adicionales del caso clínico: ${notes}` : ""}
-${imageUrl ? "Analiza el contexto visual de la foto clínica adjunta para inspirar el texto." : ""}`;
-
   try {
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "grok-3",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7,
-      }),
-    });
-
-    const data = await response.json();
-    const generatedCaption = data.choices?.[0]?.message?.content || "No se pudo generar el contenido.";
-
-    // Opcional: Guardar el resultado en la base de datos como borrador/pendiente de aprobación
-    // const post = await prisma.post.create({ ... })
-
-    return {
-      success: true,
-      caption: generatedCaption,
-    };
-
+    const context = notes?.trim().slice(0, 800) || "Sin notas adicionales confirmadas.";
+    clinicalGuardrails.validate(context);
+    const drafts = await generateDentalVariants(selected, context);
+    const caption = [
+      drafts.educational.caption,
+      drafts.educational.hashtags.join(" "),
+      drafts.educational.suggestedCallToAction,
+    ].join("\n\n");
+    clinicalGuardrails.validate(caption);
+    return { success: true, caption };
   } catch (error) {
-    console.error("Error al generar contenido con Grok-3:", error);
     return {
       success: false,
-      error: "Error al comunicarse con la API de xAI.",
+      error: error instanceof Error ? error.message : "No se pudo generar el contenido.",
     };
   }
 }

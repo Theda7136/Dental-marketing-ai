@@ -6,7 +6,7 @@
 
 - Crear propuestas para foto clínica, video/Reel e ideas de texto.
 - Procesar imágenes y videos desde el servidor antes de mostrarlos en la cola.
-- Generar copies, hashtags y llamados a la acción con xAI/Grok.
+- Generar copies, hashtags y llamados a la acción con Google Gemini; Grok es un respaldo opcional para texto.
 - Revisar cada propuesta manualmente antes de publicarla.
 - Conectar una Página de Facebook y, si está vinculada, una cuenta profesional de Instagram.
 - Guardar propuestas en SQLite y medios en el disco local o en almacenamiento compatible con S3.
@@ -17,7 +17,7 @@ La aplicación no programa publicaciones futuras. La aprobación inicia la publi
 
 1. El personal selecciona el formato, el procedimiento y el material del caso.
 2. El servidor valida los datos y prepara la imagen o el video.
-3. xAI/Grok redacta el texto; los controles clínicos bloquean algunas promesas absolutas o frases de riesgo.
+3. Gemini redacta el texto; ante ciertos errores, Grok puede actuar como respaldo si tiene créditos y clave configurada. Los controles clínicos bloquean algunas promesas absolutas o frases de riesgo.
 4. La propuesta queda en la cola para revisión humana.
 5. Una persona autorizada revisa el material y el copy, y decide si publica.
 
@@ -27,7 +27,7 @@ La IA es una herramienta de redacción, no una fuente de diagnóstico ni una rev
 
 - Next.js 16, React 19 y TypeScript.
 - Prisma 6 con SQLite para los datos del piloto.
-- xAI API (Grok) para generar contenido.
+- Google Gemini API para contenido y análisis visual consentido; xAI/Grok como respaldo opcional de texto.
 - sharp para preparar imágenes y ffmpeg para procesar videos verticales.
 - Meta Graph API para publicar en Facebook Reels, Facebook Photos e Instagram, cuando la cuenta profesional esté vinculada.
 - Almacenamiento local por defecto; S3/R2 opcional para medios.
@@ -35,7 +35,7 @@ La IA es una herramienta de redacción, no una fuente de diagnóstico ni una rev
 ## Requisitos
 
 - Node.js 20.9 o posterior y npm.
-- Una clave de xAI para generar propuestas con IA.
+- Una clave de Gemini para generar propuestas con IA. Grok es opcional.
 - Una aplicación de Meta configurada para conectar la Página, si se probará la publicación social.
 
 Next.js 16 requiere Node.js 20.9 o posterior ([requisitos oficiales](https://nextjs.org/docs/app/getting-started/installation#system-requirements)).
@@ -64,7 +64,9 @@ La plantilla completa está en [`.env.example`](./.env.example). Configura los v
 | Variable | Uso |
 | --- | --- |
 | `DENTAL_APP_PASSWORD` | Contraseña compartida del piloto; mínimo 16 caracteres. El usuario es `clinica`. |
-| `XAI_API_KEY` | Clave privada para generar propuestas mediante xAI/Grok. |
+| `GEMINI_API_KEY` | Clave principal privada de Google AI Studio. |
+| `GEMINI_MODEL` | Modelo Gemini; por defecto `gemini-3.1-flash-lite`. |
+| `XAI_API_KEY` | Clave opcional para el respaldo Grok de texto cuando Gemini tiene errores temporales o de cuota. |
 | `META_CLIENT_ID` | ID de la aplicación de Meta. |
 | `META_CLIENT_SECRET` | Secreto de la aplicación de Meta; mantenlo solo en el servidor. |
 | `META_PAGE_ID` | Opcional. Fija la Página piloto si la cuenta administra más de una. |
@@ -106,7 +108,7 @@ El proyecto todavía no define scripts automatizados test o lint.
     src/app/api/             Rutas de contenido, medios y conexión social
     src/components/          Formulario y cola de revisión
     src/config/              Términos permitidos y controles clínicos
-    src/services/            Integración xAI, procesamiento multimedia y almacenamiento
+    src/services/            Integración Gemini/Grok, procesamiento multimedia y almacenamiento
     src/lib/metaPublish.ts   Publicación en Meta
     storage/posts/           Medios guardados localmente durante el piloto
 
@@ -116,6 +118,7 @@ El proyecto todavía no define scripts automatizados test o lint.
 - No incluyas tokens, contraseñas, archivos `.env` ni enlaces firmados en el repositorio.
 - Los tokens OAuth de Meta se guardan en SQLite. Protege `prisma/dev.db` y sus copias de seguridad; no los compartas.
 - Usa material autorizado por la clínica. No compartas fotos, videos, nombres ni otros datos identificables de pacientes sin la autorización correspondiente.
+- Las fotografías enviadas a Gemini Vision requieren confirmación explícita y no se redirigen automáticamente a Grok. En el nivel gratuito de Gemini los datos pueden usarse para mejorar productos de Google: no utilices fotografías clínicas ni notas identificables en ese nivel sin una evaluación legal y de privacidad apropiada. Para casos reales, evalúa la opción de pago y los acuerdos aplicables.
 - Revisa que el texto y la pieza visual sean correctos antes de aprobar la publicación. Los controles automáticos reducen algunos riesgos de redacción, pero no sustituyen el criterio del profesional.
 - El piloto usa una contraseña compartida y una base SQLite local; no está configurado como una plataforma multi-clínica.
 
