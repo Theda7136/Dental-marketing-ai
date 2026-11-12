@@ -23,6 +23,8 @@ export interface ApprovalQueuePost {
   visualSummary?: string | null;
   status: PostStatus;
   facebookStatus?: string;
+  facebookRetryCount?: number;
+  instagramRetryCount?: number;
   instagramStatus?: string;
   facebookPostId?: string | null;
   instagramPostId?: string | null;
@@ -516,7 +518,7 @@ export function ApprovalQueue({
                       {networkStatus("Instagram", post.instagramStatus)}
                     </div>
 
-                    {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING") && (
+                    {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) && (
                       <div className="flex flex-wrap gap-2">
                         {retryButton(post, "facebook")}
                         {retryButton(post, "instagram")}
@@ -580,7 +582,7 @@ export function ApprovalQueue({
                     <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
+                        disabled={isBusy || isTextIdea || editingId === post.id || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0 || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING"))}
                         onClick={() => runAction(post.id, onApprove)}
                         className="rounded-full bg-gradient-to-r from-[#147c72] to-[#0d625b] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_-12px_rgba(13,98,91,0.75)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                       >
