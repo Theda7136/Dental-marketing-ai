@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { TikTokPublisher } from "./TikTokPublisher";
+import { MultinetworkPublisher } from "./MultinetworkPublisher";
+import type { PublishNetwork } from "@/app/dashboard/actions";
 
 export const POST_STATUSES = [
   "PENDING_APPROVAL",
@@ -48,7 +50,13 @@ export interface ApprovalQueuePost {
 interface ApprovalQueueProps {
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
-  onApprove: (postId: string) => void | Promise<void>;
+  onPublishSelected: (postId: string, networks: PublishNetwork[], tiktok?: {
+    privacy: string;
+    disableComment: boolean;
+    disableDuet: boolean;
+    disableStitch: boolean;
+  }) => Promise<{ ok: boolean; message: string; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] }>;
+  onReload: () => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
   onRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
@@ -143,7 +151,8 @@ function mediaSource(post: ApprovalQueuePost): string {
 export function ApprovalQueue({
   posts,
   mode = "both",
-  onApprove,
+  onPublishSelected,
+  onReload,
   onDelete,
   onEdit,
   onRetry,
@@ -581,6 +590,7 @@ export function ApprovalQueue({
                     <div className="studio-proposal-networks flex flex-wrap gap-2" aria-label="Estado por red social">
                       {networkStatus("Facebook", post.facebookStatus)}
                       {networkStatus("Instagram", post.instagramStatus)}
+                      {post.tiktokStatus && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus)}
                     </div>
 
                     {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) && (
@@ -645,14 +655,8 @@ export function ApprovalQueue({
                     ) : null}
 
                     <div className="studio-proposal-actions mt-auto flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isBusy || isTextIdea || editingId === post.id}
-                        onClick={() => runAction(post.id, onApprove)}
-                        className="studio-primary-action rounded-lg bg-[#116f64] px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isTextIdea ? "Idea guardada" : "Aprobar y publicar"}
-                      </button>
+                      <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
+                      {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                       <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
@@ -669,7 +673,6 @@ export function ApprovalQueue({
                       >
                         Editar texto
                       </button>
-                      <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
                       {deleteButton(post)}
                     </div>
                   </div>
@@ -786,7 +789,8 @@ export function ApprovalQueue({
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />
+                  <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
+                  {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                   {deleteButton(post)}
                 </div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
