@@ -369,8 +369,8 @@ export function ApprovalQueue({
                 key={post.id}
                 className="app-card studio-proposal overflow-hidden"
               >
-                <article className="studio-proposal-grid grid gap-0 sm:grid-cols-[190px_1fr]">
-                  <div className="studio-proposal-media h-44 overflow-hidden bg-[#edf3ef] sm:h-full">
+                <article className="studio-proposal-grid grid gap-0 sm:grid-cols-[minmax(240px,290px)_minmax(0,1fr)]">
+                  <div className="studio-proposal-media overflow-hidden bg-[#edf3ef]">
                     {isTextIdea ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
                         Idea de contenido
@@ -382,7 +382,7 @@ export function ApprovalQueue({
                       </div>
                     ) : isVideo ? (
                       <video
-                        className="h-full w-full object-contain"
+                        className="studio-proposal-media-content"
                         src={mediaSource(post)}
                         controls
                         preload="metadata"
@@ -390,7 +390,7 @@ export function ApprovalQueue({
                       />
                     ) : (
                       <img
-                        className="h-full w-full object-contain"
+                        className="studio-proposal-media-content"
                         src={mediaSource(post)}
                         alt={`Caso de ${post.procedureName}`}
                         onError={() => {
@@ -417,6 +417,13 @@ export function ApprovalQueue({
                         Creado el {formatCreatedAt(post.createdAt)}
                       </p>
                     </div>
+
+                    {!isTextIdea && (
+                      <p className="studio-clinical-review" role="note">
+                        Verifica que el procedimiento seleccionado corresponda realmente a este caso.
+                        La IA redacta a partir de la información proporcionada; una fotografía no confirma por sí sola el tratamiento realizado.
+                      </p>
+                    )}
 
                     {(post.educationalCaption || post.commercialCaption) && (
                       <div className="flex flex-wrap items-center gap-2" aria-label="Elegir estilo de copy">
