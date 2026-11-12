@@ -24,6 +24,10 @@ before(async () => {
       "mediaType" TEXT NOT NULL DEFAULT 'IMAGE',
       "mediaUrl" TEXT NOT NULL,
       "generatedCaption" TEXT NOT NULL,
+      "educationalCaption" TEXT,
+      "commercialCaption" TEXT,
+      "selectedStyle" TEXT NOT NULL DEFAULT 'EDUCATIONAL',
+      "visualSummary" TEXT,
       "status" TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "approvedAt" DATETIME,
@@ -38,7 +42,11 @@ before(async () => {
       "facebookReviewedAt" DATETIME,
       "instagramReviewOutcome" TEXT,
       "instagramReviewEvidence" TEXT,
-      "instagramReviewedAt" DATETIME
+      "instagramReviewedAt" DATETIME,
+      "facebookRetryCount" INTEGER NOT NULL DEFAULT 0,
+      "instagramRetryCount" INTEGER NOT NULL DEFAULT 0,
+      "facebookLastRetryAt" DATETIME,
+      "instagramLastRetryAt" DATETIME
     )
   `);
 });
