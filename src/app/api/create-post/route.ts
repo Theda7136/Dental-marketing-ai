@@ -357,14 +357,15 @@ function consultationNotes(notes: string | undefined): string | undefined {
     return undefined;
   }
 
-  return `Notas confirmadas en la consulta. Úsalas solo como contexto y no agregues hallazgos que no estén escritos: ${notes}`;
+  return `HECHOS CONFIRMADOS POR LA CLÍNICA (prioridad máxima en ambos copys): ${notes}. Describe este caso específico respetando estas palabras clave. No inventes características, procedimientos ni resultados adicionales.`;
 }
 
 function imageContextFor(procedureName: string, notes?: string): string {
   return [
     "Foto clínica preparada para Instagram y TikTok.",
     `El odontólogo indicó el procedimiento ${procedureName}.`,
-    "La imagen se recorta y se monta en la plantilla de la clínica.",
+    "La fotografía es material visual de apoyo y no demuestra por sí sola un tratamiento.",
+    "Si existen notas confirmadas, el tema central del copy debe ser ese caso concreto. No sustituyas esas notas por publicidad genérica.",
     consultationNotes(notes),
     "No inventes hallazgos, medidas ni resultados que no hayan sido confirmados en consulta.",
   ]

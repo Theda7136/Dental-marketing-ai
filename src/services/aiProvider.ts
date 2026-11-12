@@ -106,13 +106,18 @@ async function geminiVariants(procedure: string, context: string) {
     "educational: informa de forma accesible sin afirmar hallazgos del paciente.",
     "commercial: invita a valoración profesional sin garantizar beneficios.",
     "No presupongas que la fotografía confirma el procedimiento seleccionado.",
+    "Si el contexto contiene HECHOS CONFIRMADOS POR LA CLÍNICA, esos hechos son la fuente principal de ambas versiones.",
+    "Incluye el resultado o tratamiento concreto indicado en las notas en la primera o segunda frase del caption, sin omitir detalles relevantes como el material (por ejemplo, cerámica), cuando estén explícitamente confirmados.",
+    "No sustituyas un resultado final confirmado por descripciones genéricas de servicios, tecnología, materiales de calidad o planes hipotéticos.",
+    "Distingue los hechos aportados por la clínica de las observaciones visuales; la imagen solo aporta contexto y nunca confirma un procedimiento no declarado.",
+    "Evita atribuir resultados clínicos no documentados o describir materiales distintos a los que la clínica escribió.",
     "El resumen visual es una observación no diagnóstica: no lo transcribas en el copy ni afirmes que se hizo un tratamiento.",
     "Escribe una sola invitación a la acción por versión, dentro de suggestedCallToAction; no repitas ese llamado en caption.",
     "No uses mensajes genéricos de venta, testimonios inventados, descuentos, porcentajes de éxito ni resultados garantizados.",
     "El texto comercial debe ser diferente del educativo, sonar natural y estar orientado a una valoración individual.",
     "Usa de 3 a 5 hashtags pertinentes al procedimiento; evita etiquetas no relacionadas.",
   ].join("\n");
-  const prompt = `Procedimiento declarado por la clínica: ${procedure}\nContexto confirmado: ${context}\nRedacta ambas versiones sin inventar datos.`;
+  const prompt = `Procedimiento declarado por la clínica: ${procedure}\n${context}\nPrioriza los hechos expresamente confirmados por la clínica sobre cualquier fórmula publicitaria. Las dos versiones deben referirse al mismo caso concreto, con enfoques diferentes, sin inventar datos.`;
   const answer = await queryGemini([{ text: prompt }], system, true);
 
   let parsed: unknown;
