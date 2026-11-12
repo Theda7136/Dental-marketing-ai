@@ -26,6 +26,7 @@ export async function DELETE(
         archivedAt: true,
         facebookStatus: true,
         instagramStatus: true,
+        tiktokStatus: true,
         facebookPostId: true,
         instagramPostId: true,
         facebookRetryCount: true,
@@ -45,7 +46,7 @@ export async function DELETE(
 
     if ([post.facebookStatus, post.instagramStatus].some((status) =>
       status === "UNKNOWN" || status === "IN_PROGRESS"
-    ) || (pending && !untouched)) {
+    ) || ["IN_PROGRESS", "PROCESSING", "UNKNOWN"].includes(post.tiktokStatus) || (pending && !untouched)) {
       return NextResponse.json({
         message: "Esta publicación tiene envíos iniciados o pendientes de verificación en Meta. Resuelve primero sus estados.",
       }, { status: 409 });
@@ -58,6 +59,7 @@ export async function DELETE(
         status: post.status,
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
+        tiktokStatus: post.tiktokStatus,
         ...(pending ? {
           facebookRetryCount: 0,
           instagramRetryCount: 0,

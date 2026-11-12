@@ -144,7 +144,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
   }
 
   const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
-  if (!post || post.status !== "PENDING_APPROVAL" || !canEditUnsentProposal(post) || post.facebookRetryCount > 0 || post.instagramRetryCount > 0) {
+  if (!post || post.status !== "PENDING_APPROVAL" || post.tiktokStatus !== "PENDING" || !canEditUnsentProposal(post) || post.facebookRetryCount > 0 || post.instagramRetryCount > 0) {
     return { ok: false, message: "La propuesta ya inició su publicación o no está pendiente." };
   }
 
@@ -157,6 +157,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
       where: {
         id: postId, status: "PENDING_APPROVAL",
         facebookStatus: "PENDING", instagramStatus: "PENDING",
+        tiktokStatus: "PENDING",
       },
       data: { selectedStyle: style, generatedCaption: caption, clinicalVerifiedAt: null },
     });
@@ -183,13 +184,13 @@ export async function updatePendingCaption(postId: string, caption: string) {
     clinicalGuardrails.validate(revisedCaption);
     const currentPost = await prisma.scheduledPost.findUnique({
       where: { id: postId },
-      select: { facebookStatus: true, instagramStatus: true, selectedStyle: true, facebookRetryCount: true, instagramRetryCount: true },
+      select: { facebookStatus: true, instagramStatus: true, tiktokStatus: true, selectedStyle: true, facebookRetryCount: true, instagramRetryCount: true },
     });
-    if (!currentPost || !canEditUnsentProposal(currentPost) || currentPost.facebookRetryCount > 0 || currentPost.instagramRetryCount > 0) {
+    if (!currentPost || currentPost.tiktokStatus !== "PENDING" || !canEditUnsentProposal(currentPost) || currentPost.facebookRetryCount > 0 || currentPost.instagramRetryCount > 0) {
       return { ok: false, message: "No puedes modificar el texto después de iniciar la publicación." };
     }
     const updated = await prisma.scheduledPost.updateMany({
-      where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING" },
+      where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING" },
       data: {
         generatedCaption: revisedCaption,
         clinicalVerifiedAt: null,
