@@ -240,6 +240,7 @@ export function ApprovalQueue({
   }
 
   function verificationControl(post: ApprovalQueuePost, network: "facebook" | "instagram") {
+    if (!canReview && !canPublish) return null;
     const status = network === "facebook" ? post.facebookStatus : post.instagramStatus;
     if (status !== "UNKNOWN" && status !== "IN_PROGRESS") return null;
 
@@ -250,7 +251,7 @@ export function ApprovalQueue({
     const label = network === "facebook" ? "Facebook" : "Instagram";
 
     return (
-      <div key={key} className="mt-3 rounded-xl border border-[#e6d8b4] bg-[#fffbf1] p-3">
+      <div id={`review-${post.id}-${network}`} key={key} className="mt-3 scroll-mt-8 rounded-xl border border-[#e6d8b4] bg-[#fffbf1] p-3">
         <p className="text-sm font-semibold text-[#685335]">{label} · requiere comprobación</p>
         {outcome && (
           <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-[#685335]">
@@ -259,7 +260,7 @@ export function ApprovalQueue({
             {evidence ? ` · ${evidence}` : ""}
           </p>
         )}
-        {status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
+        {canPublish && status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
           network === "facebook" ? post.facebookPostId : post.instagramPostId
         ) && (
           <button
@@ -656,7 +657,7 @@ export function ApprovalQueue({
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        Meta no confirmó el resultado anterior. «Aprobar y publicar» te permitirá revisar y decidir cómo continuar; no reenviará contenido sin tu confirmación.
+                        Meta no confirmó el envío anterior. Usa «Revisar publicación» y «Registrar comprobación» para conciliarlo antes de autorizar otro intento.
                       </p>
                     )}
 
