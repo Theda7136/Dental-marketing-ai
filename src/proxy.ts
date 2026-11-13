@@ -14,7 +14,7 @@ function permissionFor(pathname: string, method: string): ClinicPermission | nul
       pathname.startsWith("/api/social/") || pathname === "/api/tiktok/creator") return "connections:manage";
   if (pathname === "/api/brand") return method === "GET" ? "content:read" : "brand:manage";
   if (pathname === "/api/tiktok/publish") return "content:publish";
-  if (pathname === "/api/posts" || pathname.startsWith("/api/media/")) return "content:read";
+  if (pathname === "/api/posts" || pathname === "/api/performance/instagram" || pathname.startsWith("/api/media/")) return "content:read";
   if (pathname.startsWith("/api/posts/")) {
     if (pathname.endsWith("/schedule")) return "content:write";
     return "content:write";
