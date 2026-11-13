@@ -7,6 +7,7 @@ type MetaAccount = {
   userName?: string;
   pageName?: string;
   instagramConnected?: boolean;
+  instagramCheck?: "verified" | "unavailable";
 };
 
 type TikTokAccount = {
@@ -131,8 +132,12 @@ export function AccountConnector() {
         <ConnectionCard
           name="Instagram"
           connected={Boolean(meta?.instagramConnected)}
-          description={meta?.instagramConnected ? "Cuenta profesional vinculada a la Página." : "Vincula una cuenta profesional de Instagram a tu Página de Facebook."}
-          detail="Comparte la autorización de Meta con Facebook."
+          description={meta?.instagramConnected
+            ? "Cuenta profesional de Instagram detectada mediante Meta Graph API."
+            : meta?.instagramCheck === "unavailable"
+              ? "No pudimos verificar Instagram en Meta. Revisa los permisos instagram_basic y pages_read_engagement."
+              : "La Página no devuelve una cuenta profesional de Instagram a través de Meta Graph API."}
+          detail="Debe estar vinculada a esta Página y autorizada con permisos instagram_basic e instagram_content_publish."
           href="/api/auth/meta"
           action={meta?.instagramConnected ? "Reconectar Meta" : "Configurar Meta"}
         />

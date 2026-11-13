@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolvePageInstagramAccount } from "@/lib/instagramAccount";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -100,6 +101,12 @@ export async function GET(request: NextRequest) {
       return redirectWithError(configuredPageId ? "page_not_found" : "no_page");
     }
     const providerAccountId = userData.id;
+    let instagramId: string | null = page.instagram_business_account?.id || null;
+    try {
+      instagramId = await resolvePageInstagramAccount(page.id, page.access_token);
+    } catch (error) {
+      console.warn("Meta no permitió verificar Instagram directamente en la Página:", error);
+    }
 
     // 3. Guardar o actualizar de forma segura usando el índice único de Prisma
     await prisma.account.upsert({
@@ -114,7 +121,7 @@ export async function GET(request: NextRequest) {
         name: userData.name || "Usuario Meta",
         pageName: page.name || "Página de Facebook",
         pageId: page.id,
-        instagramId: page?.instagram_business_account?.id || null,
+        instagramId,
       },
       create: {
         provider: "facebook",
@@ -123,7 +130,7 @@ export async function GET(request: NextRequest) {
         name: userData.name || "Usuario Meta",
         pageName: page.name || "Página de Facebook",
         pageId: page.id,
-        instagramId: page?.instagram_business_account?.id || null,
+        instagramId,
       },
     });
 
