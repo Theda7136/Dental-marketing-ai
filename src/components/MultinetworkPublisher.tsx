@@ -57,7 +57,7 @@ export function MultinetworkPublisher({
   const [outcome, setOutcome] = useState<PublishOutcome | null>(null);
 
   const storyOnly = post.deliveryFormat === "STORY";
-  const availableNetworks = networks;
+  const availableNetworks = storyOnly ? networks.filter((network) => network !== "tiktok") : networks;
 
   const statuses: Record<PublishNetwork, string> = {
     facebook: post.facebookStatus || "PENDING",
