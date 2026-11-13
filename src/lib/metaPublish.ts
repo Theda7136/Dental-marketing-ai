@@ -101,7 +101,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
             ? { media_type: "REELS", video_url: mediaUrl, caption: captions.instagram, share_to_feed: "true", access_token: token }
             : { image_url: instagramMediaUrl, caption: captions.instagram, access_token: token });
         if (!creation.id) throw new Error("Meta no devolvió el identificador del contenedor de Instagram.");
-        if (isVideo) await waitForInstagramContainer(creation.id, token);
+        await waitForInstagramContainer(creation.id, token);
         const published = await graphPost(`${account.instagramId}/media_publish`, {
           creation_id: creation.id,
           access_token: token,
