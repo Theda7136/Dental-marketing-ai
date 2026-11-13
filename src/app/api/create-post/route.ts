@@ -602,7 +602,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision, input.photoOptions, session.clinic.id, input.deliveryFormat === "STORY")
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision ?? false, input.photoOptions, session.clinic.id, input.deliveryFormat === "STORY")
         : await prepareVideo(
             procedureName,
             input.media,
