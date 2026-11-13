@@ -56,6 +56,9 @@ export function MultinetworkPublisher({
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<PublishOutcome | null>(null);
 
+  const storyOnly = post.deliveryFormat === "STORY";
+  const availableNetworks = storyOnly ? networks.filter((network) => network === "instagram") : networks;
+
   const statuses: Record<PublishNetwork, string> = {
     facebook: post.facebookStatus || "PENDING",
     instagram: post.instagramStatus || "PENDING",
@@ -80,7 +83,7 @@ export function MultinetworkPublisher({
         tiktok: Boolean(tiktok.connected),
       };
       setAccounts(connected);
-      setSelected(networks.filter((network) => connected[network] && statuses[network] === "PENDING"));
+      setSelected(availableNetworks.filter((network) => connected[network] && statuses[network] === "PENDING"));
     });
     return () => { active = false; };
   }, [open, post.id]);
@@ -127,7 +130,7 @@ export function MultinetworkPublisher({
     setError("");
     setOutcome(null);
     try {
-      const result = await onPublish(post.id, networks.filter((network) => selected.includes(network)),
+      const result = await onPublish(post.id, availableNetworks.filter((network) => selected.includes(network)),
         selected.includes("tiktok") ? { privacy, disableComment, disableDuet, disableStitch } : undefined);
       setOutcome(result);
       await onReload();
@@ -154,12 +157,12 @@ export function MultinetworkPublisher({
           <div className="flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-[#173b3a]">Selecciona las redes</h4>
-              <p className="mt-1 text-xs text-[#667d72]">Se enviará una vez a cada red seleccionada.</p>
+              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Las historias están disponibles actualmente en Instagram." : "Se enviará una vez a cada red seleccionada."}</p>
             </div>
             {!busy && <button type="button" onClick={() => { setOpen(false); setOutcome(null); }} className="text-sm text-[#667d72]">Cerrar</button>}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {networks.map((network) => {
+            {availableNetworks.map((network) => {
               const connected = Boolean(accounts?.[network]);
               const pending = statuses[network] === "PENDING";
               return <label key={network} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${selected.includes(network)
