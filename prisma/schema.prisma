@@ -29,6 +29,56 @@ model Clinic {
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  memberships ClinicMembership[]
+  sessions LoginSession[]
+}
+
+enum ClinicRole {
+  OWNER
+  ADMIN
+  EDITOR
+  REVIEWER
+}
+
+model StudioUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  displayName  String
+  passwordHash String
+  disabledAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  memberships  ClinicMembership[]
+  sessions     LoginSession[]
+}
+
+model ClinicMembership {
+  id        String     @id @default(cuid())
+  clinicId  String
+  userId    String
+  role      ClinicRole
+  createdAt DateTime   @default(now())
+  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user      StudioUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, userId])
+  @@index([userId])
+}
+
+model LoginSession {
+  id         String     @id @default(cuid())
+  tokenHash  String     @unique
+  userId     String
+  clinicId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime   @default(now())
+  lastSeenAt DateTime?
+  user       StudioUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic     Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([clinicId, expiresAt])
 }
 
 model Account {
