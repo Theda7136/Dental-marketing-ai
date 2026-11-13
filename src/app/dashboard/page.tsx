@@ -430,6 +430,12 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
            ))}
          </nav>
         <div className="studio-sidebar-footer">
+          <button type="button" onClick={async () => {
+            const response = await fetch("/api/studio/logout", { method: "POST" });
+            if (response.ok) window.location.assign("/login");
+          }} className="w-full rounded-lg border border-stone-300 px-3 py-2 text-left text-sm text-stone-600 hover:bg-stone-100">
+            Cerrar sesión
+          </button>
           <span className="studio-availability"><span className="studio-availability-dot" /> Espacio de clínica piloto</span>
           <p>Todo contenido requiere revisión antes de publicarse.</p>
         </div>
