@@ -204,17 +204,14 @@ export function ApprovalQueue({
   role,
   onConfirmReview,
   onReject,
-  onRecoverStory,
   mode = "both",
   onPublishSelected,
   onReload,
   onDelete,
   onEdit,
   onRetry,
-  onVerify,
   onLookup,
   onChooseStyle,
-  onAuthorizeRetry,
 }: ApprovalQueueProps) {
   const canWrite = role === "OWNER" || role === "ADMIN" || role === "EDITOR";
   const canPublish = role === "OWNER" || role === "ADMIN";
@@ -226,10 +223,6 @@ export function ApprovalQueue({
   const [showPublished, setShowPublished] = useState(mode === "history");
   const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram" | "tiktok">("all");
   const [historyStatus, setHistoryStatus] = useState("all");
-  const [reviewKey, setReviewKey] = useState<string | null>(null);
-  const [expandedIncidents, setExpandedIncidents] = useState<string[]>([]);
-  const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
-  const [reviewEvidence, setReviewEvidence] = useState("");
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
@@ -340,135 +333,6 @@ export function ApprovalQueue({
       <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page >= pages}
         onClick={() => setPage(page + 1)}>Siguiente</button>
     </nav>;
-  }
-
-  function incidentPanel(post: ApprovalQueuePost) {
-    const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus ?? "") ||
-      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus ?? "");
-    if (!unresolved) return null;
-
-    const expanded = expandedIncidents.includes(post.id);
-    return (
-      <div className="mt-3 rounded-lg border border-[#e8e4d7] bg-[#fbfaf5] px-3 py-2">
-        <button type="button" aria-expanded={expanded}
-          onClick={() => setExpandedIncidents((current) => expanded
-            ? current.filter((id) => id !== post.id)
-            : [...current, post.id])}
-          className="flex w-full items-center justify-between gap-3 text-left text-xs font-medium text-[#806b49]">
-          <span>Publicación pendiente de comprobación</span>
-          <span aria-hidden="true">{expanded ? "−" : "+"}</span>
-        </button>
-        {expanded && (
-          <div className="mt-3 space-y-3">
-            {post.facebookError && <p className="break-words text-xs text-amber-900">Facebook: {post.facebookError}</p>}
-            {post.instagramError && <p className="break-words text-xs text-amber-900">Instagram: {post.instagramError}</p>}
-            <p className="text-xs text-amber-800">Comprueba si el contenido apareció en la red antes de solicitar otro envío.</p>
-            {verificationControl(post, "facebook")}
-            {verificationControl(post, "instagram")}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function verificationControl(post: ApprovalQueuePost, network: "facebook" | "instagram") {
-    if (!canReview && !canPublish) return null;
-    const status = network === "facebook" ? post.facebookStatus : post.instagramStatus;
-    if (status !== "UNKNOWN" && status !== "IN_PROGRESS") return null;
-
-    const key = `${post.id}:${network}`;
-    const outcome = network === "facebook" ? post.facebookReviewOutcome : post.instagramReviewOutcome;
-    const evidence = network === "facebook" ? post.facebookReviewEvidence : post.instagramReviewEvidence;
-    const reviewedAt = network === "facebook" ? post.facebookReviewedAt : post.instagramReviewedAt;
-    const label = network === "facebook" ? "Facebook" : "Instagram";
-
-    return (
-      <div id={`review-${post.id}-${network}`} key={key} className="mt-3 scroll-mt-8 rounded-xl border border-[#e6d8b4] bg-[#fffbf1] p-3">
-        <p className="text-sm font-semibold text-[#685335]">{label} · requiere comprobación</p>
-        {outcome && (
-          <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-[#685335]">
-            Última revisión: {outcome === "FOUND" ? "Publicación encontrada" : outcome === "NOT_FOUND" ? "No encontrada" : "Sin conclusión"}
-            {reviewedAt ? ` · ${formatCreatedAt(reviewedAt)}` : ""}
-            {evidence ? ` · ${evidence}` : ""}
-          </p>
-        )}
-        {canPublish && network === "instagram" && post.canRecoverRejectedStory && onRecoverStory && (
-          <button type="button" disabled={busyId === post.id}
-            className="mt-2 mr-2 rounded-lg bg-teal-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-            onClick={() => {
-              if (!window.confirm("¿Confirmas que la historia no apareció en Instagram? El rechazo de Meta permite habilitar un único reintento; esta acción NO publica automáticamente.")) return;
-              void runAction(post.id, onRecoverStory);
-            }}>
-            Recuperar historia rechazada
-          </button>
-        )}
-        {canPublish && status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
-          network === "facebook" ? post.facebookPostId : post.instagramPostId
-        ) && (
-          <button
-            type="button"
-            disabled={busyId === post.id}
-            className="mt-2 rounded-lg bg-[#176c63] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-            onClick={() => {
-              const confirmed = window.confirm(
-                `¿Verificaste la cuenta y el historial de ${label}, y confirmas que esta publicación no existe? Habilitarás un único reintento manual. Una publicación demorada podría duplicarse.`,
-              );
-              if (!confirmed) return;
-              void runAction(post.id, () => onAuthorizeRetry(post.id, network));
-            }}
-          >
-            Habilitar un reintento tras comprobar Meta
-          </button>
-        )}
-        {reviewKey === key ? (
-          <form className="mt-3 space-y-2" onSubmit={(event) => {
-            event.preventDefault();
-            if (!reviewEvidence.trim()) return;
-            void runAction(post.id, async () => {
-              await onVerify(post.id, network, reviewOutcome, reviewEvidence);
-              setReviewKey(null);
-              setReviewEvidence("");
-            });
-          }}>
-            <label className="block text-xs font-semibold text-[#685335]" htmlFor={`verification-${key}`}>Resultado observado en Meta</label>
-            <select
-              id={`verification-${key}`}
-              value={reviewOutcome}
-              disabled={busyId === post.id}
-              onChange={(event) => setReviewOutcome(event.target.value as "FOUND" | "NOT_FOUND" | "UNCERTAIN")}
-              className="w-full rounded-lg border border-[#d6c7a4] bg-white p-2 text-sm"
-            >
-              <option value="UNCERTAIN">No pude determinarlo</option>
-              <option value="FOUND">Encontré la publicación</option>
-              <option value="NOT_FOUND">No encontré la publicación</option>
-            </select>
-            <label className="block text-xs font-semibold text-[#685335]" htmlFor={`evidence-${key}`}>Cómo lo comprobaste (sin datos de pacientes)</label>
-            <textarea
-              id={`evidence-${key}`}
-              required
-              maxLength={1000}
-              rows={3}
-              disabled={busyId === post.id}
-              value={reviewEvidence}
-              onChange={(event) => setReviewEvidence(event.target.value)}
-              placeholder="Fecha de la consulta, enlace público si existe o detalle de la revisión"
-              className="w-full rounded-lg border border-[#d6c7a4] bg-white p-2 text-sm"
-            />
-            <p className="text-xs text-[#806b49]">Registrar una revisión no envía nada. Si no se encontró, podrás solicitar un reintento manual limitado.</p>
-            <div className="flex flex-wrap gap-2">
-              <button type="submit" disabled={busyId === post.id || !reviewEvidence.trim()} className="rounded-lg bg-[#69553a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Guardar verificación</button>
-              <button type="button" disabled={busyId === post.id} onClick={() => setReviewKey(null)} className="rounded-lg border border-[#d6c7a4] px-3 py-2 text-xs">Cancelar</button>
-            </div>
-          </form>
-        ) : (
-          <button type="button" className="mt-2 rounded-lg border border-[#d6c7a4] bg-white px-3 py-2 text-xs font-semibold text-[#685335]" onClick={() => {
-            setReviewKey(key);
-            setReviewOutcome(outcome === "FOUND" || outcome === "NOT_FOUND" ? outcome : "UNCERTAIN");
-            setReviewEvidence(evidence || "");
-          }}>Registrar comprobación</button>
-        )}
-      </div>
-    );
   }
 
   function deleteButton(post: ApprovalQueuePost) {
@@ -729,35 +593,6 @@ export function ApprovalQueue({
                       </div>
                     )}
 
-                    {(post.facebookPostId || post.instagramPostId) && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(["facebook", "instagram"] as const).map((network) => {
-                      const objectId = network === "facebook" ? post.facebookPostId : post.instagramPostId;
-                      if (!objectId) return null;
-                      const lookupKey = `${post.id}:${network}`;
-                      return (
-                        <div key={lookupKey} className="min-w-0">
-                          <button
-                            type="button"
-                            disabled={busyId === post.id}
-                            className="rounded-lg border border-[#cbdcd4] bg-white px-3 py-2 text-xs font-medium text-[#176c63] disabled:opacity-50"
-                            onClick={() => {
-                              void runAction(post.id, async () => {
-                                const lookup = await onLookup(post.id, network);
-                                setLookupMessages((messages) => ({ ...messages, [lookupKey]: lookup.message }));
-                              });
-                            }}
-                          >
-                            Comprobar ID en {network === "facebook" ? "Facebook" : "Instagram"}
-                          </button>
-                          {lookupMessages[lookupKey] && (
-                            <p role="status" className="mt-2 max-w-sm text-xs leading-5 text-[#526762]">{lookupMessages[lookupKey]}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
                 {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 space-y-1 break-all font-mono text-xs text-[#657873]">
                     {post.facebookPostId && <p>Facebook · ID: {post.facebookPostId}</p>}
@@ -888,44 +723,6 @@ export function ApprovalQueue({
                     {post.deliveryFormat !== "STORY" && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus ?? "PENDING")}
                   </div>
                 </div>
-                {post.status !== "REJECTED" && historyNetworks(post).some(({ status }) => status === "PENDING") && (
-                  <p className="mt-3 text-xs text-[#637773]">
-                    Redes pendientes: {historyNetworks(post).filter(({ status }) => status === "PENDING").map(({ name }) => name).join(", ")}.
-                    El envío no es automático.
-                  </p>
-                )}
-                {(post.facebookPostId || post.instagramPostId) && (
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {(["facebook", "instagram"] as const).map((network) => {
-                      const objectId = network === "facebook" ? post.facebookPostId : post.instagramPostId;
-                      if (!objectId) return null;
-                      const lookupKey = `${post.id}:${network}`;
-                      return (
-                        <div key={lookupKey}>
-                          <p className="max-w-xs break-all text-xs text-[#657873]">
-                            {network === "facebook" ? "Facebook" : "Instagram"} · ID: {objectId}
-                          </p>
-                          <button
-                            type="button"
-                            disabled={busyId === post.id}
-                            className="mt-2 rounded-lg border border-[#cbdcd4] bg-white px-3 py-2 text-xs font-medium text-[#176c63] disabled:opacity-50"
-                            onClick={() => {
-                              void runAction(post.id, async () => {
-                                const lookup = await onLookup(post.id, network);
-                                setLookupMessages((current) => ({ ...current, [lookupKey]: lookup.message }));
-                              });
-                            }}
-                          >
-                            Comprobar ID en {network === "facebook" ? "Facebook" : "Instagram"}
-                          </button>
-                          {lookupMessages[lookupKey] && (
-                            <p role="status" className="mt-1 max-w-sm text-xs text-[#526762]">{lookupMessages[lookupKey]}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
                   {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
