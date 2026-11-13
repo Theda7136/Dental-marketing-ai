@@ -143,7 +143,7 @@ export function MultinetworkPublisher({
   }
 
   if (post.mediaKind === "text" || !post.mediaUrl) return null;
-  if (networks.every((network) => statuses[network] !== "PENDING")) return null;
+  if (availableNetworks.every((network) => statuses[network] !== "PENDING")) return null;
 
   return (
     <div className="order-first w-full basis-full">
