@@ -426,7 +426,7 @@ async function prepareImage(
   const composition = (async () => {
     const [cleanImage, brand] = await Promise.all([
       removeClinicalBackground(media),
-      prisma.brandProfile.findUnique({ where: { id: "default" } }),
+      prisma.brandProfile.findUnique({ where: { id: "default", clinicId: "pilot" } }),
     ]);
     return overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
   })();
