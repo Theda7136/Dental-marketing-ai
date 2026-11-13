@@ -11,6 +11,7 @@ const publisher = ts.transpileModule(readFileSync(new URL("../src/lib/tiktokPubl
 function fixture(mediaType = "IMAGE") {
   const post = {
     id: "post-12345678",
+    clinicId: "pilot",
     mediaUrl: "/api/media/post-12345678",
     mediaType,
     generatedCaption: "Resultado final de diseño de sonrisa en cerámica #DiseñoDeSonrisa",
@@ -24,7 +25,7 @@ function fixture(mediaType = "IMAGE") {
   let confirmation = "PROCESSING_DOWNLOAD";
   const prisma = {
     scheduledPost: {
-      findUnique: async ({ where }) => where.id === post.id ? { ...post } : null,
+      findUnique: async ({ where }) => Object.entries(where).every(([field, expected]) => post[field] === expected) ? { ...post } : null,
       updateMany: async ({ where, data }) => {
         if (Object.entries(where).some(([field, value]) => post[field] !== value)) return { count: 0 };
         Object.assign(post, data);
@@ -32,6 +33,7 @@ function fixture(mediaType = "IMAGE") {
       },
       update: async ({ where, data }) => {
         assert.equal(where.id, post.id);
+        assert.equal(where.clinicId, post.clinicId);
         Object.assign(post, data);
         return { ...post };
       },
