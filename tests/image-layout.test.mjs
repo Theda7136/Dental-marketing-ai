@@ -58,14 +58,28 @@ test("out of range zoom is rejected", () => {
 });
 
 
-test("Story preview and export use a full 1080x1920 frame", async () => {
-  const portrait = await renderSocialPhoto(await fixture(720, 1280));
-  const story = await renderStoryPhoto(portrait);
-  const metadata = await sharp(story).metadata();
+test("Story composition preserves both edges of the original in 1080x1920", async () => {
+  const original = await sharp({
+    create: { width: 720, height: 1280, channels: 3, background: "#b75a43" },
+  }).composite([
+    { input: { create: { width: 720, height: 32, channels: 3, background: "#1428e6" } }, left: 0, top: 0 },
+    { input: { create: { width: 720, height: 32, channels: 3, background: "#11b45a" } }, left: 0, top: 1248 },
+  ]).png().toBuffer();
 
-  assert.equal(metadata.width, 1080);
-  assert.equal(metadata.height, 1920);
-  assert.equal(metadata.format, "png");
+  const story = await renderStoryPhoto({
+    cleanImage: original,
+    procedureName: "Ortodoncia",
+    brand: { clinicName: "Consultorio Dental", primaryColor: "#116D60", fontFamily: "SANS", logoDataUrl: null },
+  });
+  const metadata = await sharp(story).metadata();
+  const top = await sharp(story).extract({ left: 540, top: 10, width: 1, height: 1 }).raw().toBuffer();
+  const bottom = await sharp(story).extract({ left: 540, top: 1790, width: 1, height: 1 }).raw().toBuffer();
+  const footer = await sharp(story).extract({ left: 540, top: 1900, width: 1, height: 1 }).raw().toBuffer();
+
+  assert.deepEqual([metadata.width, metadata.height, metadata.format], [1080, 1920, "png"]);
+  assert.ok(top[2] > top[0], "the original top edge must be preserved");
+  assert.ok(bottom[1] > bottom[0], "the original bottom edge must be preserved");
+  assert.ok(footer[0] > 240 && footer[1] > 240, "branding stays in its own area");
 });
 
 
