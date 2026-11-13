@@ -5,7 +5,18 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
+type FacebookMetricState = "zero" | "available" | "omitted" | "rejected" | "unavailable";
+type FacebookDiagnostic = { photo: number; reactions: FacebookMetricState; comments: FacebookMetricState };
+const metricLabels: Record<FacebookMetricState, string> = {
+  zero: "0 confirmado",
+  available: "Con datos",
+  omitted: "No informado",
+  rejected: "Consulta rechazada",
+  unavailable: "No disponible",
+};
+
 type FacebookSnapshot = {
+  diagnostics?: FacebookDiagnostic[];
   metrics: { id: string; reactions: number | null; comments: number | null; source: "reactions" | "likes" }[];
   checked: number;
   unavailable: number;
@@ -268,6 +279,15 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
               </div>
             ) : <p className="text-sm text-[#687e73]">{facebook.checked === 0 ? "Todavía no hay publicaciones elegibles para esta consulta." : "Facebook no devolvió interacciones para las publicaciones consultadas."}</p>}
             {insightsMessage(facebook.checked, facebook.unavailable, facebook.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(facebook.checked, facebook.unavailable, facebook.failures)}</p>}
+            {facebook.diagnostics && facebook.diagnostics.length > 0 && (
+              <div className="mt-3 space-y-1 rounded-lg bg-[#f6f9f7] px-3 py-2 text-xs text-[#536c61]">
+                {facebook.diagnostics.map((photo) => (
+                  <p key={photo.photo}>
+                    Fotografía {photo.photo} · Me gusta/reacciones: {metricLabels[photo.reactions]} · Comentarios: {metricLabels[photo.comments]}
+                  </p>
+                ))}
+              </div>
+            )}
             <p className="mt-3 text-xs text-[#71847a]">
               {facebook.scope}. Con al menos una métrica disponible: {facebook.metrics.length} de {facebook.checked} publicaciones.
               {facebook.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
