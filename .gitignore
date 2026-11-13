@@ -2,8 +2,20 @@ node_modules
 .next
 storage/posts
 
-# Environment secrets and local database files
+# Environment secrets
 .env*
 !.env.example
-prisma/dev.db
-prisma/dev.db-journal
+
+# Clinic-local SQLite databases and backups
+prisma/*.db
+prisma/*.db-*
+prisma/*.db.*
+prisma/*.sqlite
+prisma/*.sqlite-*
+prisma/*.sqlite.*
+prisma/*.sqlite3
+prisma/*.sqlite3-*
+prisma/*.sqlite3.*
+
+# Generated TypeScript build metadata
+*.tsbuildinfo
