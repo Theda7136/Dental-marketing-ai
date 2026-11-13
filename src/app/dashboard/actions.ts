@@ -586,6 +586,33 @@ export async function confirmMissingAndRetry(postId: string, network: "facebook"
   return retryPendingNetwork(postId, network);
 }
 
+export async function confirmClinicalReview(postId: string) {
+  if (!(await hasClinicAccess("content:review"))) {
+    return { ok: false, message: "No tienes permiso para revisar contenido." };
+  }
+  if (!/^[a-zA-Z0-9_-]{8,64}$/.test(postId)) {
+    return { ok: false, message: "Identificador inválido." };
+  }
+
+  const updated = await prisma.scheduledPost.updateMany({
+    where: {
+      id: postId,
+      clinicId: "pilot",
+      archivedAt: null,
+      status: "PENDING_APPROVAL",
+      clinicalVerifiedAt: null,
+      facebookStatus: "PENDING",
+      instagramStatus: "PENDING",
+      tiktokStatus: "PENDING",
+    },
+    data: { clinicalVerifiedAt: new Date() },
+  });
+  if (updated.count !== 1) {
+    return { ok: false, message: "La propuesta ya fue revisada o inició un envío." };
+  }
+  return { ok: true, message: "Revisión clínica registrada. La publicación continúa pendiente de envío." };
+}
+
 export async function rejectPost(postId: string) {
   if (!(await hasClinicAccess("content:review"))) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
