@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
-import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate, renderStoryPhoto } from "@/services/imageService";
+import { getStudioAccess } from "@/lib/studioAccess";
+import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate, removeClinicalBackground, renderStoryPhoto } from "@/services/imageService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) {
-    return unauthorizedResponse(true);
-  }
+  const session = await getStudioAccess("content:read");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   try {
     const form = await request.formData();
@@ -31,9 +30,9 @@ export async function POST(request: Request) {
       offsetX: form.get("photoOffsetX"),
       offsetY: form.get("photoOffsetY"),
     });
-    const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
+    const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: session.clinic.id } });
     const composition = {
-      cleanImage: new Uint8Array(await file.arrayBuffer()),
+      cleanImage: await removeClinicalBackground(new Uint8Array(await file.arrayBuffer())),
       procedureName: String(form.get("procedureName") || ""),
       options,
       brand,
