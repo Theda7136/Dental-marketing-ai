@@ -18,6 +18,15 @@
 
 La aplicación no programa publicaciones futuras. La aprobación inicia la publicación inmediata en las redes conectadas.
 
+## Reels e Historias
+
+- **Feed:** fotografías 4:5 para Facebook e Instagram, como antes.
+- **Reels:** videos verticales (MP4, MOV o WebM) de hasta 60 segundos, preparados como MP4 1080×1920. También puedes seleccionar una fotografía: se convertirá en un clip vertical silencioso de 7 segundos.
+- **Historias:** fotografías y videos verticales en Instagram, con tamaño 9:16 y envío mediante `media_type=STORIES`. La historia fotográfica adapta la imagen sin recortar detalles clínicos.
+- La publicación de **Historias en Facebook y TikTok no está habilitada** en esta primera versión. Al seleccionar Historia solo aparece Instagram en el selector de redes para impedir que el contenido termine como una publicación común.
+- El panel guarda el destino `FEED`, `REEL` o `STORY` en cada propuesta y mantiene revisión humana y estados de entrega independientes. Las propuestas antiguas se conservan como Feed.
+- Una imagen convertida en Reel es un clip estático, no una animación generativa ni una secuencia de varias fotos. Los videos conservan su audio salvo que actives «Silenciar audio original».
+
 ## Flujo de publicación
 
 1. El personal selecciona el formato, el procedimiento y el material del caso.
