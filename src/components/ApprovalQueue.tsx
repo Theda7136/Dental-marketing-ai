@@ -605,6 +605,11 @@ export function ApprovalQueue({
                         Creado el {formatCreatedAt(post.createdAt)}
                         {post.scheduledFor && <span className="ml-2 font-semibold text-[#176c63]">· Planificado: {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(post.scheduledFor))}</span>}
                       </p>
+                      <p className="mt-2 text-xs font-semibold text-[#52756b]">
+                        {editorialStage(post) === "review" ? "Pendiente de revisión clínica"
+                          : editorialStage(post) === "ready" ? "Revisión completada · Lista para publicar"
+                          : "Revisión completada · Requiere seguimiento"}
+                      </p>
                     </div>
 
                     {canWrite && (post.educationalCaption || post.commercialCaption) && (
