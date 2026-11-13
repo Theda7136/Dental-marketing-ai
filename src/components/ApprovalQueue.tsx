@@ -593,11 +593,11 @@ export function ApprovalQueue({
                       </form>
                     ) : (
                       <div>
-                        <p className={expandedPosts.includes(post.id)
+                        {post.generatedCaption && <p className={expandedPosts.includes(post.id)
                           ? "whitespace-pre-wrap text-sm leading-6 text-[#526762]"
                           : "line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-[#526762]"}>
                           {post.generatedCaption}
-                        </p>
+                        </p>}
                         {post.generatedCaption.length > 170 && (
                           <button
                             type="button"
@@ -668,7 +668,7 @@ export function ApprovalQueue({
                       {canReview && onConfirmReview && !post.clinicalVerifiedAt && <button type="button" disabled={isBusy}
                         onClick={() => void runAction(post.id, onConfirmReview)}
                         className="rounded-lg border border-teal-700 px-4 py-2.5 text-sm font-semibold text-teal-800">Aprobar revisión clínica</button>}
-                      {canWrite && <button
+                      {canWrite && post.deliveryFormat !== "STORY" && <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
                         onClick={() => {
