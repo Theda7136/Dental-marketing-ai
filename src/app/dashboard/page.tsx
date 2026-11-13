@@ -12,11 +12,20 @@ import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePe
 
 type ContentFormat = "photo" | "video" | "text";
 
-const FORMATS: { id: ContentFormat; label: string; ariaLabel: string }[] = [
-  { id: "photo", label: "Foto", ariaLabel: "Foto de caso" },
-  { id: "video", label: "Video", ariaLabel: "Video o Reel" },
-  { id: "text", label: "Guion", ariaLabel: "Idea de texto o guion" },
+type DeliveryFormat = "FEED" | "REEL" | "STORY";
+
+const DESTINATIONS: { id: DeliveryFormat; label: string; description: string }[] = [
+  { id: "FEED", label: "Publicación", description: "Feed 4:5" },
+  { id: "REEL", label: "Reel", description: "Video 9:16" },
+  { id: "STORY", label: "Historia", description: "Estado 9:16" },
 ];
+
+function mediaFormat(file: File): "photo" | "video" | null {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (["image/jpeg", "image/png", "image/webp"].includes(file.type) || ["jpg", "jpeg", "png", "webp"].includes(extension || "")) return "photo";
+  if (["video/mp4", "video/quicktime", "video/webm"].includes(file.type) || ["mp4", "mov", "webm"].includes(extension || "")) return "video";
+  return null;
+}
 
 type StudioView = "create" | "pending" | "history" | "connections";
 
@@ -218,13 +227,53 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     });
   }
 
-  function changeFormat(next: ContentFormat) {
-    setFormat(next);
-    setDeliveryFormat(next === "video" ? "REEL" : "FEED");
+  function toggleScriptMode() {
+    setFormat((current) => current === "text" ? "photo" : "text");
+    setDeliveryFormat("FEED");
     setSelectedPhoto(null);
     setSelectedMedia(null);
+    setShowOriginal(false);
+    setPhotoZoom(1);
+    setPhotoOffsetX(0);
+    setPhotoOffsetY(0);
     setSavedProposal(false);
     setFileKey((current) => current + 1);
+  }
+
+  function selectMedia(file: File | null) {
+    if (!file) {
+      setSelectedMedia(null);
+      setSelectedPhoto(null);
+      return;
+    }
+
+    const detected = mediaFormat(file);
+    if (!detected) {
+      setErrorMessage("Selecciona una foto JPG, PNG o WebP, o un video MP4, MOV o WebM.");
+      setSelectedMedia(null);
+      setSelectedPhoto(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const sizeLimit = detected === "photo" ? 20 : 80;
+    if (file.size > sizeLimit * 1024 * 1024) {
+      setErrorMessage(`El archivo supera el límite de ${sizeLimit} MB para ${detected === "photo" ? "fotografías" : "videos"}.`);
+      setSelectedMedia(null);
+      setSelectedPhoto(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setErrorMessage(null);
+    setFormat(detected);
+    setSelectedMedia(file);
+    setSelectedPhoto(detected === "photo" ? file : null);
+    setDeliveryFormat((current) => detected === "video" && current === "FEED" ? "REEL" : current);
+    setShowOriginal(false);
+    setPhotoZoom(1);
+    setPhotoOffsetX(0);
+    setPhotoOffsetY(0);
   }
 
   // Manejador para aprobar y publicar directamente en Instagram y Facebook
@@ -426,64 +475,14 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
-            <div>
-            <p className="mb-2 text-sm font-semibold text-[#49645b]">Formato</p>
-            <div role="tablist" aria-label="Formato del contenido" className="studio-format-picker grid grid-cols-3 gap-2 p-1.5">
-              {FORMATS.map((item) => {
-                const selected = format === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-label={item.ariaLabel}
-                    aria-selected={selected}
-                    disabled={isPending}
-                    onClick={() => changeFormat(item.id)}
-                    className={`min-h-11 whitespace-nowrap rounded-xl px-2 text-xs font-semibold leading-4 transition sm:text-sm disabled:opacity-60 ${
-                      selected
-                        ? "bg-white text-[#176c63] shadow-[0_2px_8px_rgba(22,67,59,0.10)]"
-                        : "text-[#758783] hover:bg-white/70 hover:text-[#315b54]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#49645b]">{format === "text" ? "Modo guion" : "Archivo de contenido"}</p>
+              <button type="button" onClick={toggleScriptMode} disabled={isPending}
+                className="rounded-lg border border-[#cbded4] bg-white px-3 py-2 text-xs font-semibold text-[#176c63] transition hover:bg-[#edf6f1] disabled:opacity-60">
+                {format === "text" ? "Volver a multimedia" : "Crear guion sin archivo"}
+              </button>
             </div>
 
-            {format !== "text" && (
-              <fieldset className="space-y-2">
-                <legend className="studio-field-label">Destino de publicación</legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {(format === "video" ? [
-                    { id: "REEL", label: "Reel" },
-                    { id: "STORY", label: "Historia" },
-                  ] : [
-                    { id: "FEED", label: "Feed" },
-                    { id: "REEL", label: "Reel" },
-                    { id: "STORY", label: "Historia" },
-                  ]).map((destination) => (
-                    <button key={destination.id} type="button"
-                      aria-pressed={deliveryFormat === destination.id}
-                      disabled={isPending}
-                      onClick={() => setDeliveryFormat(destination.id as "FEED" | "REEL" | "STORY")}
-                      className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-semibold transition ${deliveryFormat === destination.id
-                        ? "border-[#87b6a8] bg-[#edf6f1] text-[#176c63]"
-                        : "border-[#d9e5df] bg-white text-[#667d73]"}`}>
-                      {destination.label}
-                    </button>
-                  ))}
-                </div>
-                {deliveryFormat === "REEL" && format === "photo" && (
-                  <p className="text-xs text-[#607970]">La imagen se convertirá en un Reel vertical de 7 segundos sin audio.</p>
-                )}
-                {deliveryFormat === "STORY" && (
-                  <p className="text-xs text-[#607970]">Las historias se publicarán en Instagram. La publicación de historias en Facebook aún no está habilitada.</p>
-                )}
-              </fieldset>
-            )}
             <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Procedimiento
               <select
@@ -502,26 +501,34 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </label>
 
             {format !== "text" && (
-              <div className="studio-file-field">
-                <span className="studio-field-label">{format === "video" ? "Video clínico" : "Fotografía clínica"}</span>
+              <div className="studio-file-field"
+                onDragOver={(event) => { if (!isPending) event.preventDefault(); }}
+                onDrop={(event) => {
+                  if (isPending) return;
+                  event.preventDefault();
+                  const file = event.dataTransfer.files[0];
+                  if (!file) return;
+                  selectMedia(file);
+                  if (!fileInputRef.current) return;
+                  const mediaKind = mediaFormat(file);
+                  const maxBytes = mediaKind === "photo" ? 20 * 1024 * 1024 : 80 * 1024 * 1024;
+                  const transfer = new DataTransfer();
+                  if (mediaKind && file.size <= maxBytes) transfer.items.add(file);
+                  fileInputRef.current.files = transfer.files;
+                }}>
+                <span className="studio-field-label">Fotografía o video</span>
                 <input
                   ref={fileInputRef}
                   key={fileKey}
                   name="photo"
                   type="file"
-                  accept={format === "video" ? "video/mp4,video/quicktime,video/webm" : "image/jpeg,image/png,image/webp"}
+                  accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                   required
                   disabled={isPending}
                   className="sr-only"
-                  aria-label={format === "video" ? "Seleccionar video" : "Seleccionar fotografía"}
+                  aria-label="Seleccionar fotografía o video"
                   onChange={(event) => {
-                    const media = event.currentTarget.files?.[0] ?? null;
-                    setSelectedMedia(media);
-                    setShowOriginal(false);
-                    setSelectedPhoto(format === "photo" ? media : null);
-                    setPhotoZoom(1);
-                    setPhotoOffsetX(0);
-                    setPhotoOffsetY(0);
+                    selectMedia(event.currentTarget.files?.[0] ?? null);
                   }}
                 />
                 {selectedMedia ? (
@@ -546,11 +553,43 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   <button type="button" className="studio-upload-button" disabled={isPending}
                     onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ""; fileInputRef.current.click(); } }}>
                     <span className="studio-upload-icon" aria-hidden="true">＋</span>
-                    <span><strong>{format === "video" ? "Agregar video" : "Agregar fotografía"}</strong>
-                    <small>{format === "video" ? "MP4, MOV o WebM" : "JPG, PNG o WebP"}</small></span>
+                    <span><strong>Agregar o arrastrar fotografía o video</strong>
+                    <small>JPG, PNG, WebP, MP4, MOV o WebM</small></span>
                   </button>
                 )}
               </div>
+            )}
+
+            {format !== "text" && (
+              <fieldset className="space-y-2">
+                <legend className="studio-field-label">¿Qué quieres crear?</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {DESTINATIONS.map((destination) => {
+                    const unsupported = format === "video" && destination.id === "FEED";
+                    return (
+                      <button key={destination.id} type="button"
+                        aria-pressed={deliveryFormat === destination.id}
+                        disabled={isPending || unsupported}
+                        onClick={() => setDeliveryFormat(destination.id)}
+                        className={`flex min-h-[66px] flex-col items-center justify-center rounded-xl border px-2 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${deliveryFormat === destination.id
+                          ? "border-[#87b6a8] bg-[#edf6f1] text-[#176c63] shadow-sm"
+                          : "border-[#d9e5df] bg-white text-[#667d73] hover:bg-[#f8faf8]"}`}>
+                        <span>{destination.label}</span>
+                        <small className="mt-1 text-[11px] font-normal">{destination.description}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                {format === "video" && (
+                  <p className="text-xs leading-5 text-[#607970]">Detectamos un video. Puedes crear un Reel o una Historia vertical.</p>
+                )}
+                {deliveryFormat === "REEL" && format === "photo" && hasMedia && (
+                  <p className="text-xs leading-5 text-[#607970]">Convertiremos la fotografía en un Reel vertical silencioso de 7 segundos.</p>
+                )}
+                {deliveryFormat === "STORY" && (
+                  <p className="text-xs leading-5 text-[#607970]">Las Historias se publican por ahora únicamente en Instagram.</p>
+                )}
+              </fieldset>
             )}
 
             {canConfigure && <div className="studio-progressive-content">
@@ -703,7 +742,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "La fotografía se adaptará al formato vertical 9:16 sin recortar información clínica.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Vista de la imagen base. La salida final será vertical 9:16 y se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
