@@ -282,10 +282,10 @@ export async function approveAndPublishPost(
 export async function retryPendingNetwork(
   postId: string,
   network: "facebook" | "instagram",
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; notSent?: boolean }> {
   const access = await getStudioAccess("content:publish");
   if (!access) {
-    return { ok: false, message: "Inicia sesión para publicar." };
+    return { ok: false, notSent: true, message: "Inicia sesión para publicar." };
   }
 
   try {
@@ -342,9 +342,21 @@ export async function retryPendingNetwork(
     };
   } catch (error) {
     console.error("Error al publicar en la red pendiente:", error);
+    const current = await prisma.scheduledPost.findUnique({
+      where: { id: postId, clinicId: access.clinic.id },
+      select: { facebookStatus: true, instagramStatus: true },
+    }).catch(() => null);
+    const status = network === "facebook" ? current?.facebookStatus : current?.instagramStatus;
+    if (status === "PENDING") {
+      return {
+        ok: false,
+        notSent: true,
+        message: error instanceof Error ? error.message : "No se pudo iniciar la publicación.",
+      };
+    }
     return {
       ok: false,
-      message: "No se confirmó la publicación. Revisa la cuenta de Meta antes de intentar nuevamente.",
+      message: "No se confirmó la publicación. Comprueba el estado en Meta antes de otro intento.",
     };
   }
 }
@@ -700,7 +712,7 @@ export async function publishSelectedNetworks(
   postId: string,
   networks: PublishNetwork[],
   tiktok?: { privacy: string; disableComment: boolean; disableDuet: boolean; disableStitch: boolean },
-): Promise<{ ok: boolean; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[]; message: string }> {
+): Promise<{ ok: boolean; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain" | "not_sent"; message: string }[]; message: string }> {
   const access = await getStudioAccess("content:publish");
   if (!access) {
     return { ok: false, results: [], message: "Inicia sesión para publicar." };
@@ -724,13 +736,13 @@ export async function publishSelectedNetworks(
     return { ok: false, results: [], message: "Las historias están disponibles en Facebook e Instagram. TikTok no admite este formato desde este publicador." };
   }
 
-  const results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] = [];
+  const results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain" | "not_sent"; message: string }[] = [];
   for (const network of selected) {
     if (network === "facebook" || network === "instagram") {
       const sent = await retryPendingNetwork(postId, network);
       results.push({
         network,
-        outcome: sent.ok ? "confirmed" : "uncertain",
+        outcome: sent.ok ? "confirmed" : sent.notSent ? "not_sent" : "uncertain",
         message: sent.message,
       });
       continue;
@@ -762,9 +774,17 @@ export async function publishSelectedNetworks(
 
   const confirmed = results.filter((result) => result.outcome === "confirmed").length;
   const processing = results.filter((result) => result.outcome === "processing").length;
+  const notSent = results.filter((result) => result.outcome === "not_sent").length;
+  const uncertain = results.filter((result) => result.outcome === "uncertain").length;
+  const summary = [
+    confirmed && `${confirmed} confirmada(s)`,
+    processing && `${processing} en procesamiento`,
+    notSent && `${notSent} sin enviar`,
+    uncertain && `${uncertain} por verificar`,
+  ].filter(Boolean).join(" · ");
   return {
-    ok: results.every((result) => result.outcome !== "uncertain"),
+    ok: notSent === 0 && uncertain === 0,
     results,
-    message: `${confirmed} confirmadas, ${processing} procesando, ${results.length - confirmed - processing} requieren revisión. Consulta el estado por red antes de otro envío.`,
+    message: summary + (uncertain ? ". Verifica los envíos inciertos en Meta antes de repetirlos." : ""),
   };
 }
