@@ -5,7 +5,7 @@ import { isValidMediaSignature } from "@/lib/mediaSignature";
 import { readStudioSession, STUDIO_SESSION_COOKIE } from "@/lib/studioSession";
 
 function permissionFor(pathname: string, method: string): ClinicPermission | null {
-  if (pathname.startsWith("/api/studio/members") || pathname === "/api/studio/invitations") return "members:manage";
+  if (pathname.startsWith("/api/studio/members") || pathname.startsWith("/api/studio/invitations")) return "members:manage";
   if (pathname === "/api/studio/me" || pathname === "/dashboard" || pathname === "/dashboard/pendientes" ||
       pathname === "/dashboard/historial" || pathname === "/dashboard/calendario" || pathname === "/") return "content:read";
   if (pathname === "/dashboard/crear" || pathname === "/api/create-post" || pathname === "/api/preview-image") return "content:write";
@@ -35,7 +35,14 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.searchParams.get("signature"),
   );
 
-  if (signedMedia || isPublicPath(pathname)) return NextResponse.next();
+  if (signedMedia) return NextResponse.next();
+  if (isPublicPath(pathname)) {
+    if (pathname === "/api/studio/invitations/accept" && request.method === "POST" &&
+        request.headers.get("origin") !== request.nextUrl.origin) {
+      return NextResponse.json({ error: "Origen no permitido." }, { status: 403 });
+    }
+    return NextResponse.next();
+  }
 
   const session = await readStudioSession(request.cookies.get(STUDIO_SESSION_COOKIE)?.value);
   if (!session || session.clinic.id !== "pilot") {
