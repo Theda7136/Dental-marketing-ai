@@ -43,7 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const updated = await prisma.scheduledPost.updateMany({
       where: {
-        id, archivedAt: null, status: "PENDING_APPROVAL",
+        id, clinicId: "pilot", archivedAt: null, status: "PENDING_APPROVAL",
         facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING",
         facebookPostId: null, instagramPostId: null, tiktokPublishId: null,
         facebookRetryCount: 0, instagramRetryCount: 0,
