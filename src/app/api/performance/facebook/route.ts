@@ -150,16 +150,25 @@ export async function GET() {
       continue;
     }
 
-    const photo = await fetchMeta(photoId, "id,page_story_id", account.accessToken);
+    const photo = await fetchMeta(photoId, "id", account.accessToken);
     if (!photo.value) {
       const reason = photo.failure ?? "unavailable";
       failures[reason] = (failures[reason] ?? 0) + 1;
       const state = metricState(null, reason);
-      diagnostics.push({ photo: index + 1, reactions: state, comments: state });
+      diagnostics.push({
+        photo: index + 1,
+        reactions: state,
+        comments: state,
+        reactionsDetail: `photo_lookup_${reason}`,
+        commentsDetail: `photo_lookup_${reason}`,
+      });
       continue;
     }
 
-    const storyId = photo.value.page_story_id;
+    // The Photo node can be readable even when its optional page_story_id
+    // field is not. Missing that field must not block photo engagement.
+    const storyLookup = await fetchMeta(photoId, "id,page_story_id", account.accessToken);
+    const storyId = storyLookup.value?.page_story_id;
     const validStoryId = storyId && /^\d+_\d+$/.test(storyId) ? storyId : null;
 
     // Facebook /photos returns a Photo ID. Reactions belong to the associated
