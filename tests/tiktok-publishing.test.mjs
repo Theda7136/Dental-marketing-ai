@@ -8,9 +8,10 @@ const publisher = ts.transpileModule(readFileSync(new URL("../src/lib/tiktokPubl
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function fixture(mediaType = "IMAGE") {
+function fixture(mediaType = "IMAGE", clinicId = "pilot") {
   const post = {
     id: "post-12345678",
+    clinicId,
     mediaUrl: "/api/media/post-12345678",
     mediaType,
     generatedCaption: "Resultado final de diseño de sonrisa en cerámica #DiseñoDeSonrisa",
@@ -24,7 +25,7 @@ function fixture(mediaType = "IMAGE") {
   let confirmation = "PROCESSING_DOWNLOAD";
   const prisma = {
     scheduledPost: {
-      findUnique: async ({ where }) => where.id === post.id ? { ...post } : null,
+      findUnique: async ({ where }) => Object.entries(where).every(([field, expected]) => post[field] === expected) ? { ...post } : null,
       updateMany: async ({ where, data }) => {
         if (Object.entries(where).some(([field, value]) => post[field] !== value)) return { count: 0 };
         Object.assign(post, data);
@@ -32,6 +33,7 @@ function fixture(mediaType = "IMAGE") {
       },
       update: async ({ where, data }) => {
         assert.equal(where.id, post.id);
+        assert.equal(where.clinicId, post.clinicId);
         Object.assign(post, data);
         return { ...post };
       },
@@ -101,4 +103,13 @@ test("TikTok video requests use video/init and verified HTTPS URL", async () => 
   assert.equal(requests[0].endpoint, "/v2/post/publish/video/init/");
   assert.match(requests[0].payload.source_info.video_url, /^https:\/\/verified\.example\.com/);
   assert.equal(requests[0].payload.post_info.disable_duet, true);
+});
+
+test("TikTok cannot publish a post from another clinic", async () => {
+  const { post, requests, publishToTikTok } = fixture("IMAGE", "another-clinic");
+  await assert.rejects(
+    publishToTikTok(post.id, "SELF_ONLY", { disableComment: false, disableDuet: false, disableStitch: false }),
+    /Propuesta no disponible/,
+  );
+  assert.equal(requests.length, 0);
 });

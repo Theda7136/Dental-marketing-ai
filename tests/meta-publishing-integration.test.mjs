@@ -26,11 +26,13 @@ function harness({
   instagramPostId = null,
   reviewed = true,
   archived = false,
+  clinicId = "pilot",
   respond,
   publicMediaUrl = "https://demo.example.test",
 } = {}) {
   const saved = {
     id: draft.id,
+    clinicId,
     facebookStatus,
     instagramStatus,
     deliveryFormat,
@@ -41,12 +43,12 @@ function harness({
     archivedAt: archived ? new Date() : null,
   };
   const requests = [];
-  const account = { accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
+  const account = { clinicId, provider: "facebook", accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
 
   const prisma = {
-    account: { findFirst: async () => account },
+    account: { findFirst: async ({ where }) => Object.entries(where).every(([field, expected]) => account[field] === expected) ? account : null },
     scheduledPost: {
-      findUnique: async ({ where }) => where.id === saved.id ? { ...saved } : null,
+      findUnique: async ({ where }) => Object.entries(where).every(([field, expected]) => saved[field] === expected) ? { ...saved } : null,
       updateMany: async ({ where, data }) => {
         if (where.id !== saved.id) return { count: 0 };
         for (const [field, expected] of Object.entries(where)) {
@@ -57,6 +59,7 @@ function harness({
       },
       update: async ({ where, data }) => {
         assert.equal(where.id, saved.id);
+        assert.equal(where.clinicId, saved.clinicId);
         Object.assign(saved, data);
         return { ...saved };
       },
@@ -256,5 +259,11 @@ test("a Story can never be sent to Facebook as a normal photo", async () => {
   await assert.rejects(publishToMeta(draft, "facebook"), /historias.*Instagram/i);
   assert.equal(saved.facebookStatus, "PENDING");
   assert.equal(saved.instagramStatus, "PENDING");
+  assert.equal(requests.length, 0);
+});
+
+test("Meta never publishes a post owned by another clinic", async () => {
+  const { publishToMeta, requests } = harness({ clinicId: "another-clinic" });
+  await assert.rejects(publishToMeta(draft), /Vuelve a conectar|ya no existe/);
   assert.equal(requests.length, 0);
 });
