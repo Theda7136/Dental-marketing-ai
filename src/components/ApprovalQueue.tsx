@@ -95,21 +95,6 @@ function publishingSummary(post: ApprovalQueuePost): string {
   return "Sin confirmaciones de envío";
 }
 
-type EditorialStage = "all" | "review" | "ready" | "followup";
-
-function editorialStage(post: ApprovalQueuePost): Exclude<EditorialStage, "all"> {
-  const networks = post.deliveryFormat === "STORY"
-    ? [post.facebookStatus ?? "PENDING", post.instagramStatus ?? "PENDING"]
-    : [post.facebookStatus ?? "PENDING", post.instagramStatus ?? "PENDING", post.tiktokStatus ?? "PENDING"];
-
-  if (networks.some((status) => status !== "PENDING") ||
-    (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) {
-    return "followup";
-  }
-  if (!post.clinicalVerifiedAt) return "review";
-  return post.mediaKind !== "text" && Boolean(post.mediaUrl) ? "ready" : "followup";
-}
-
 function matchesHistoryStatus(post: ApprovalQueuePost, status: string): boolean {
   const networks = historyNetworks(post).map(({ status: networkStatus }) => networkStatus);
   const hasUncertain = networks.some((value) => ["UNKNOWN", "IN_PROGRESS", "PROCESSING"].includes(value));
@@ -179,7 +164,6 @@ export function ApprovalQueue({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const [pendingQuery, setPendingQuery] = useState("");
-  const [editorialFilter, setEditorialFilter] = useState<EditorialStage>("all");
   const [historyQuery, setHistoryQuery] = useState("");
   const [pendingPage, setPendingPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
@@ -214,17 +198,11 @@ export function ApprovalQueue({
     [posts],
   );
 
-  const stageCounts = {
-    review: pendingPosts.filter((post) => editorialStage(post) === "review").length,
-    ready: pendingPosts.filter((post) => editorialStage(post) === "ready").length,
-    followup: pendingPosts.filter((post) => editorialStage(post) === "followup").length,
-  };
   const pendingMatches = useMemo(() =>
     pendingPosts.filter((post) =>
-      (editorialFilter === "all" || editorialStage(post) === editorialFilter) &&
       post.procedureName.toLocaleLowerCase("es").includes(pendingQuery.trim().toLocaleLowerCase("es")),
     ),
-    [pendingPosts, pendingQuery, editorialFilter],
+    [pendingPosts, pendingQuery],
   );
   const historyMatches = useMemo(() =>
     filteredHistory.filter((post) => post.procedureName.toLocaleLowerCase("es").includes(historyQuery.trim().toLocaleLowerCase("es"))),
@@ -251,7 +229,6 @@ export function ApprovalQueue({
     setFocusedPostId(requestedId);
     if (matchingPost.status === "PENDING_APPROVAL") {
       setPendingQuery("");
-      setEditorialFilter("all");
       const index = pendingPosts.findIndex((post) => post.id === requestedId);
       setPendingPage(Math.floor(index / pageSize) + 1);
     } else {
@@ -335,43 +312,6 @@ export function ApprovalQueue({
   return (
     <section aria-labelledby="approval-queue-title" className="w-full min-w-0">
       {mode !== "history" && <>
-      <header className="studio-queue-summary mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div>
-        <h2
-          id="approval-queue-title"
-          className="sr-only"
-        >
-          Pendientes de revisión
-        </h2>
-        <p className="mt-1 text-sm text-[#637773]">
-          {pendingPosts.length === 0
-            ? "Las nuevas propuestas aparecerán aquí."
-            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta" : "propuestas"} en tu bandeja.`}
-        </p>
-          </div>
-        </div>
-        <span className="ml-12 inline-flex w-fit items-center rounded-full border border-[#d7e5df] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#55716b] sm:ml-0">
-          {pendingPosts.length} {pendingPosts.length === 1 ? "pendiente" : "pendientes"}
-        </span>
-      </header>
-
-      <div className="mb-4 flex flex-wrap gap-2" aria-label="Etapa editorial">
-        {([
-          { key: "all", label: "Todas", count: pendingPosts.length },
-          { key: "review", label: "Por revisar", count: stageCounts.review },
-          { key: "ready", label: "Listas para publicar", count: stageCounts.ready },
-          { key: "followup", label: "Con envíos", count: stageCounts.followup },
-        ] as const).map((stage) => (
-          <button key={stage.key} type="button" aria-pressed={editorialFilter === stage.key}
-            onClick={() => { setEditorialFilter(stage.key); setPendingPage(1); }}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${editorialFilter === stage.key
-              ? "border-[#176c63] bg-[#176c63] text-white"
-              : "border-[#d7e5df] bg-white text-[#476a60] hover:bg-[#f2f8f4]"}`}>
-            {stage.label} · {stage.count}
-          </button>
-        ))}
-      </div>
       <label className="mb-4 flex max-w-md flex-col gap-1 text-sm font-medium text-[#46615b]">Buscar procedimiento
         <input type="search" value={pendingQuery} onChange={(event) => { setPendingQuery(event.target.value); setPendingPage(1); }}
           placeholder="Ej. Implantes Dentales" className="min-h-11 rounded-lg border border-[#cadbd1] bg-white px-3" />
@@ -381,9 +321,9 @@ export function ApprovalQueue({
           <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#edf5f1] text-[#398e82]" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="1.6"><path d="M7 3.75h7l4 4V20a.75.75 0 0 1-.75.75h-10.5A.75.75 0 0 1 6 20V4.5a.75.75 0 0 1 1-.75Z" strokeLinejoin="round"/><path d="M14 4v4h4M9 13h6M9 16.5h6" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </span>
-          <h3 className="text-base font-semibold text-[#29433f]">{pendingPosts.length === 0 ? "Tu bandeja está al día" : "No hay propuestas en esta vista"}</h3>
+          <h3 className="text-base font-semibold text-[#29433f]">{pendingPosts.length === 0 ? "Todavía no hay propuestas" : "No hay coincidencias"}</h3>
           <p className="mt-1 max-w-xs text-sm leading-6 text-[#778984]">
-            {pendingPosts.length === 0 ? "Las nuevas propuestas aparecerán aquí para que puedas revisarlas con calma." : "Prueba con otra etapa editorial o ajusta la búsqueda."}
+            {pendingPosts.length === 0 ? "Las nuevas propuestas aparecerán aquí para que puedas revisarlas con calma." : "Prueba con otro procedimiento."}
           </p>
         </div>
       ) : (
