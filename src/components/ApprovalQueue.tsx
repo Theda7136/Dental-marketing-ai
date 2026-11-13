@@ -113,16 +113,39 @@ function publishingSummary(post: ApprovalQueuePost): string {
 type EditorialStage = "all" | "review" | "ready" | "followup";
 
 function editorialStage(post: ApprovalQueuePost): Exclude<EditorialStage, "all"> {
-  if (!post.clinicalVerifiedAt) return "review";
-
   const networks = post.deliveryFormat === "STORY"
     ? [post.facebookStatus ?? "PENDING", post.instagramStatus ?? "PENDING"]
     : [post.facebookStatus ?? "PENDING", post.instagramStatus ?? "PENDING", post.tiktokStatus ?? "PENDING"];
-  if (post.mediaKind !== "text" && post.mediaUrl && networks.every((status) => status === "PENDING") &&
-    (post.facebookRetryCount ?? 0) === 0 && (post.instagramRetryCount ?? 0) === 0) {
-    return "ready";
+
+  if (networks.some((status) => status !== "PENDING") ||
+    (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) {
+    return "followup";
   }
-  return "followup";
+  if (!post.clinicalVerifiedAt) return "review";
+  return post.mediaKind !== "text" && Boolean(post.mediaUrl) ? "ready" : "followup";
+}
+
+function followupSummary(post: ApprovalQueuePost): string {
+  const statuses = [
+    { name: "Facebook", status: post.facebookStatus ?? "PENDING" },
+    { name: "Instagram", status: post.instagramStatus ?? "PENDING" },
+    ...(post.deliveryFormat === "STORY" ? [] : [{ name: "TikTok", status: post.tiktokStatus ?? "PENDING" }]),
+  ];
+  const uncertain = statuses.filter(({ status }) => status === "UNKNOWN").map(({ name }) => name);
+  if (uncertain.length) return `Comprobar publicación en ${uncertain.join(" e ")} antes de reenviar.`;
+
+  const processing = statuses.filter(({ status }) =>
+    status === "IN_PROGRESS" || status === "PROCESSING",
+  ).map(({ name }) => name);
+  if (processing.length) return `En proceso en ${processing.join(" e ")}. Espera confirmación antes de repetir el envío.`;
+
+  const remaining = statuses.filter(({ status }) => status === "PENDING").map(({ name }) => name);
+  if (remaining.length) return `Sin enviar a ${remaining.join(", ")}. Revisa las redes pendientes antes de continuar.`;
+
+  if (statuses.every(({ status }) => status === "SUCCEEDED")) {
+    return "Envíos confirmados. Comprueba el estado editorial antes de continuar.";
+  }
+  return "Consulta los estados de las redes antes de realizar otra acción.";
 }
 
 function matchesHistoryStatus(post: ApprovalQueuePost, status: string): boolean {
@@ -608,7 +631,7 @@ export function ApprovalQueue({
                       <p className="mt-2 text-xs font-semibold text-[#52756b]">
                         {editorialStage(post) === "review" ? "Pendiente de revisión clínica"
                           : editorialStage(post) === "ready" ? "Revisión completada · Lista para publicar"
-                          : "Revisión completada · Requiere seguimiento"}
+                          : "Seguimiento de publicación"}
                       </p>
                     </div>
 
@@ -706,11 +729,18 @@ export function ApprovalQueue({
                       </div>
                     )}
 
+                    {editorialStage(post) === "followup" && (
+                      <p role="status" className="rounded-lg bg-[#f4f7f5] px-3 py-2 text-xs leading-5 text-[#536d63]">
+                        {followupSummary(post)}
+                      </p>
+                    )}
                     <div className="studio-proposal-networks flex flex-wrap gap-2" aria-label="Estado por red social">
                       {networkStatus("Facebook", post.facebookStatus)}
                       {networkStatus("Instagram", post.instagramStatus)}
                       {post.tiktokStatus && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus)}
                     </div>
+
+                    {incidentPanel(post)}
 
                     {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 flex flex-wrap gap-2">
