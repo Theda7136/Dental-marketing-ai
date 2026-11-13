@@ -100,8 +100,7 @@ function backgroundColor(preset: PhotoPreset): string {
 }
 
 /**
- * Keep all pixels of the clinical photo unless the operator explicitly chooses COVER.
- * For extreme aspect ratios, a mild blurred copy avoids letterboxing without cropping evidence.
+ * Automatic framing must preserve the entire clinical image; cropping is opt-in.
  */
 export async function renderSocialPhoto(
   source: Uint8Array,
