@@ -97,17 +97,24 @@ function networkStatus(label: string, status?: string) {
   );
 }
 
+function historyNetworks(post: ApprovalQueuePost) {
+  return [
+    { name: "Facebook", status: post.facebookStatus ?? "PENDING" },
+    { name: "Instagram", status: post.instagramStatus ?? "PENDING" },
+    ...(post.deliveryFormat === "STORY" ? [] : [{ name: "TikTok", status: post.tiktokStatus ?? "PENDING" }]),
+  ];
+}
+
 function publishingSummary(post: ApprovalQueuePost): string {
   if (post.status === "REJECTED") return "Propuesta descartada";
-  if (post.status === "APPROVED") return "Aprobación registrada";
-
-  const statuses = [post.facebookStatus, post.instagramStatus];
-  if (statuses.some((status) => status === "UNKNOWN" || status === "IN_PROGRESS")) {
-    return "Publicación con estado por verificar";
+  const networks = historyNetworks(post);
+  if (networks.some(({ status }) => status === "UNKNOWN" || status === "IN_PROGRESS" || status === "PROCESSING")) {
+    return "Requiere comprobar envíos";
   }
-  if (statuses.every((status) => status === "SUCCEEDED")) return "Confirmada en ambas redes";
-  if (statuses.some((status) => status === "SUCCEEDED")) return "Confirmada parcialmente";
-  return "Publicación sin confirmación por red";
+  const confirmed = networks.filter(({ status }) => status === "SUCCEEDED").length;
+  if (confirmed === networks.length) return "Envíos confirmados";
+  if (confirmed > 0) return "Publicación parcial";
+  return "Sin confirmaciones de envío";
 }
 
 type EditorialStage = "all" | "review" | "ready" | "followup";
@@ -149,20 +156,17 @@ function followupSummary(post: ApprovalQueuePost): string {
 }
 
 function matchesHistoryStatus(post: ApprovalQueuePost, status: string): boolean {
-  const networkStatuses = [post.facebookStatus, post.instagramStatus];
+  const networks = historyNetworks(post).map(({ status: networkStatus }) => networkStatus);
+  const hasUncertain = networks.some((value) => ["UNKNOWN", "IN_PROGRESS", "PROCESSING"].includes(value));
+  const confirmed = networks.filter((value) => value === "SUCCEEDED").length;
+
   switch (status) {
-    case "confirmed":
-      return networkStatuses.some((value) => value === "SUCCEEDED") &&
-        !networkStatuses.some((value) => value === "UNKNOWN" || value === "IN_PROGRESS");
-    case "partial":
-      return networkStatuses.some((value) => value === "SUCCEEDED") &&
-        networkStatuses.some((value) => value !== "SUCCEEDED");
-    case "review":
-      return networkStatuses.some((value) => value === "UNKNOWN" || value === "IN_PROGRESS");
-    case "rejected":
-      return post.status === "REJECTED";
-    default:
-      return true;
+    case "confirmed": return confirmed === networks.length;
+    case "partial": return confirmed > 0 && confirmed < networks.length;
+    case "review": return hasUncertain;
+    case "pending": return networks.some((value) => value === "PENDING");
+    case "rejected": return post.status === "REJECTED";
+    default: return true;
   }
 }
 
@@ -220,7 +224,7 @@ export function ApprovalQueue({
   const [draftCaption, setDraftCaption] = useState("");
   const [expandedPosts, setExpandedPosts] = useState<string[]>([]);
   const [showPublished, setShowPublished] = useState(mode === "history");
-  const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram">("all");
+  const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram" | "tiktok">("all");
   const [historyStatus, setHistoryStatus] = useState("all");
   const [reviewKey, setReviewKey] = useState<string | null>(null);
   const [expandedIncidents, setExpandedIncidents] = useState<string[]>([]);
@@ -246,8 +250,9 @@ export function ApprovalQueue({
   );
 
   const filteredHistory = useMemo(() => reviewedPosts.filter((post) => {
-    if (historyNetwork === "facebook" && post.facebookStatus === "PENDING") return false;
-    if (historyNetwork === "instagram" && post.instagramStatus === "PENDING") return false;
+    if (historyNetwork === "facebook" && (post.facebookStatus ?? "PENDING") === "PENDING") return false;
+    if (historyNetwork === "instagram" && (post.instagramStatus ?? "PENDING") === "PENDING") return false;
+    if (historyNetwork === "tiktok" && (post.deliveryFormat === "STORY" || (post.tiktokStatus ?? "PENDING") === "PENDING")) return false;
     return matchesHistoryStatus(post, historyStatus);
   }), [reviewedPosts, historyNetwork, historyStatus]);
 
@@ -857,12 +862,13 @@ export function ApprovalQueue({
                 Plataforma
                 <select
                   value={historyNetwork}
-                  onChange={(event) => setHistoryNetwork(event.target.value as "all" | "facebook" | "instagram")}
+                  onChange={(event) => setHistoryNetwork(event.target.value as "all" | "facebook" | "instagram" | "tiktok")}
                   className="min-h-10 rounded-lg border border-[#d1dfd6] bg-white px-3 text-sm"
                 >
                   <option value="all">Todas las plataformas</option>
                   <option value="facebook">Con actividad en Facebook</option>
                   <option value="instagram">Con actividad en Instagram</option>
+                  <option value="tiktok">Con actividad en TikTok</option>
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-xs font-semibold text-[#46615b]">
@@ -873,9 +879,10 @@ export function ApprovalQueue({
                   className="min-h-10 rounded-lg border border-[#d1dfd6] bg-white px-3 text-sm"
                 >
                   <option value="all">Todos los estados</option>
-                  <option value="confirmed">Al menos una red confirmada, sin incertidumbre</option>
+                  <option value="confirmed">Todas las redes confirmadas</option>
                   <option value="partial">Publicación parcial</option>
                   <option value="review">Requiere verificación</option>
+                  <option value="pending">Con redes sin enviar</option>
                   <option value="rejected">Propuesta descartada</option>
                 </select>
               </label>
@@ -894,10 +901,18 @@ export function ApprovalQueue({
                     <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {publishingSummary(post)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {networkStatus("Facebook", post.facebookStatus)}
-                    {networkStatus("Instagram", post.instagramStatus)}
+                    {networkStatus("Facebook", post.facebookStatus ?? "PENDING")}
+                    {networkStatus("Instagram", post.instagramStatus ?? "PENDING")}
+                    {post.deliveryFormat !== "STORY" && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus ?? "PENDING")}
                   </div>
                 </div>
+                {incidentPanel(post)}
+                {post.status !== "REJECTED" && historyNetworks(post).some(({ status }) => status === "PENDING") && (
+                  <p className="mt-3 text-xs text-[#637773]">
+                    Redes pendientes: {historyNetworks(post).filter(({ status }) => status === "PENDING").map(({ name }) => name).join(", ")}.
+                    El envío no es automático.
+                  </p>
+                )}
                 {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 flex flex-wrap gap-3">
                     {(["facebook", "instagram"] as const).map((network) => {
