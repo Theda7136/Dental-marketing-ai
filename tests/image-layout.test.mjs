@@ -75,11 +75,13 @@ test("Story composition preserves both edges of the original in 1080x1920", asyn
   const top = await sharp(story).extract({ left: 540, top: 10, width: 1, height: 1 }).raw().toBuffer();
   const bottom = await sharp(story).extract({ left: 540, top: 1790, width: 1, height: 1 }).raw().toBuffer();
   const footer = await sharp(story).extract({ left: 540, top: 1900, width: 1, height: 1 }).raw().toBuffer();
+  const margin = await sharp(story).extract({ left: 5, top: 900, width: 1, height: 1 }).raw().toBuffer();
 
   assert.deepEqual([metadata.width, metadata.height, metadata.format], [1080, 1920, "png"]);
   assert.ok(top[2] > top[0], "the original top edge must be preserved");
   assert.ok(bottom[1] > bottom[0], "the original bottom edge must be preserved");
   assert.ok(footer[0] > 240 && footer[1] > 240, "branding stays in its own area");
+  assert.ok(margin[0] > 240 && margin[1] > 240 && margin[2] > 240, "Story margins remain clean and neutral");
 });
 
 
