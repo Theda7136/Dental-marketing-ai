@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ApprovalQueuePost } from "@/components/ApprovalQueue";
 
 const BOGOTA_TIME_ZONE = "America/Bogota";
@@ -58,6 +58,18 @@ export function EditorialCalendar({ posts, onReload }: {
     (post.tiktokStatus ?? "PENDING") === "PENDING" &&
     (post.facebookRetryCount ?? 0) === 0 &&
     (post.instagramRetryCount ?? 0) === 0);
+  useEffect(() => {
+    const requestedId = new URLSearchParams(window.location.search).get("post");
+    if (!requestedId) return;
+    const proposal = posts.find((post) => post.id === requestedId);
+    if (proposal && !proposal.scheduledFor && proposal.status === "PENDING_APPROVAL" &&
+      proposal.facebookStatus === "PENDING" && proposal.instagramStatus === "PENDING" &&
+      (proposal.tiktokStatus ?? "PENDING") === "PENDING" &&
+      (proposal.facebookRetryCount ?? 0) === 0 && (proposal.instagramRetryCount ?? 0) === 0) {
+      setSelectedPostId(requestedId);
+    }
+  }, [posts]);
+
   const scheduled = posts.filter((post) => Boolean(post.scheduledFor) && post.status !== "REJECTED");
   const overdue = scheduled.filter((post) =>
     post.status === "PENDING_APPROVAL" && new Date(post.scheduledFor!).getTime() < Date.now(),
