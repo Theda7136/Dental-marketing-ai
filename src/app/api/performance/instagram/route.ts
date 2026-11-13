@@ -38,9 +38,11 @@ export async function GET() {
 
   const metrics: InstagramMetrics[] = [];
   let unavailable = 0;
+  const failures: Record<string, number> = {};
   for (const post of posts) {
     const mediaId = post.instagramPostId;
     if (!mediaId || !/^\d+$/.test(mediaId)) {
+      failures.identifier = (failures.identifier ?? 0) + 1;
       unavailable++;
       continue;
     }
@@ -54,17 +56,26 @@ export async function GET() {
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        const metaError = errorPayload && typeof errorPayload === "object"
+          ? (errorPayload as { error?: { code?: number } }).error : undefined;
+        const reason = metaError?.code === 190 ? "token"
+          : [10, 200, 283].includes(metaError?.code ?? -1) ? "permissions"
+          : metaError?.code === 100 ? "identifier" : "unavailable";
+        failures[reason] = (failures[reason] ?? 0) + 1;
         unavailable++;
         continue;
       }
       const payload: unknown = await response.json();
       if (!payload || typeof payload !== "object") {
+        failures.unavailable = (failures.unavailable ?? 0) + 1;
         unavailable++;
         continue;
       }
       const entry = payload as Record<string, unknown>;
       if (String(entry.id) !== mediaId ||
         typeof entry.like_count !== "number" || typeof entry.comments_count !== "number") {
+        failures.incomplete = (failures.incomplete ?? 0) + 1;
         unavailable++;
         continue;
       }
@@ -74,6 +85,7 @@ export async function GET() {
         comments: entry.comments_count,
       });
     } catch {
+      failures.unavailable = (failures.unavailable ?? 0) + 1;
       unavailable++;
     }
   }
@@ -82,6 +94,7 @@ export async function GET() {
     metrics,
     checked: posts.length,
     unavailable,
+    failures,
     scope: "Últimas 10 publicaciones confirmadas de Instagram, excepto Historias",
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
