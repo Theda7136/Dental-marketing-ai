@@ -695,8 +695,13 @@ export async function rejectPost(postId: string) {
 
   try {
     const result = await prisma.scheduledPost.updateMany({
-      where: { id: postId, clinicId: access.clinic.id, status: "PENDING_APPROVAL" },
-      data: { status: "REJECTED" },
+      where: {
+        id: postId, clinicId: access.clinic.id, archivedAt: null, status: "PENDING_APPROVAL",
+        facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING",
+        facebookPostId: null, instagramPostId: null, tiktokPublishId: null,
+        facebookRetryCount: 0, instagramRetryCount: 0,
+      },
+      data: { status: "REJECTED", scheduledFor: null },
     });
     return result.count === 1
       ? { ok: true }
