@@ -87,7 +87,7 @@ function publishingSummary(post: ApprovalQueuePost): string {
   if (post.status === "REJECTED") return "Propuesta descartada";
   const networks = historyNetworks(post);
   if (networks.some(({ status }) => status === "UNKNOWN" || status === "IN_PROGRESS" || status === "PROCESSING")) {
-    return "Requiere comprobar envíos";
+    return "Envío en curso";
   }
   const confirmed = networks.filter(({ status }) => status === "SUCCEEDED").length;
   if (confirmed === networks.length) return "Envíos confirmados";
@@ -108,29 +108,6 @@ function editorialStage(post: ApprovalQueuePost): Exclude<EditorialStage, "all">
   }
   if (!post.clinicalVerifiedAt) return "review";
   return post.mediaKind !== "text" && Boolean(post.mediaUrl) ? "ready" : "followup";
-}
-
-function followupSummary(post: ApprovalQueuePost): string {
-  const statuses = [
-    { name: "Facebook", status: post.facebookStatus ?? "PENDING" },
-    { name: "Instagram", status: post.instagramStatus ?? "PENDING" },
-    ...(post.deliveryFormat === "STORY" ? [] : [{ name: "TikTok", status: post.tiktokStatus ?? "PENDING" }]),
-  ];
-  const uncertain = statuses.filter(({ status }) => status === "UNKNOWN").map(({ name }) => name);
-  if (uncertain.length) return `Comprobar publicación en ${uncertain.join(" e ")} antes de reenviar.`;
-
-  const processing = statuses.filter(({ status }) =>
-    status === "IN_PROGRESS" || status === "PROCESSING",
-  ).map(({ name }) => name);
-  if (processing.length) return `En proceso en ${processing.join(" e ")}. Espera confirmación antes de repetir el envío.`;
-
-  const remaining = statuses.filter(({ status }) => status === "PENDING").map(({ name }) => name);
-  if (remaining.length) return `Sin enviar a ${remaining.join(", ")}. Revisa las redes pendientes antes de continuar.`;
-
-  if (statuses.every(({ status }) => status === "SUCCEEDED")) {
-    return "Envíos confirmados. Comprueba el estado editorial antes de continuar.";
-  }
-  return "Consulta los estados de las redes antes de realizar otra acción.";
 }
 
 function matchesHistoryStatus(post: ApprovalQueuePost, status: string): boolean {
@@ -187,8 +164,6 @@ export function ApprovalQueue({
   onReload,
   onDelete,
   onEdit,
-  onRetry,
-  onLookup,
   onChooseStyle,
 }: ApprovalQueueProps) {
   const canWrite = role === "OWNER" || role === "ADMIN" || role === "EDITOR";
@@ -201,7 +176,6 @@ export function ApprovalQueue({
   const [showPublished, setShowPublished] = useState(mode === "history");
   const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram" | "tiktok">("all");
   const [historyStatus, setHistoryStatus] = useState("all");
-  const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const [pendingQuery, setPendingQuery] = useState("");
