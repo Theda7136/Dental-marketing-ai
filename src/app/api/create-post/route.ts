@@ -595,7 +595,14 @@ export async function POST(request: Request) {
           );
 
     const photoReel = kind === "image" && input.deliveryFormat === "REEL";
-    const finalMedia = photoReel ? await renderPhotoReel(prepared.media) : prepared.media;
+    const photoStory = kind === "image" && input.deliveryFormat === "STORY";
+    const storyImage = photoStory
+      ? await sharp(prepared.media)
+          .resize(1080, 1920, { fit: "contain", background: "#ffffff" })
+          .png()
+          .toBuffer()
+      : prepared.media;
+    const finalMedia = photoReel ? await renderPhotoReel(prepared.media) : storyImage;
     const finalKind: MediaKind = photoReel ? "video" : kind;
     const finalMediaType = photoReel ? "VIDEO" as const : prepared.mediaType;
 
