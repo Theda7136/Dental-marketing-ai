@@ -25,6 +25,7 @@ import {
   overlayKaraokeSubtitles,
   muteClinicalVideo,
   renderVerticalClinicalVideo,
+  renderPhotoReel,
   type TranscriptWord,
 } from "../../../services/videoService";
 
@@ -59,6 +60,13 @@ interface CreatePostInput {
   visionConsent: boolean;
   muteAudio: boolean;
   photoOptions: PhotoOptions;
+  deliveryFormat: "FEED" | "REEL" | "STORY";
+}
+
+function readDeliveryFormat(value: unknown): "FEED" | "REEL" | "STORY" {
+  if (value === undefined || value === null || value === "FEED") return "FEED";
+  if (value === "REEL" || value === "STORY") return value;
+  throw new RequestInputError(400, "INVALID_DELIVERY_FORMAT", "Selecciona feed, Reel o Historia.");
 }
 
 function readCopyStyle(value: unknown): "EDUCATIONAL" | "COMMERCIAL" {
@@ -267,6 +275,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(form.get("selectedStyle")),
       visionConsent: form.get("visionConsent") === "true",
       muteAudio: form.get("muteAudio") === "true",
+      deliveryFormat: readDeliveryFormat(form.get("deliveryFormat")),
       photoOptions: parsePhotoOptions({
         layout: form.get("photoLayout") ?? "AUTO",
         background: form.get("photoBackground") ?? "LIGHT",
@@ -334,6 +343,7 @@ async function readRequestInput(request: Request): Promise<CreatePostInput> {
       selectedStyle: readCopyStyle(record.selectedStyle),
       visionConsent: record.visionConsent === true,
       muteAudio: record.muteAudio === true,
+      deliveryFormat: readDeliveryFormat(record.deliveryFormat),
       photoOptions: parsePhotoOptions({
         layout: record.photoLayout,
         background: record.photoBackground,
@@ -569,6 +579,10 @@ export async function POST(request: Request) {
       );
     }
 
+    if (kind === "image" && input.deliveryFormat === "REEL" && input.photoOptions.zoom > 1.6) {
+      throw new RequestInputError(400, "INVALID_IMAGE", "El encuadre fotográfico no es válido para el Reel.");
+    }
+
     const prepared =
       kind === "image"
         ? await prepareImage(procedureName, input.media, input.notes, true, input.photoOptions)
@@ -580,16 +594,22 @@ export async function POST(request: Request) {
             input.muteAudio,
           );
 
+    const photoReel = kind === "image" && input.deliveryFormat === "REEL";
+    const finalMedia = photoReel ? await renderPhotoReel(prepared.media) : prepared.media;
+    const finalKind: MediaKind = photoReel ? "video" : kind;
+    const finalMediaType = photoReel ? "VIDEO" as const : prepared.mediaType;
+
     const id = crypto.randomUUID();
     const mediaUrl = `/api/media/${id}`;
-    await storePostMedia(id, kind, prepared.media);
-    storedMedia = { id, kind };
+    await storePostMedia(id, finalKind, finalMedia);
+    storedMedia = { id, kind: finalKind };
 
     const post = await prisma.scheduledPost.create({
       data: {
         id,
         procedureName,
-        mediaType: prepared.mediaType,
+        mediaType: finalMediaType,
+        deliveryFormat: input.deliveryFormat,
         mediaUrl,
         generatedCaption: input.selectedStyle === "COMMERCIAL" ? prepared.commercialCaption : prepared.educationalCaption,
         educationalCaption: prepared.educationalCaption,
@@ -607,6 +627,7 @@ export async function POST(request: Request) {
           id: post.id,
           procedureName: post.procedureName,
           mediaType: post.mediaType,
+          deliveryFormat: post.deliveryFormat,
           mediaUrl: post.mediaUrl,
           generatedCaption: post.generatedCaption,
           educationalCaption: post.educationalCaption,
