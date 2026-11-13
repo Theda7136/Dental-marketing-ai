@@ -142,8 +142,8 @@ export function MultinetworkPublisher({
     }
   }
 
-  if (post.mediaKind === "text" || !post.mediaUrl || !hasPending) return null;
   const hasPending = availableNetworks.some((network) => statuses[network] === "PENDING");
+  if (post.mediaKind === "text" || !post.mediaUrl || !hasPending) return null;
 
   return (
     <div className="order-first w-full basis-full">
