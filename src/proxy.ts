@@ -5,7 +5,7 @@ import { isValidMediaSignature } from "@/lib/mediaSignature";
 import { readStudioSession, STUDIO_SESSION_COOKIE } from "@/lib/studioSession";
 
 function permissionFor(pathname: string, method: string): ClinicPermission | null {
-  if (pathname.startsWith("/api/studio/members") || pathname.startsWith("/api/studio/invitations")) return "members:manage";
+  if (pathname === "/dashboard/equipo" || pathname.startsWith("/api/studio/members") || pathname.startsWith("/api/studio/invitations")) return "members:manage";
   if (pathname === "/api/studio/me" || pathname === "/dashboard" || pathname === "/dashboard/pendientes" ||
       pathname === "/dashboard/historial" || pathname === "/dashboard/calendario" || pathname === "/") return "content:read";
   if (pathname === "/dashboard/crear" || pathname === "/api/create-post" || pathname === "/api/preview-image") return "content:write";
