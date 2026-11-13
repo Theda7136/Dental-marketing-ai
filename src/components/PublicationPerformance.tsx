@@ -6,7 +6,7 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
 type FacebookSnapshot = {
-  metrics: { id: string; reactions: number; comments: number; source: "reactions" | "likes" }[];
+  metrics: { id: string; reactions: number | null; comments: number | null; source: "reactions" | "likes" }[];
   checked: number;
   unavailable: number;
   failures?: Record<string, number>;
@@ -252,20 +252,24 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
                 <div className="rounded-xl bg-[#f3f8f5] p-4">
                   <p className="text-xs text-[#63796e]">{facebook.metrics.every((post) => post.source === "reactions") ? "Reacciones" : facebook.metrics.every((post) => post.source === "likes") ? "Me gusta" : "Reacciones y Me gusta"}</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
-                    {facebook.metrics.reduce((total, post) => total + post.reactions, 0).toLocaleString("es-CO")}
+                    {facebook.metrics.some((post) => post.reactions !== null)
+                      ? facebook.metrics.reduce((total, post) => total + (post.reactions ?? 0), 0).toLocaleString("es-CO")
+                      : "Sin datos"}
                   </p>
                 </div>
                 <div className="rounded-xl bg-[#f3f8f5] p-4">
                   <p className="text-xs text-[#63796e]">Comentarios</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
-                    {facebook.metrics.reduce((total, post) => total + post.comments, 0).toLocaleString("es-CO")}
+                    {facebook.metrics.some((post) => post.comments !== null)
+                      ? facebook.metrics.reduce((total, post) => total + (post.comments ?? 0), 0).toLocaleString("es-CO")
+                      : "Sin datos"}
                   </p>
                 </div>
               </div>
             ) : <p className="text-sm text-[#687e73]">{facebook.checked === 0 ? "Todavía no hay publicaciones elegibles para esta consulta." : "Facebook no devolvió interacciones para las publicaciones consultadas."}</p>}
             {insightsMessage(facebook.checked, facebook.unavailable, facebook.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(facebook.checked, facebook.unavailable, facebook.failures)}</p>}
             <p className="mt-3 text-xs text-[#71847a]">
-              {facebook.scope}. Datos disponibles para {facebook.metrics.length} de {facebook.checked} publicaciones.
+              {facebook.scope}. Con al menos una métrica disponible: {facebook.metrics.length} de {facebook.checked} publicaciones.
               {facebook.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
             </p>
           </div>
