@@ -6,7 +6,7 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
 type FacebookSnapshot = {
-  metrics: { id: string; reactions: number; comments: number }[];
+  metrics: { id: string; reactions: number; comments: number; source: "reactions" | "likes" }[];
   checked: number;
   unavailable: number;
   failures?: Record<string, number>;
@@ -222,7 +222,7 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
                 </div>
               </div>
             ) : <p className="text-sm text-[#687e73]">{instagram.checked === 0 ? "Todavía no hay publicaciones elegibles para esta consulta." : "Instagram no devolvió interacciones para las publicaciones consultadas."}</p>}
-            {insightsMessage(instagram.checked, instagram.unavailable, instagram.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(instagram.checked, instagram.unavailable, instagram.failures)}</p>}
+            {instagram.checked > 0 && insightsMessage(instagram.checked, instagram.unavailable, instagram.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(instagram.checked, instagram.unavailable, instagram.failures)}</p>}
             <p className="mt-3 text-xs text-[#71847a]">
               {instagram.scope}. Datos disponibles para {instagram.metrics.length} de {instagram.checked} publicaciones.
               {instagram.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
@@ -236,7 +236,7 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
           <div>
             <h3 className="text-base font-semibold text-[#183d37]">Interacciones de Facebook</h3>
             <p className="mt-1 text-xs text-[#6b8177]">
-              Reacciones y comentarios que Meta devuelve para las publicaciones confirmadas del Feed.
+              Interacciones de fotografías confirmadas del Feed, consultadas directamente en Meta.
             </p>
           </div>
           <button type="button" onClick={() => void refreshFacebook()} disabled={facebookLoading}
@@ -250,7 +250,7 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
             {facebook.metrics.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl bg-[#f3f8f5] p-4">
-                  <p className="text-xs text-[#63796e]">Reacciones</p>
+                  <p className="text-xs text-[#63796e]">{facebook.metrics.every((post) => post.source === "reactions") ? "Reacciones" : facebook.metrics.every((post) => post.source === "likes") ? "Me gusta" : "Reacciones y Me gusta"}</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
                     {facebook.metrics.reduce((total, post) => total + post.reactions, 0).toLocaleString("es-CO")}
                   </p>
