@@ -52,7 +52,7 @@ export async function GET(
     const contentType = kind === "video" ? "video/mp4" : jpeg ? "image/jpeg" : "image/png";
     const original = await readPostMedia(id, kind);
     const bytes = jpeg
-      ? await sharp(Buffer.from(original)).jpeg({ quality: 90, mozjpeg: true }).toBuffer()
+      ? await sharp(Buffer.from(original)).flatten({ background: "#ffffff" }).jpeg({ quality: 90, mozjpeg: true }).toBuffer()
       : original;
     return new NextResponse(new Uint8Array(bytes), {
       status: 200,
