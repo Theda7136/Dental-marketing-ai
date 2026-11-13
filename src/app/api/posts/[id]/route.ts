@@ -37,20 +37,6 @@ export async function DELETE(
       return NextResponse.json({ message: "La publicación no existe o ya fue retirada de la lista." }, { status: 404 });
     }
 
-    const pending = post.status === "PENDING_APPROVAL";
-    const untouched = post.facebookStatus === "PENDING" &&
-      post.instagramStatus === "PENDING" &&
-      !post.facebookPostId && !post.instagramPostId &&
-      post.facebookRetryCount === 0 && post.instagramRetryCount === 0;
-
-    if ([post.facebookStatus, post.instagramStatus].some((status) =>
-      status === "UNKNOWN" || status === "IN_PROGRESS"
-    ) || ["IN_PROGRESS", "PROCESSING", "UNKNOWN"].includes(post.tiktokStatus) || (pending && !untouched)) {
-      return NextResponse.json({
-        message: "Esta publicación tiene envíos iniciados o pendientes de verificación en Meta. Resuelve primero sus estados.",
-      }, { status: 409 });
-    }
-
     const updated = await prisma.scheduledPost.updateMany({
       where: {
         id,
@@ -60,12 +46,6 @@ export async function DELETE(
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
         tiktokStatus: post.tiktokStatus,
-        ...(pending ? {
-          facebookRetryCount: 0,
-          instagramRetryCount: 0,
-          facebookPostId: null,
-          instagramPostId: null,
-        } : {}),
       },
       data: { archivedAt: new Date() },
     });
@@ -76,7 +56,7 @@ export async function DELETE(
       }, { status: 409 });
     }
 
-    return NextResponse.json({ ok: true, message: "Publicación retirada de la lista." });
+    return NextResponse.json({ ok: true, message: "Publicación archivada en el panel. Las publicaciones en redes sociales no se eliminan." });
   } catch (error) {
     console.error("No se pudo archivar la publicación:", error);
     return NextResponse.json(
