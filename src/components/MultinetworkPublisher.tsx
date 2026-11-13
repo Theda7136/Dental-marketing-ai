@@ -57,7 +57,7 @@ export function MultinetworkPublisher({
   const [outcome, setOutcome] = useState<PublishOutcome | null>(null);
 
   const storyOnly = post.deliveryFormat === "STORY";
-  const availableNetworks = storyOnly ? networks.filter((network) => network === "instagram") : networks;
+  const availableNetworks = networks;
 
   const statuses: Record<PublishNetwork, string> = {
     facebook: post.facebookStatus || "PENDING",
@@ -157,7 +157,7 @@ export function MultinetworkPublisher({
           <div className="flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-[#173b3a]">Selecciona las redes</h4>
-              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Esta historia se envía únicamente a Instagram. Facebook Stories no está implementado." : "Puedes publicar en redes pendientes y consultar las que requieren verificación."}</p>
+              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Esta historia se puede enviar a Facebook e Instagram." : "Puedes publicar en redes pendientes y consultar las que requieren verificación."}</p>
             </div>
             {!busy && <button type="button" onClick={() => { setOpen(false); setOutcome(null); }} className="text-sm text-[#667d72]">Cerrar</button>}
           </div>
