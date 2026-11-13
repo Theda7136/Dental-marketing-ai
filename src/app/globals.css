@@ -1214,3 +1214,16 @@ body { background: var(--canvas); color: var(--ink); }
   accent-color: var(--accent);
 }
 .studio-vision-consent span { max-width: 60ch; }
+
+/* Story preview follows the exported 9:16 image, not the feed canvas. */
+.studio-preview-panel.has-media.is-story .studio-preview-canvas {
+  aspect-ratio: 9 / 16;
+  width: min(100%, 340px, 42vh);
+  height: auto;
+  max-height: none;
+}
+@media (max-width: 720px) {
+  .studio-preview-panel.has-media.is-story .studio-preview-canvas {
+    width: min(100%, 350px, 60vh);
+  }
+}
