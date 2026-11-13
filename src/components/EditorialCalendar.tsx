@@ -58,21 +58,27 @@ export function EditorialCalendar({ posts, onReload }: {
     (post.tiktokStatus ?? "PENDING") === "PENDING" &&
     (post.facebookRetryCount ?? 0) === 0 &&
     (post.instagramRetryCount ?? 0) === 0);
-  const scheduled = posts.filter((post) => Boolean(post.scheduledFor));
+  const scheduled = posts.filter((post) => Boolean(post.scheduledFor) && post.status !== "REJECTED");
+  const overdue = scheduled.filter((post) =>
+    post.status === "PENDING_APPROVAL" && new Date(post.scheduledFor!).getTime() < Date.now(),
+  );
   const grouped = useMemo(() => {
     const byDay = new Map<string, ApprovalQueuePost[]>();
     for (const post of scheduled) {
       const date = bogotaDate(new Date(post.scheduledFor!));
       byDay.set(date, [...(byDay.get(date) ?? []), post]);
     }
+    for (const proposals of byDay.values()) {
+      proposals.sort((left, right) => new Date(left.scheduledFor!).getTime() - new Date(right.scheduledFor!).getTime());
+    }
     return byDay;
   }, [posts]);
 
   const cells = monthCells(year, month);
   const dayPosts = grouped.get(selectedDay) ?? [];
+  const overdueIds = new Set(overdue.map((post) => post.id));
   const activeDays = cells.filter((day): day is string => Boolean(day));
   const plannedDays = activeDays.filter((day) => grouped.has(day)).length;
-  const emptyDays = activeDays.length - plannedDays;
   const ideaOffset = (year + month) % IDEAS.length;
   const ideas = [...IDEAS.slice(ideaOffset), ...IDEAS.slice(0, ideaOffset)].slice(0, 3);
 
@@ -120,7 +126,7 @@ export function EditorialCalendar({ posts, onReload }: {
         {[
           { label: "Propuestas planificadas", value: scheduled.length },
           { label: "Pendientes por ubicar", value: available.length },
-          { label: "Días sin contenido este mes", value: emptyDays },
+          { label: "Planificaciones vencidas", value: overdue.length },
         ].map((metric) => (
           <div key={metric.label} className="rounded-2xl border border-[#dce7e0] bg-white p-4">
             <p className="text-xs text-[#6e8179]">{metric.label}</p>
@@ -143,12 +149,20 @@ export function EditorialCalendar({ posts, onReload }: {
                 className={`flex min-h-16 flex-col items-start gap-1 rounded-lg border p-2 text-left transition sm:min-h-20 ${day === selectedDay ? "border-[#72a996] bg-[#edf7f1]" : "border-transparent hover:border-[#dbe8e0] hover:bg-[#f7faf8]"}`}>
                 <span className={`text-xs font-semibold ${day === today ? "rounded-full bg-[#176c63] px-1.5 py-0.5 text-white" : "text-[#36584d]"}`}>{Number(day.slice(-2))}</span>
                 {(grouped.get(day) ?? []).slice(0, 2).map((post) =>
-                  <span key={post.id} className="w-full truncate rounded bg-[#e2f0e9] px-1 py-0.5 text-[10px] text-[#176c63]" title={postLabel(post)}>{post.procedureName}</span>)}
+                  <span key={post.id}
+                    className={`w-full truncate rounded px-1 py-0.5 text-[10px] ${overdueIds.has(post.id) ? "bg-amber-100 text-amber-900" : post.status === "PUBLISHED" ? "bg-[#e2f0e9] text-[#176c63]" : "bg-[#edf1f6] text-[#435b70]"}`}
+                    title={`${postLabel(post)} · ${overdueIds.has(post.id) ? "Planificación vencida" : post.status === "PUBLISHED" ? "Publicada" : "Pendiente"}`}>
+                    {post.procedureName}
+                  </span>)}
+
                 {(grouped.get(day)?.length ?? 0) > 2 && <small className="text-[10px] text-[#577669]">+{grouped.get(day)!.length - 2}</small>}
               </button>
             ) : <span key={`pad-${index}`} aria-hidden="true" />)}
           </div>
-          <p className="mt-3 text-xs text-[#70857b]">{plannedDays} días con contenido planificado · Zona horaria America/Bogota</p>
+          <p className="mt-3 text-xs text-[#70857b]">{plannedDays} días con contenido planificado · Hora de Colombia</p>
+          {overdue.length > 0 && <p className="mt-2 text-xs text-amber-800" role="status">
+            {overdue.length} propuesta(s) con fecha vencida siguen pendientes. Puedes revisar su estado en Pendientes.
+          </p>}
         </div>
 
         <div className="space-y-4">
@@ -173,7 +187,7 @@ export function EditorialCalendar({ posts, onReload }: {
                 <ul className="mt-2 space-y-2">{dayPosts.map((post) => (
                   <li key={post.id} className="rounded-lg bg-[#f5f9f6] p-3">
                     <p className="text-sm font-medium text-[#21483b]">{postLabel(post)}</p>
-                    <p className="mt-1 text-xs text-[#71887c]">{new Intl.DateTimeFormat("es-CO", { timeZone: BOGOTA_TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(new Date(post.scheduledFor!))} · {post.status === "PENDING_APPROVAL" ? "Pendiente de revisión" : post.status === "PUBLISHED" ? "Publicada" : "Estado: " + post.status}</p>
+                    <p className="mt-1 text-xs text-[#71887c]">{new Intl.DateTimeFormat("es-CO", { timeZone: BOGOTA_TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(new Date(post.scheduledFor!))} · {overdueIds.has(post.id) ? "Planificación vencida" : post.status === "PENDING_APPROVAL" ? "Pendiente de revisión" : post.status === "PUBLISHED" ? "Publicada" : "Estado: " + post.status}</p>
                     {post.status === "PENDING_APPROVAL" && <button type="button" disabled={busy} onClick={() => void saveSchedule(post.id, null)} className="mt-2 text-xs font-semibold text-[#176c63] disabled:opacity-40">Quitar fecha</button>}
                   </li>
                 ))}</ul>}
