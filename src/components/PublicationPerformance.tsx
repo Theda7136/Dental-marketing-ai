@@ -6,7 +6,7 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
 type FacebookMetricState = "zero" | "available" | "omitted" | "rejected" | "unavailable";
-type FacebookDiagnostic = { photo: number; reactions: FacebookMetricState; comments: FacebookMetricState };
+type FacebookDiagnostic = { photo: number; reactions: FacebookMetricState; comments: FacebookMetricState; reactionsDetail?: string; commentsDetail?: string };
 const metricLabels: Record<FacebookMetricState, string> = {
   zero: "0 confirmado",
   available: "Con datos",
@@ -284,6 +284,8 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
                 {facebook.diagnostics.map((photo) => (
                   <p key={photo.photo}>
                     Fotografía {photo.photo} · Me gusta/reacciones: {metricLabels[photo.reactions]} · Comentarios: {metricLabels[photo.comments]}
+                    {photo.reactionsDetail && photo.reactions !== "available" && photo.reactions !== "zero" && <span className="block text-[#819087]">Respuesta de reacciones: {photo.reactionsDetail}</span>}
+                    {photo.commentsDetail && photo.comments !== "available" && photo.comments !== "zero" && <span className="block text-[#819087]">Respuesta de comentarios: {photo.commentsDetail}</span>}
                   </p>
                 ))}
               </div>
