@@ -74,11 +74,31 @@ async function getCount(
   field: "reactions" | "likes" | "comments",
   token: string,
 ): Promise<{ total: number | null; failure?: Failure }> {
-  const summary = field === "reactions" ? "total_count" : "true";
-  const response = await fetchMeta(objectId, `id,${field}.limit(0).summary(${summary})`, token);
-  if (!response.value) return { total: null, failure: response.failure ?? "unavailable" };
-  const total = count(response.value[field]?.summary?.total_count);
-  return total === null ? { total: null, failure: "incomplete" } : { total };
+  const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(objectId)}/${field}`);
+  url.searchParams.set("summary", "true");
+  url.searchParams.set("limit", "1");
+
+  try {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object") return { total: null, failure: "unavailable" };
+    const edge = payload as {
+      data?: unknown[];
+      summary?: { total_count?: unknown };
+      error?: { code?: number };
+    };
+    if (!response.ok || edge.error) {
+      return { total: null, failure: classifyFailure(edge.error?.code) };
+    }
+    const total = count(edge.summary?.total_count);
+    return total === null ? { total: null, failure: "incomplete" } : { total };
+  } catch {
+    return { total: null, failure: "unavailable" };
+  }
 }
 
 export async function GET() {
