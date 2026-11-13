@@ -30,6 +30,7 @@ function harness({
   respond,
   publicMediaUrl = "https://demo.example.test",
   mediaContentType = "image/png",
+  mediaStatus = 200,
 } = {}) {
   const saved = {
     id: draft.id,
@@ -72,8 +73,8 @@ function harness({
     if (new URL(url).hostname === "example.test") {
       const contentType = new URL(url).searchParams.has("format") ? "image/jpeg" : mediaContentType;
       return {
-        status: 200,
-        ok: true,
+        status: mediaStatus,
+        ok: mediaStatus >= 200 && mediaStatus < 300,
         headers: new Headers({ "content-type": contentType }),
         body: { cancel: async () => {} },
       };
@@ -203,6 +204,14 @@ test("localhost media URL fails before claiming a network or calling Meta", asyn
   const { publishToMeta, saved, requests } = harness({ publicMediaUrl: "http://localhost:3000" });
 
   await assert.rejects(publishToMeta(draft), /URL HTTPS pública/);
+  assert.equal(saved.facebookStatus, "PENDING");
+  assert.equal(saved.instagramStatus, "PENDING");
+  assert.equal(requests.length, 0);
+});
+
+test("unavailable public media does not claim delivery or contact Meta", async () => {
+  const { publishToMeta, saved, requests } = harness({ mediaStatus: 503 });
+  await assert.rejects(publishToMeta(draft, "facebook"), /archivo público no está disponible/i);
   assert.equal(saved.facebookStatus, "PENDING");
   assert.equal(saved.instagramStatus, "PENDING");
   assert.equal(requests.length, 0);
