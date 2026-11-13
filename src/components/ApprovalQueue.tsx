@@ -77,9 +77,9 @@ interface ApprovalQueueProps {
 
 const NETWORK_LABELS: Record<string, string> = {
   PENDING: "Sin enviar",
-  IN_PROGRESS: "En proceso",
+  IN_PROGRESS: "En curso",
   SUCCEEDED: "Confirmado",
-  UNKNOWN: "Por verificar",
+  UNKNOWN: "Sin confirmación",
 };
 
 function networkStatus(label: string, status?: string) {
@@ -545,7 +545,7 @@ export function ApprovalQueue({
           { key: "all", label: "Todas", count: pendingPosts.length },
           { key: "review", label: "Por revisar", count: stageCounts.review },
           { key: "ready", label: "Listas para publicar", count: stageCounts.ready },
-          { key: "followup", label: "En seguimiento", count: stageCounts.followup },
+          { key: "followup", label: "Con actividad", count: stageCounts.followup },
         ] as const).map((stage) => (
           <button key={stage.key} type="button" aria-pressed={editorialFilter === stage.key}
             onClick={() => { setEditorialFilter(stage.key); setPendingPage(1); }}
@@ -632,11 +632,6 @@ export function ApprovalQueue({
                       <p className="mt-1 text-xs font-medium text-[#8a9994]">
                         Creado el {formatCreatedAt(post.createdAt)}
                         {post.scheduledFor && <span className="ml-2 font-semibold text-[#176c63]">· Planificado: {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(post.scheduledFor))}</span>}
-                      </p>
-                      <p className="mt-2 text-xs font-semibold text-[#52756b]">
-                        {editorialStage(post) === "review" ? "Pendiente de revisión clínica"
-                          : editorialStage(post) === "ready" ? "Revisión completada · Lista para publicar"
-                          : "Seguimiento de publicación"}
                       </p>
                     </div>
 
@@ -733,19 +728,6 @@ export function ApprovalQueue({
                         )}
                       </div>
                     )}
-
-                    {editorialStage(post) === "followup" && (
-                      <p role="status" className="rounded-lg bg-[#f4f7f5] px-3 py-2 text-xs leading-5 text-[#536d63]">
-                        {followupSummary(post)}
-                      </p>
-                    )}
-                    <div className="studio-proposal-networks flex flex-wrap gap-2" aria-label="Estado por red social">
-                      {networkStatus("Facebook", post.facebookStatus)}
-                      {networkStatus("Instagram", post.instagramStatus)}
-                      {post.tiktokStatus && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus)}
-                    </div>
-
-                    {incidentPanel(post)}
 
                     {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -906,7 +888,6 @@ export function ApprovalQueue({
                     {post.deliveryFormat !== "STORY" && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus ?? "PENDING")}
                   </div>
                 </div>
-                {incidentPanel(post)}
                 {post.status !== "REJECTED" && historyNetworks(post).some(({ status }) => status === "PENDING") && (
                   <p className="mt-3 text-xs text-[#637773]">
                     Redes pendientes: {historyNetworks(post).filter(({ status }) => status === "PENDING").map(({ name }) => name).join(", ")}.
