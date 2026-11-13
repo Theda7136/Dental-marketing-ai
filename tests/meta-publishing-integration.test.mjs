@@ -72,6 +72,7 @@ function harness({
     if (respond) return respond(path, options);
     if (path === "/v26.0/123/photos") return graphResponse({ id: "123_999" });
     if (path === "/v26.0/456/media") return graphResponse({ id: "container-7" });
+    if (path === "/v26.0/container-7") return graphResponse({ status_code: "FINISHED" });
     if (path === "/v26.0/456/media_publish") return graphResponse({ id: "789" });
     throw new Error(`Unexpected Meta call: ${path}`);
   };
@@ -156,6 +157,7 @@ test("selective Instagram send leaves a previously successful Facebook untouched
   assert.equal(saved.instagramStatus, "SUCCEEDED");
   assert.deepEqual(requests.map((request) => request.path), [
     "/v26.0/456/media",
+    "/v26.0/container-7",
     "/v26.0/456/media_publish",
   ]);
 });
@@ -256,6 +258,11 @@ test("Instagram image Story uses STORIES instead of a feed container", async () 
   assert.match(params.get("image_url") || "", /[?&]format=jpeg(?:&|$)/);
   assert.equal(saved.instagramStatus, "SUCCEEDED");
   assert.equal(saved.facebookStatus, "PENDING");
+  assert.deepEqual(requests.map((request) => request.path), [
+    "/v26.0/456/media",
+    "/v26.0/container-7",
+    "/v26.0/456/media_publish",
+  ]);
 });
 
 test("a Story can never be sent to Facebook as a normal photo", async () => {
