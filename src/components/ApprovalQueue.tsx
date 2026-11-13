@@ -252,13 +252,13 @@ export function ApprovalQueue({
 
     const expanded = expandedIncidents.includes(post.id);
     return (
-      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+      <div className="mt-3 rounded-lg border border-[#e8e4d7] bg-[#fbfaf5] px-3 py-2">
         <button type="button" aria-expanded={expanded}
           onClick={() => setExpandedIncidents((current) => expanded
             ? current.filter((id) => id !== post.id)
             : [...current, post.id])}
-          className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-amber-900">
-          <span>Resolver incidencias de publicación</span>
+          className="flex w-full items-center justify-between gap-3 text-left text-xs font-medium text-[#806b49]">
+          <span>Publicación pendiente de comprobación</span>
           <span aria-hidden="true">{expanded ? "−" : "+"}</span>
         </button>
         {expanded && (
@@ -376,27 +376,21 @@ export function ApprovalQueue({
 
   function deleteButton(post: ApprovalQueuePost) {
     if (!canWrite) return null;
-    const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
-      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus || "");
-    const priorAttempt = post.status === "PENDING_APPROVAL" &&
-      (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" ||
-        Boolean(post.facebookRetryCount) || Boolean(post.instagramRetryCount) ||
-        Boolean(post.facebookPostId) || Boolean(post.instagramPostId));
 
     return (
       <button
         type="button"
-        disabled={busyId === post.id || unresolved || priorAttempt}
-        title={unresolved || priorAttempt ? "Primero resuelve el estado de publicación en Meta." : "Ocultar de la lista conservando el registro interno."}
+        disabled={busyId === post.id}
+        title="Retirar del panel sin borrar las publicaciones realizadas en redes."
         onClick={() => {
           if (!window.confirm(
-            `¿Eliminar «${post.procedureName}» de la lista? El registro se conservará y no se borrará de Facebook ni Instagram.`
+            `¿Quitar «${post.procedureName}» del panel? No se borrará de Facebook, Instagram ni TikTok.`
           )) return;
           void runAction(post.id, onDelete);
         }}
-        className="rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-medium text-[#526762] transition hover:bg-[#f6faf7] disabled:opacity-50"
       >
-        Eliminar
+        Quitar del panel
       </button>
     );
   }
