@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
-import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate } from "@/services/imageService";
+import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate, renderStoryPhoto } from "@/services/imageService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,12 +33,7 @@ export async function POST(request: Request) {
     });
     const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
     const preview = await overlayOnClinicTemplate({ cleanImage: new Uint8Array(await file.arrayBuffer()), procedureName: String(form.get("procedureName") || ""), options, brand });
-    const rendered = deliveryFormat === "STORY"
-      ? await sharp(Buffer.from(preview))
-          .resize(1080, 1920, { fit: "contain", background: "#ffffff" })
-          .png()
-          .toBuffer()
-      : Buffer.from(preview);
+    const rendered = deliveryFormat === "STORY" ? await renderStoryPhoto(preview) : preview;
     return new NextResponse(new Uint8Array(rendered), {
       status: 200,
       headers: {
