@@ -23,18 +23,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Credenciales incorrectas." }, { status: 401 });
   }
 
-  // El acceso por sesión se limita a la clínica piloto y a su propietario
-  // hasta completar el aislamiento multi-clínica de todas las rutas.
+  // Cada cuenta debe pertenecer a la clínica piloto; no se habilitan otras clínicas aún.
   const user = await prisma.studioUser.findUnique({
     where: { email },
-    include: { memberships: { where: { clinicId: "pilot", role: "OWNER" }, select: { clinicId: true } } },
+    include: { memberships: { where: { clinicId: "pilot" }, select: { clinicId: true } } },
   });
   if (!user || user.disabledAt || user.memberships.length !== 1 || !verifyStudioPassword(password, user.passwordHash)) {
     return NextResponse.json({ error: "Credenciales incorrectas." }, { status: 401 });
   }
 
   const session = await createStudioSession(user.id, "pilot");
-  if (!session || session.role !== "OWNER") {
+  if (!session) {
     return NextResponse.json({ error: "No fue posible iniciar sesión." }, { status: 403 });
   }
 

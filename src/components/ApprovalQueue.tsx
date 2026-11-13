@@ -50,6 +50,8 @@ export interface ApprovalQueuePost {
 }
 
 interface ApprovalQueueProps {
+  role?: string | null;
+  onConfirmReview?: (postId: string) => Promise<void>;
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onPublishSelected: (postId: string, networks: PublishNetwork[], tiktok?: {
@@ -152,6 +154,8 @@ function mediaSource(post: ApprovalQueuePost): string {
 
 export function ApprovalQueue({
   posts,
+  role,
+  onConfirmReview,
   mode = "both",
   onPublishSelected,
   onReload,
@@ -163,6 +167,9 @@ export function ApprovalQueue({
   onChooseStyle,
   onAuthorizeRetry,
 }: ApprovalQueueProps) {
+  const canWrite = role === "OWNER" || role === "ADMIN" || role === "EDITOR";
+  const canPublish = role === "OWNER" || role === "ADMIN";
+  const canReview = role === "OWNER" || role === "ADMIN" || role === "REVIEWER";
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftCaption, setDraftCaption] = useState("");
@@ -322,6 +329,7 @@ export function ApprovalQueue({
   }
 
   function retryButton(post: ApprovalQueuePost, network: "facebook" | "instagram") {
+    if (!canPublish) return null;
     const retryAuthorized = (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0;
     const authorizedNetwork = network === "facebook" ? (post.facebookRetryCount ?? 0) > 0 : (post.instagramRetryCount ?? 0) > 0;
     if ((retryAuthorized && !authorizedNetwork) || post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
@@ -345,6 +353,7 @@ export function ApprovalQueue({
   }
 
   function deleteButton(post: ApprovalQueuePost) {
+    if (!canWrite) return null;
     const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
       ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus || "");
     const priorAttempt = post.status === "PENDING_APPROVAL" &&
@@ -496,7 +505,7 @@ export function ApprovalQueue({
                       </p>
                     </div>
 
-                    {(post.educationalCaption || post.commercialCaption) && (
+                    {canWrite && (post.educationalCaption || post.commercialCaption) && (
                       <div className="flex flex-wrap items-center gap-2" aria-label="Elegir estilo de copy">
                         {(["EDUCATIONAL", "COMMERCIAL"] as const).map((style) => {
                           const available = style === "EDUCATIONAL" ? post.educationalCaption : post.commercialCaption;
@@ -658,9 +667,12 @@ export function ApprovalQueue({
                     ) : null}
 
                     <div className="studio-proposal-actions mt-auto flex flex-wrap items-center gap-2">
-                      <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
-                      {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
-                      <button
+                      {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
+                      {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
+                      {canReview && onConfirmReview && !post.clinicalVerifiedAt && <button type="button" disabled={isBusy}
+                        onClick={() => void runAction(post.id, onConfirmReview)}
+                        className="rounded-lg border border-teal-700 px-4 py-2.5 text-sm font-semibold text-teal-800">Aprobar revisión clínica</button>}
+                      {canWrite && <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
                         onClick={() => {
@@ -675,7 +687,7 @@ export function ApprovalQueue({
                         className="rounded-lg border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Editar texto
-                      </button>
+                      </button>}
                       {deleteButton(post)}
                     </div>
                   </div>
@@ -792,8 +804,8 @@ export function ApprovalQueue({
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
-                  {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
+                  {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
+                  {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                   {deleteButton(post)}
                 </div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||

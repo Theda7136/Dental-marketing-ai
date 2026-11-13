@@ -31,6 +31,7 @@ model Clinic {
   updatedAt DateTime @updatedAt
   memberships ClinicMembership[]
   sessions LoginSession[]
+  invites ClinicInvite[]
 }
 
 enum ClinicRole {
@@ -63,6 +64,22 @@ model ClinicMembership {
 
   @@unique([clinicId, userId])
   @@index([userId])
+}
+
+model ClinicInvite {
+  id         String     @id @default(cuid())
+  clinicId   String
+  email      String
+  role       ClinicRole
+  tokenHash  String     @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime   @default(now())
+  createdBy  String
+  clinic     Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, email])
 }
 
 model LoginSession {
