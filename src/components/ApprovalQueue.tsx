@@ -43,6 +43,7 @@ export interface ApprovalQueuePost {
   createdAt: Date | string;
   approvedAt?: Date | string | null;
   clinicalVerifiedAt?: string | null;
+  scheduledFor?: string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
   mediaKind?: "image" | "video" | "text";
   deliveryFormat?: "FEED" | "REEL" | "STORY";
