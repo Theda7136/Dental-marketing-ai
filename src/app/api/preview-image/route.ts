@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { getStudioAccess } from "@/lib/studioAccess";
 import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate, removeClinicalBackground, renderStoryPhoto } from "@/services/imageService";
@@ -30,7 +31,39 @@ export async function POST(request: Request) {
       offsetX: form.get("photoOffsetX"),
       offsetY: form.get("photoOffsetY"),
     });
-    const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: session.clinic.id } });
+    let brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: session.clinic.id } });
+    if (form.get("brandPreview") === "true") {
+      const manager = await getStudioAccess("brand:manage");
+      if (!manager) return NextResponse.json({ error: "No tienes permiso para modificar la marca." }, { status: 403 });
+
+      const clinicName = String(form.get("clinicName") ?? "").trim();
+      const primaryColor = String(form.get("primaryColor") ?? "").toUpperCase();
+      const fontFamily = String(form.get("fontFamily") ?? "");
+      if (!clinicName || clinicName.length > 70 || !/^#[0-9A-F]{6}$/.test(primaryColor) ||
+        !["SANS", "SERIF", "MODERN"].includes(fontFamily)) {
+        return NextResponse.json({ error: "Revisa el nombre, color o tipografía." }, { status: 400 });
+      }
+
+      let logoDataUrl = form.get("removeLogo") === "true" ? null : brand?.logoDataUrl ?? null;
+      const logo = form.get("logo");
+      if (form.get("removeLogo") !== "true" && logo instanceof File && logo.size > 0) {
+        if (logo.size > 2_000_000 || !["image/png", "image/jpeg", "image/webp"].includes(logo.type)) {
+          return NextResponse.json({ error: "El logotipo debe ser PNG, JPG o WebP de máximo 2 MB." }, { status: 400 });
+        }
+        const rawLogo = Buffer.from(await logo.arrayBuffer());
+        const metadata = await sharp(rawLogo, { failOn: "error", limitInputPixels: 8_000_000 }).metadata();
+        if (!metadata.width || !metadata.height || metadata.width < 32 || metadata.height < 32) {
+          return NextResponse.json({ error: "El logotipo debe tener al menos 32 × 32 px." }, { status: 400 });
+        }
+        const compressed = await sharp(rawLogo).rotate().resize(320, 320, { fit: "inside", withoutEnlargement: true })
+          .png({ compressionLevel: 9 }).toBuffer();
+        if (compressed.length > 400_000) {
+          return NextResponse.json({ error: "El logotipo es demasiado grande." }, { status: 400 });
+        }
+        logoDataUrl = `data:image/png;base64,${compressed.toString("base64")}`;
+      }
+      brand = { id: "default", clinicId: manager.clinic.id, clinicName, primaryColor, fontFamily, logoDataUrl, updatedAt: new Date() };
+    }
     const composition = {
       cleanImage: await removeClinicalBackground(new Uint8Array(await file.arrayBuffer())),
       procedureName: String(form.get("procedureName") || ""),
