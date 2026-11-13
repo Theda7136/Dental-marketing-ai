@@ -431,7 +431,9 @@ async function prepareImage(
       removeClinicalBackground(media),
       prisma.brandProfile.findUnique({ where: { id: "default", clinicId } }),
     ]);
-    return overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
+    return isStory
+      ? renderStoryPhoto({ cleanImage, procedureName, options: photoOptions, brand })
+      : overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
   })();
 
   if (isStory) {
@@ -614,9 +616,7 @@ export async function POST(request: Request) {
           );
 
     const photoReel = kind === "image" && input.deliveryFormat === "REEL";
-    const photoStory = kind === "image" && input.deliveryFormat === "STORY";
-    const storyImage = photoStory ? await renderStoryPhoto(prepared.media) : prepared.media;
-    const finalMedia = photoReel ? await renderPhotoReel(prepared.media) : storyImage;
+    const finalMedia = photoReel ? await renderPhotoReel(prepared.media) : prepared.media;
     const finalKind: MediaKind = photoReel ? "video" : kind;
     const finalMediaType = photoReel ? "VIDEO" as const : prepared.mediaType;
 
