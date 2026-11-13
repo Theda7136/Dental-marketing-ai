@@ -686,12 +686,6 @@ export function ApprovalQueue({
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
                   </div>
                 )}
-                {post.status === "PUBLISHED" && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {retryButton(post, "facebook")}
-                    {retryButton(post, "instagram")}
-                  </div>
-                )}
                 {incidentPanel(post)}
                 {error ? (
                       <p role="alert" className="text-sm text-red-700">
