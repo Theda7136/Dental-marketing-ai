@@ -76,6 +76,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
+  const instagramMediaUrl = isVideo ? mediaUrl : `${mediaUrl}&format=jpeg`;
   const captions = platformCaptions(savedPost.generatedCaption);
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
@@ -93,10 +94,10 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
         const creation = await graphPost(`${account.instagramId}/media`, deliveryFormat === "STORY"
           ? isVideo
             ? { media_type: "STORIES", video_url: mediaUrl, access_token: token }
-            : { media_type: "STORIES", image_url: mediaUrl, access_token: token }
+            : { media_type: "STORIES", image_url: instagramMediaUrl, access_token: token }
           : isVideo
             ? { media_type: "REELS", video_url: mediaUrl, caption: captions.instagram, share_to_feed: "true", access_token: token }
-            : { image_url: mediaUrl, caption: captions.instagram, access_token: token });
+            : { image_url: instagramMediaUrl, caption: captions.instagram, access_token: token });
         if (!creation.id) throw new Error("Meta no devolvió el identificador del contenedor de Instagram.");
         if (isVideo) await waitForInstagramContainer(creation.id, token);
         const published = await graphPost(`${account.instagramId}/media_publish`, {
