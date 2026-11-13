@@ -71,6 +71,7 @@ function harness({
     requests.push({ path, method: options?.method ?? "GET", body: options?.body?.toString() || "" });
     if (respond) return respond(path, options);
     if (path === "/v26.0/123/photos") return graphResponse({ id: "123_999" });
+    if (path === "/v26.0/123/photo_stories") return graphResponse({ success: true, post_id: "123_777" });
     if (path === "/v26.0/456/media") return graphResponse({ id: "container-7" });
     if (path === "/v26.0/container-7") return graphResponse({ status_code: "FINISHED" });
     if (path === "/v26.0/456/media_publish") return graphResponse({ id: "789" });
@@ -265,12 +266,36 @@ test("Instagram image Story uses STORIES instead of a feed container", async () 
   ]);
 });
 
-test("a Story can never be sent to Facebook as a normal photo", async () => {
-  const { publishToMeta, saved, requests } = harness({ instagram: true, deliveryFormat: "STORY" });
-  await assert.rejects(publishToMeta(draft, "facebook"), /historias.*Instagram/i);
-  assert.equal(saved.facebookStatus, "PENDING");
+test("Facebook photo Story uploads unpublished media, then publishes a Story", async () => {
+  const { publishToMeta, saved, requests } = harness({ deliveryFormat: "STORY" });
+  const published = await publishToMeta(draft, "facebook");
+
+  assert.equal(published.facebookId, "123_777");
+  assert.equal(saved.facebookStatus, "SUCCEEDED");
   assert.equal(saved.instagramStatus, "PENDING");
-  assert.equal(requests.length, 0);
+  assert.deepEqual(requests.map((request) => request.path), [
+    "/v26.0/123/photos",
+    "/v26.0/123/photo_stories",
+  ]);
+  const photoParams = new URLSearchParams(requests[0].body);
+  assert.equal(photoParams.get("published"), "false");
+  assert.match(photoParams.get("url") || "", /[?&]format=jpeg(?:&|$)/);
+  assert.equal(new URLSearchParams(requests[1].body).get("photo_id"), "123_999");
+});
+
+test("Facebook Stories do not fall back to feed when the story endpoint fails", async () => {
+  const { publishToMeta, saved, requests } = harness({
+    deliveryFormat: "STORY",
+    respond: async (path) => {
+      if (path === "/v26.0/123/photos") return graphResponse({ id: "123_999" });
+      if (path === "/v26.0/123/photo_stories") return graphResponse({ error: { message: "Rejected" } }, 400);
+      throw new Error(`Unexpected call: ${path}`);
+    },
+  });
+  await assert.rejects(publishToMeta(draft, "facebook"), /no confirmó/i);
+  assert.equal(saved.facebookStatus, "UNKNOWN");
+  assert.equal(requests.filter((request) => request.path.endsWith("/photos")).length, 1);
+  assert.equal(requests.filter((request) => request.path.endsWith("/feed")).length, 0);
 });
 
 test("Meta never publishes a post owned by another clinic", async () => {
