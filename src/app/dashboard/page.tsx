@@ -111,6 +111,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       body.set("photoLayout", "AUTO");
       body.set("photoBackground", "LIGHT");
       body.set("photoPreset", "CLINICAL");
+      body.set("deliveryFormat", deliveryFormat);
       body.set("photoZoom", String(photoZoom));
       body.set("photoOffsetX", String(photoOffsetX));
       body.set("photoOffsetY", String(photoOffsetY));
@@ -138,7 +139,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       clearTimeout(timeout);
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [format, selectedPhoto, photoZoom, photoOffsetX, photoOffsetY]);
+  }, [format, selectedPhoto, photoZoom, photoOffsetX, photoOffsetY, deliveryFormat]);
 
   useEffect(() => {
     let mounted = true;
@@ -736,7 +737,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
                 <div className="studio-image-toolbar">
-                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · 4:5"}</small></strong>
+                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · {deliveryFormat === "STORY" ? "9:16" : "4:5"}"}</small></strong>
                   <div className="studio-image-toolbar-actions">
                     <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
                     <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
@@ -781,7 +782,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 <video key={mediaPreviewUrl} src={mediaPreviewUrl} controls playsInline preload="metadata"
                   className="studio-preview-video" aria-label="Reproducción local del video seleccionado" />
               ) : format === "photo" && (showOriginal ? mediaPreviewUrl : photoPreview) ? (
-                <img src={(showOriginal ? mediaPreviewUrl : photoPreview)!} alt={showOriginal ? "Fotografía original seleccionada" : "Previsualización de la fotografía procesada para el feed"} className="studio-preview-image" draggable={false} />
+                <img src={(showOriginal ? mediaPreviewUrl : photoPreview)!} alt={showOriginal ? "Fotografía original seleccionada" : `Previsualización de la fotografía para ${deliveryFormat === "STORY" ? "historia" : deliveryFormat === "REEL" ? "Reel" : "feed"}`} className="studio-preview-image" draggable={false} />
               ) : (
                 <div className="studio-preview-placeholder">
                   <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -795,7 +796,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Vista de la imagen base. La salida final será vertical 9:16 y se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Vista previa de la composición vertical. Se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
