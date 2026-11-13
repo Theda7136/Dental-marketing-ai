@@ -44,6 +44,7 @@ model ScheduledPost {
   id               String     @id @default(cuid())
   procedureName    String
   mediaType        MediaType  @default(IMAGE)
+  deliveryFormat   String     @default("FEED")
   mediaUrl         String
   generatedCaption String
   educationalCaption String?

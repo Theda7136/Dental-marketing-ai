@@ -44,6 +44,13 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
+  const deliveryFormat = savedPost.deliveryFormat || "FEED";
+  if (deliveryFormat === "STORY" && onlyNetwork !== "instagram") {
+    throw new Error("Por ahora, las historias se publican únicamente en Instagram. Selecciona Instagram para esta propuesta.");
+  }
+  if (deliveryFormat === "REEL" && !isVideo) {
+    throw new Error("Un Reel debe estar guardado como video MP4 vertical.");
+  }
   if (savedPost.archivedAt) throw new Error("La publicación está archivada y no puede enviarse a Meta.");
   if (!savedPost.clinicalVerifiedAt) throw new Error("Confirma la correspondencia clínica de la foto, el procedimiento y el texto antes de publicar.");
 
@@ -83,9 +90,13 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     });
     if (claim.count === 1) {
       try {
-        const creation = await graphPost(`${account.instagramId}/media`, isVideo
-          ? { media_type: "REELS", video_url: mediaUrl, caption: captions.instagram, share_to_feed: "true", access_token: token }
-          : { image_url: mediaUrl, caption: captions.instagram, access_token: token });
+        const creation = await graphPost(`${account.instagramId}/media`, deliveryFormat === "STORY"
+          ? isVideo
+            ? { media_type: "STORIES", video_url: mediaUrl, access_token: token }
+            : { media_type: "STORIES", image_url: mediaUrl, access_token: token }
+          : isVideo
+            ? { media_type: "REELS", video_url: mediaUrl, caption: captions.instagram, share_to_feed: "true", access_token: token }
+            : { image_url: mediaUrl, caption: captions.instagram, access_token: token });
         if (!creation.id) throw new Error("Meta no devolvió el identificador del contenedor de Instagram.");
         if (isVideo) await waitForInstagramContainer(creation.id, token);
         const published = await graphPost(`${account.instagramId}/media_publish`, {

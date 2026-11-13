@@ -1,0 +1,1 @@
+ALTER TABLE "ScheduledPost" ADD COLUMN "deliveryFormat" TEXT NOT NULL DEFAULT 'FEED';

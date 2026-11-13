@@ -22,6 +22,7 @@ before(async () => {
       "id" TEXT NOT NULL PRIMARY KEY,
       "procedureName" TEXT NOT NULL,
       "mediaType" TEXT NOT NULL DEFAULT 'IMAGE',
+      "deliveryFormat" TEXT NOT NULL DEFAULT 'FEED',
       "mediaUrl" TEXT NOT NULL,
       "generatedCaption" TEXT NOT NULL,
       "educationalCaption" TEXT,

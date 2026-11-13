@@ -555,3 +555,28 @@ export async function muteClinicalVideo(video: Uint8Array): Promise<Uint8Array> 
     return new Uint8Array(silent);
   });
 }
+
+export async function renderPhotoReel(image: Uint8Array, seconds = 7): Promise<Uint8Array> {
+  if (image.byteLength === 0 || image.byteLength > 20 * 1024 * 1024) {
+    throw new VideoServiceError("La fotografía supera el tamaño permitido o está vacía.", "INVALID_VIDEO");
+  }
+  if (seconds < 3 || seconds > 15) {
+    throw new VideoServiceError("El Reel fotográfico debe durar entre 3 y 15 segundos.", "INVALID_VIDEO");
+  }
+  return withTempDir(async (directory) => {
+    const source = path.join(directory, "photo.png");
+    const destination = path.join(directory, "photo-reel.mp4");
+    await writeFile(source, image);
+    const rendered = await runFfmpeg([
+      "-y", "-hide_banner", "-loop", "1", "-framerate", "30", "-i", source,
+      "-t", String(seconds),
+      "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=white,format=yuv420p",
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+      "-r", "30", "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", destination,
+    ]);
+    if (rendered.code !== 0) throw failureFromFfmpeg(rendered.stderr, "No se pudo convertir la imagen en Reel.");
+    const bytes = await readFile(destination);
+    if (!bytes.byteLength) throw new VideoServiceError("El Reel generado está vacío.", "RENDER_FAILED");
+    return new Uint8Array(bytes);
+  });
+}

@@ -30,6 +30,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
   const formRef = useRef<HTMLFormElement>(null);
   const [format, setFormat] = useState<ContentFormat>("photo");
+  const [deliveryFormat, setDeliveryFormat] = useState<"FEED" | "REEL" | "STORY">("FEED");
   const [posts, setPosts] = useState<ApprovalQueuePost[]>([]);
   const [brandIdentity, setBrandIdentity] = useState<{
     clinicName: string;
@@ -169,6 +170,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     formData.set("procedureName", procedureName);
     formData.set("notes", notes);
     formData.set("selectedStyle", copyStyle);
+    formData.set("deliveryFormat", deliveryFormat);
     formData.set("photoLayout", "AUTO");
     formData.set("photoBackground", "LIGHT");
     formData.set("photoPreset", "CLINICAL");
@@ -218,6 +220,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
   function changeFormat(next: ContentFormat) {
     setFormat(next);
+    setDeliveryFormat(next === "video" ? "REEL" : "FEED");
     setSelectedPhoto(null);
     setSelectedMedia(null);
     setSavedProposal(false);
@@ -450,6 +453,37 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </div>
             </div>
 
+            {format !== "text" && (
+              <fieldset className="space-y-2">
+                <legend className="studio-field-label">Destino de publicación</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {(format === "video" ? [
+                    { id: "REEL", label: "Reel" },
+                    { id: "STORY", label: "Historia" },
+                  ] : [
+                    { id: "FEED", label: "Feed" },
+                    { id: "REEL", label: "Reel" },
+                    { id: "STORY", label: "Historia" },
+                  ]).map((destination) => (
+                    <button key={destination.id} type="button"
+                      aria-pressed={deliveryFormat === destination.id}
+                      disabled={isPending}
+                      onClick={() => setDeliveryFormat(destination.id as "FEED" | "REEL" | "STORY")}
+                      className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-semibold transition ${deliveryFormat === destination.id
+                        ? "border-[#87b6a8] bg-[#edf6f1] text-[#176c63]"
+                        : "border-[#d9e5df] bg-white text-[#667d73]"}`}>
+                      {destination.label}
+                    </button>
+                  ))}
+                </div>
+                {deliveryFormat === "REEL" && format === "photo" && (
+                  <p className="text-xs text-[#607970]">La imagen se convertirá en un Reel vertical de 7 segundos sin audio.</p>
+                )}
+                {deliveryFormat === "STORY" && (
+                  <p className="text-xs text-[#607970]">Las historias se publicarán en Instagram. La publicación de historias en Facebook aún no está habilitada.</p>
+                )}
+              </fieldset>
+            )}
             <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Procedimiento
               <select
@@ -603,9 +637,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               <div>
                 <span className="studio-section-kicker">02 / COMPOSICIÓN</span>
                  <h2>Vista previa</h2>
-                <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? "Video para redes" : "Idea de contenido"}</p>
+                <p>{format === "photo" ? (deliveryFormat === "FEED" ? "Imagen para el feed" : deliveryFormat === "REEL" ? "Imagen para Reel" : "Historia vertical") : format === "video" ? (deliveryFormat === "STORY" ? "Historia vertical" : "Reel vertical") : "Idea de contenido"}</p>
               </div>
-              <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
+              <span className="studio-preview-format">{format === "photo" ? (deliveryFormat === "FEED" ? "4:5" : "9:16") : format === "video" ? "9:16" : "TEXTO"}</span>
             </div>
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
@@ -669,7 +703,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? "Vista de composición · formato 4:5 sin recortar información clínica." : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "La fotografía se adaptará al formato vertical 9:16 sin recortar información clínica.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
