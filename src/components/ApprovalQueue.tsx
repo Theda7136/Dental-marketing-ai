@@ -669,7 +669,10 @@ export function ApprovalQueue({
                     <div className="studio-proposal-actions mt-auto flex flex-wrap items-center gap-2">
                       {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
                       {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
-                      <button
+                      {canReview && onConfirmReview && !post.clinicalVerifiedAt && <button type="button" disabled={isBusy}
+                        onClick={() => void runAction(post.id, onConfirmReview)}
+                        className="rounded-lg border border-teal-700 px-4 py-2.5 text-sm font-semibold text-teal-800">Aprobar revisión clínica</button>}
+                      {canWrite && <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
                         onClick={() => {
@@ -684,7 +687,7 @@ export function ApprovalQueue({
                         className="rounded-lg border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] transition hover:border-[#a8c6bb] hover:bg-[#f6faf7] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Editar texto
-                      </button>
+                      </button>}
                       {deleteButton(post)}
                     </div>
                   </div>
@@ -801,8 +804,8 @@ export function ApprovalQueue({
                 {verificationControl(post, "facebook")}
                 {verificationControl(post, "instagram")}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />
-                  {post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
+                  {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
+                  {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                   {deleteButton(post)}
                 </div>
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
