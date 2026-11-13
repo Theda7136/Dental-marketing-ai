@@ -152,11 +152,13 @@ export async function renderSocialPhoto(
     .png().toBuffer());
 }
 
-export async function renderStoryPhoto(image: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await sharp(Buffer.from(image))
-    .resize(1080, 1920, { fit: "contain", background: "#ffffff" })
-    .png()
-    .toBuffer());
+export async function renderStoryPhoto(input: {
+  cleanImage: Uint8Array;
+  procedureName: string;
+  options?: PhotoOptions;
+  brand?: PhotoBrand | null;
+}): Promise<Uint8Array> {
+  return overlayOnClinicTemplate({ ...input, canvasHeight: 1920 });
 }
 
 export async function removeClinicalBackground(image: Uint8Array): Promise<Uint8Array> {
@@ -181,13 +183,17 @@ export async function overlayOnClinicTemplate(input: {
   procedureName: string;
   options?: PhotoOptions;
   brand?: PhotoBrand | null;
+  canvasHeight?: number;
 }): Promise<Uint8Array> {
   if (input.procedureName) assertProcedure(input.procedureName);
   const brand = input.brand;
+  const canvasHeight = input.canvasHeight ?? HEIGHT;
   const footerHeight = 104;
-  const photo = Buffer.from(await renderSocialPhoto(
-    input.cleanImage, input.options, brand ? HEIGHT - footerHeight : HEIGHT,
-  ));
+  const photoHeight = brand ? canvasHeight - footerHeight : canvasHeight;
+  const photoOptions = canvasHeight === 1920
+    ? { ...DEFAULT_PHOTO_OPTIONS, ...input.options, background: "BLUR" as const, layout: "CONTAIN" as const, zoom: 1, offsetX: 0, offsetY: 0 }
+    : input.options;
+  const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, photoOptions, photoHeight));
   if (!brand) return new Uint8Array(photo);
 
   const accent = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor)
@@ -201,18 +207,18 @@ export async function overlayOnClinicTemplate(input: {
     <text x="48" y="62" font-family="${family}" font-size="34" font-weight="600" fill="#203c38">${clinicName}</text>
   </svg>`);
 
-  const layers: sharp.OverlayOptions[] = [{ input: footer, top: HEIGHT - footerHeight, left: 0 }];
+  const layers: sharp.OverlayOptions[] = [{ input: footer, top: canvasHeight - footerHeight, left: 0 }];
   if (brand.logoDataUrl?.startsWith("data:image/")) {
     const encoded = brand.logoDataUrl.split(",")[1];
     if (encoded) {
       const bytes = Buffer.from(encoded, "base64");
       const logo = await sharp(bytes, { failOn: "error", limitInputPixels: 8_000_000 })
         .resize(76, 76, { fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, left: WIDTH - 115, top: HEIGHT - footerHeight + 12 });
+      layers.push({ input: logo, left: WIDTH - 115, top: canvasHeight - footerHeight + 12 });
     }
   }
 
   return new Uint8Array(await sharp({
-    create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#ffffff" },
+    create: { width: WIDTH, height: canvasHeight, channels: 4, background: "#ffffff" },
   }).composite([{ input: photo, top: 0, left: 0 }, ...layers]).png().toBuffer());
 }
