@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -20,7 +20,8 @@ function parseBogotaTime(value: unknown): Date | null | undefined {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) return unauthorizedResponse(true);
+  const session = await getStudioAccess("content:write");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
   const { id } = await params;
   if (!/^[a-zA-Z0-9_-]{8,64}$/.test(id)) {
     return NextResponse.json({ message: "Identificador de propuesta no válido." }, { status: 400 });
@@ -43,7 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const updated = await prisma.scheduledPost.updateMany({
       where: {
-        id, clinicId: "pilot", archivedAt: null, status: "PENDING_APPROVAL",
+        id, clinicId: session.clinic.id, archivedAt: null, status: "PENDING_APPROVAL",
         facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING",
         facebookPostId: null, instagramPostId: null, tiktokPublishId: null,
         facebookRetryCount: 0, instagramRetryCount: 0,
