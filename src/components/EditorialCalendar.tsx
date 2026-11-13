@@ -188,7 +188,13 @@ export function EditorialCalendar({ posts, onReload }: {
                   <li key={post.id} className="rounded-lg bg-[#f5f9f6] p-3">
                     <p className="text-sm font-medium text-[#21483b]">{postLabel(post)}</p>
                     <p className="mt-1 text-xs text-[#71887c]">{new Intl.DateTimeFormat("es-CO", { timeZone: BOGOTA_TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(new Date(post.scheduledFor!))} · {overdueIds.has(post.id) ? "Planificación vencida" : post.status === "PENDING_APPROVAL" ? "Pendiente de revisión" : post.status === "PUBLISHED" ? "Publicada" : "Estado: " + post.status}</p>
-                    {post.status === "PENDING_APPROVAL" && <button type="button" disabled={busy} onClick={() => void saveSchedule(post.id, null)} className="mt-2 text-xs font-semibold text-[#176c63] disabled:opacity-40">Quitar fecha</button>}
+                    <div className="mt-2 flex flex-wrap items-center gap-4">
+                      <a href={`/dashboard/${post.status === "PENDING_APPROVAL" ? "pendientes" : "historial"}?post=${encodeURIComponent(post.id)}`}
+                        className="text-xs font-semibold text-[#176c63] hover:underline">
+                        Ver propuesta
+                      </a>
+                      {post.status === "PENDING_APPROVAL" && <button type="button" disabled={busy} onClick={() => void saveSchedule(post.id, null)} className="text-xs font-semibold text-[#176c63] disabled:opacity-40">Quitar fecha</button>}
+                    </div>
                   </li>
                 ))}</ul>}
             </div>
