@@ -492,6 +492,7 @@ export function ApprovalQueue({
                       </h3>
                       <p className="mt-1 text-xs font-medium text-[#8a9994]">
                         Creado el {formatCreatedAt(post.createdAt)}
+                        {post.scheduledFor && <span className="ml-2 font-semibold text-[#176c63]">· Planificado: {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(post.scheduledFor))}</span>}
                       </p>
                     </div>
 
