@@ -55,6 +55,7 @@ export interface ApprovalQueuePost {
 interface ApprovalQueueProps {
   role?: string | null;
   onConfirmReview?: (postId: string) => Promise<void>;
+  onReject?: (postId: string) => Promise<void>;
   onRecoverStory?: (postId: string) => Promise<void>;
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
@@ -160,6 +161,7 @@ export function ApprovalQueue({
   posts,
   role,
   onConfirmReview,
+  onReject,
   onRecoverStory,
   mode = "both",
   onPublishSelected,
@@ -711,6 +713,24 @@ export function ApprovalQueue({
                       {canReview && onConfirmReview && !post.clinicalVerifiedAt && <button type="button" disabled={isBusy}
                         onClick={() => void runAction(post.id, onConfirmReview)}
                         className="rounded-lg border border-teal-700 px-4 py-2.5 text-sm font-semibold text-teal-800">Aprobar revisión clínica</button>}
+                      {canWrite && !post.scheduledFor && post.facebookStatus === "PENDING" &&
+                        post.instagramStatus === "PENDING" && (post.tiktokStatus ?? "PENDING") === "PENDING" &&
+                        <a href={`/dashboard/calendario?post=${encodeURIComponent(post.id)}`}
+                          className="rounded-lg border border-[#d9e2dc] bg-white px-4 py-2.5 text-sm font-semibold text-[#46615b] hover:bg-[#f6faf7]">
+                          Planificar
+                        </a>}
+                      {canReview && onReject && post.facebookStatus === "PENDING" &&
+                        post.instagramStatus === "PENDING" && (post.tiktokStatus ?? "PENDING") === "PENDING" &&
+                        !post.facebookPostId && !post.instagramPostId && !post.tiktokPublishId &&
+                        (post.facebookRetryCount ?? 0) === 0 && (post.instagramRetryCount ?? 0) === 0 &&
+                        <button type="button" disabled={isBusy}
+                          onClick={() => {
+                            if (!window.confirm("¿Descartar esta propuesta? No se enviará a redes sociales.")) return;
+                            void runAction(post.id, onReject);
+                          }}
+                          className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#8a5a51] hover:bg-[#fcf4f1] disabled:opacity-50">
+                          Descartar
+                        </button>}
                       {canWrite && post.deliveryFormat !== "STORY" && <button
                         type="button"
                         disabled={isBusy || (post.facebookStatus !== undefined && (post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING")) || (post.tiktokStatus ?? "PENDING") !== "PENDING"}
