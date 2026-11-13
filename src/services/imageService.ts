@@ -106,13 +106,12 @@ function backgroundColor(preset: PhotoPreset): string {
 export async function renderSocialPhoto(
   source: Uint8Array,
   options: PhotoOptions = DEFAULT_PHOTO_OPTIONS,
+  canvasHeight = HEIGHT,
 ): Promise<Uint8Array> {
   const { buffer, width, height } = await getSource(source);
-  const layout = options.layout === "AUTO"
-    ? (width / height >= 0.72 && width / height <= 0.88 ? "COVER" : "CONTAIN")
-    : options.layout;
-  const baseZoom = Math.max(WIDTH / width, HEIGHT / height);
-  const containZoom = Math.min(WIDTH / width, HEIGHT / height);
+  const layout = options.layout === "AUTO" ? "CONTAIN" : options.layout;
+  const baseZoom = Math.max(WIDTH / width, canvasHeight / height);
+  const containZoom = Math.min(WIDTH / width, canvasHeight / height);
   const scale = (layout === "COVER" ? baseZoom : containZoom) * options.zoom;
   const scaledWidth = Math.max(1, Math.round(width * scale));
   const scaledHeight = Math.max(1, Math.round(height * scale));
@@ -120,15 +119,15 @@ export async function renderSocialPhoto(
     .ensureAlpha().png().toBuffer();
 
   const wantedLeft = Math.round((WIDTH - scaledWidth) / 2 + options.offsetX * Math.max(0, scaledWidth - WIDTH) / 200);
-  const wantedTop = Math.round((HEIGHT - scaledHeight) / 2 + options.offsetY * Math.max(0, scaledHeight - HEIGHT) / 200);
+  const wantedTop = Math.round((canvasHeight - scaledHeight) / 2 + options.offsetY * Math.max(0, scaledHeight - canvasHeight) / 200);
   const left = scaledWidth >= WIDTH ? Math.max(WIDTH - scaledWidth, Math.min(0, wantedLeft)) : wantedLeft;
-  const top = scaledHeight >= HEIGHT ? Math.max(HEIGHT - scaledHeight, Math.min(0, wantedTop)) : wantedTop;
+  const top = scaledHeight >= canvasHeight ? Math.max(canvasHeight - scaledHeight, Math.min(0, wantedTop)) : wantedTop;
   const clippedLeft = Math.max(0, left);
   const clippedTop = Math.max(0, top);
   const clipX = Math.max(0, -left);
   const clipY = Math.max(0, -top);
   const clippedWidth = Math.min(WIDTH - clippedLeft, scaledWidth - clipX);
-  const clippedHeight = Math.min(HEIGHT - clippedTop, scaledHeight - clipY);
+  const clippedHeight = Math.min(canvasHeight - clippedTop, scaledHeight - clipY);
   if (clippedWidth < 1 || clippedHeight < 1) {
     throw new ImageServiceError("El encuadre deja la fotografía fuera del lienzo.", "TEMPLATE_FAILED");
   }
@@ -140,12 +139,12 @@ export async function renderSocialPhoto(
   let background: Buffer;
   if (options.background === "BLUR") {
     background = await sharp(buffer)
-      .resize(WIDTH, HEIGHT, { fit: "cover", position: "attention" })
+      .resize(WIDTH, canvasHeight, { fit: "cover", position: "attention" })
       .blur(28).modulate({ brightness: 1.08, saturation: 0.55 })
       .png().toBuffer();
   } else {
     background = await sharp({
-      create: { width: WIDTH, height: HEIGHT, channels: 4, background: backgroundColor(options.preset) },
+      create: { width: WIDTH, height: canvasHeight, channels: 4, background: backgroundColor(options.preset) },
     }).png().toBuffer();
   }
 
@@ -185,8 +184,11 @@ export async function overlayOnClinicTemplate(input: {
   brand?: PhotoBrand | null;
 }): Promise<Uint8Array> {
   if (input.procedureName) assertProcedure(input.procedureName);
-  const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, input.options));
   const brand = input.brand;
+  const footerHeight = 104;
+  const photo = Buffer.from(await renderSocialPhoto(
+    input.cleanImage, input.options, brand ? HEIGHT - footerHeight : HEIGHT,
+  ));
   if (!brand) return new Uint8Array(photo);
 
   const accent = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor)
@@ -194,7 +196,6 @@ export async function overlayOnClinicTemplate(input: {
   const family = brand.fontFamily === "SERIF" ? "Georgia, serif"
     : brand.fontFamily === "MODERN" ? "Arial, sans-serif" : "sans-serif";
   const clinicName = xmlText(brand.clinicName.slice(0, 70));
-  const footerHeight = 104;
   const footer = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${footerHeight}">
     <rect width="100%" height="100%" fill="#ffffff"/>
     <rect width="6" height="100%" fill="${accent}"/>
@@ -212,8 +213,7 @@ export async function overlayOnClinicTemplate(input: {
     }
   }
 
-  const picture = await sharp(photo).resize(WIDTH, HEIGHT - footerHeight, { fit: "contain", background: "#ffffff" }).png().toBuffer();
   return new Uint8Array(await sharp({
     create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#ffffff" },
-  }).composite([{ input: picture, top: 0, left: 0 }, ...layers]).png().toBuffer());
+  }).composite([{ input: photo, top: 0, left: 0 }, ...layers]).png().toBuffer());
 }
