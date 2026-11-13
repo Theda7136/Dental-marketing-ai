@@ -104,10 +104,15 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     Boolean(account.instagramId) && canSendToNetwork(savedPost.instagramStatus);
   const shouldSendFacebook = onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus);
   if (shouldSendInstagram || shouldSendFacebook) {
-    if (shouldSendInstagram && !isVideo) await checkPublicMedia(instagramMediaUrl, "image");
-    if (isVideo) await checkPublicMedia(mediaUrl, "video");
-    if (shouldSendFacebook && !isVideo && !shouldSendInstagram) {
-      await checkPublicMedia(deliveryFormat === "STORY" ? instagramMediaUrl : mediaUrl, "image");
+    if (isVideo) {
+      await checkPublicMedia(mediaUrl, "video");
+    } else {
+      if (shouldSendInstagram || (shouldSendFacebook && deliveryFormat === "STORY")) {
+        await checkPublicMedia(instagramMediaUrl, "image");
+      }
+      if (shouldSendFacebook && deliveryFormat !== "STORY") {
+        await checkPublicMedia(mediaUrl, "image");
+      }
     }
   }
 
