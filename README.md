@@ -11,7 +11,7 @@
 - Revisar el caso y su texto antes de pulsar «Aprobar y publicar»: esa acción registra la aprobación en SQLite sin formularios de confirmación adicionales.
 - Adaptar el texto al canal de publicación: Facebook con tono natural y pocos hashtags, Instagram con copy más breve y hashtags seleccionados. Las fotografías se mantienen en formato feed 4:5, sin recortar datos clínicos.
 - Buscar propuestas por procedimiento y consultar Pendientes e Historial en páginas de diez resultados.
-- Retirar publicaciones de Pendientes o Historial mediante «Eliminar», sin borrar los registros de auditoría ni las publicaciones realizadas en Meta. El sistema bloquea la retirada de envíos con estado pendiente de conciliación.
+- Quitar propuestas de Pendientes o Historial mediante «Quitar del panel» en cualquier estado, archivando el registro sin borrar las publicaciones realizadas en Meta o TikTok ni los datos de auditoría. Un envío ya iniciado puede continuar en la plataforma.
 - Conectar una Página de Facebook y, si está vinculada, una cuenta profesional de Instagram.
 - Elegir Facebook, Instagram y/o TikTok desde un único control de publicación, sin enviar a redes no seleccionadas y con estado de entrega separado por plataforma.
 - Guardar propuestas en SQLite y medios en el disco local o en almacenamiento compatible con S3.
@@ -23,7 +23,7 @@ La aplicación no programa publicaciones futuras. La aprobación inicia la publi
 - **Feed:** fotografías 4:5 para Facebook e Instagram, como antes.
 - **Reels:** videos verticales (MP4, MOV o WebM) de hasta 60 segundos, preparados como MP4 1080×1920. También puedes seleccionar una fotografía: se convertirá en un clip vertical silencioso de 7 segundos.
 - **Historias:** fotografías y videos verticales en Instagram, con tamaño 9:16 y envío mediante `media_type=STORIES`. La historia fotográfica adapta la imagen sin recortar detalles clínicos.
-- La publicación de **Historias en Facebook y TikTok no está habilitada** en esta primera versión. Al seleccionar Historia solo aparece Instagram en el selector de redes para impedir que el contenido termine como una publicación común.
+- **Historias:** el mismo selector permite enviar a Facebook Stories y/o Instagram Stories. Facebook utiliza `photo_stories` o `video_stories`; TikTok no aparece como destino de historias. Cada red registra su propio resultado y los envíos inciertos requieren comprobación antes de repetirlos.
 - El panel guarda el destino `FEED`, `REEL` o `STORY` en cada propuesta y mantiene revisión humana y estados de entrega independientes. Las propuestas antiguas se conservan como Feed.
 - Una imagen convertida en Reel es un clip estático, no una animación generativa ni una secuencia de varias fotos. Los videos conservan su audio salvo que actives «Silenciar audio original».
 
