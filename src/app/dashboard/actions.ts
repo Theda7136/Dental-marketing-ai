@@ -159,7 +159,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
     clinicalGuardrails.validate(caption);
     const saved = await prisma.scheduledPost.updateMany({
       where: {
-        id: postId, status: "PENDING_APPROVAL",
+        id: postId, clinicId: "pilot", status: "PENDING_APPROVAL",
         facebookStatus: "PENDING", instagramStatus: "PENDING",
         tiktokStatus: "PENDING",
       },
@@ -517,12 +517,12 @@ export async function authorizeManualRetry(
     };
   const where = network === "facebook"
     ? {
-      id: postId, status: "PENDING_APPROVAL" as const, facebookStatus: "UNKNOWN",
+      id: postId, clinicId: "pilot", status: "PENDING_APPROVAL" as const, facebookStatus: "UNKNOWN",
       facebookReviewOutcome: "NOT_FOUND", facebookPostId: null, facebookRetryCount: 0,
       facebookReviewedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
     }
     : {
-      id: postId, status: "PENDING_APPROVAL" as const, instagramStatus: "UNKNOWN",
+      id: postId, clinicId: "pilot", status: "PENDING_APPROVAL" as const, instagramStatus: "UNKNOWN",
       instagramReviewOutcome: "NOT_FOUND", instagramPostId: null, instagramRetryCount: 0,
       instagramReviewedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
     };
