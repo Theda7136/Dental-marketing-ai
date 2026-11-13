@@ -737,7 +737,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             {format === "photo" && selectedPhoto && deliveryFormat !== "STORY" && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
                 <div className="studio-image-toolbar">
-                  <strong>Encuadre <small>{showOriginal ? "Original" : `Arrastra para mover · ${deliveryFormat === "STORY" ? "9:16" : "4:5"}`}</small></strong>
+                  <strong>Encuadre <small>{showOriginal ? "Original" : "Arrastra para mover · 4:5"}</small></strong>
                   <div className="studio-image-toolbar-actions">
                     <button type="button" onClick={() => setShowOriginal((current) => !current)} disabled={isPending}>{showOriginal ? "Ver resultado" : "Ver original"}</button>
                     <button type="button" onClick={() => { setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0); setShowOriginal(false); }} disabled={isPending}>Restablecer</button>
