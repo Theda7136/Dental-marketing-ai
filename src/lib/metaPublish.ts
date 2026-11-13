@@ -237,7 +237,9 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
             access_token: token,
           });
           if (!published.id) throw new Error("Meta no confirmó la foto de Facebook.");
-          facebookId = String(published.id);
+          // Prefer the Page Post ID when Meta includes it; it supports post engagement queries.
+          facebookId = typeof published.post_id === "string" && /^\d+_\d+$/.test(published.post_id)
+            ? published.post_id : String(published.id);
           await prisma.scheduledPost.update({
             where: { id: post.id, clinicId: "pilot" },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
