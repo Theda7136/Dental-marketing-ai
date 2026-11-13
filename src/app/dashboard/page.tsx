@@ -9,6 +9,7 @@ import { clinicalGuardrails } from "../../config/clinicalGuardrails";
 import BrandSettings from "../../components/BrandSettings";
 import { AccountConnector } from "../../components/AccountConnector";
 import { EditorialCalendar } from "../../components/EditorialCalendar";
+import { ClinicTeam } from "../../components/ClinicTeam";
 import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, publishSelectedNetworks, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
@@ -28,9 +29,16 @@ function mediaFormat(file: File): "photo" | "video" | null {
   return null;
 }
 
-type StudioView = "create" | "pending" | "history" | "calendar" | "connections";
+type StudioView = "create" | "pending" | "history" | "calendar" | "connections" | "team";
 
 export default function DashboardPage({ view = "create" }: { view?: StudioView }) {
+  useEffect(() => {
+    fetch("/api/studio/me", { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(profile => setCurrentRole(profile?.role ?? null))
+      .catch(() => setCurrentRole(null));
+  }, []);
+
   // Limpieza segura de parámetros de URL una sola vez al cargar la página
   useEffect(() => {
     if (window.location.search.includes("success") || window.location.search.includes("error")) {
@@ -42,6 +50,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   const [format, setFormat] = useState<ContentFormat>("photo");
   const [deliveryFormat, setDeliveryFormat] = useState<"FEED" | "REEL" | "STORY">("FEED");
   const [posts, setPosts] = useState<ApprovalQueuePost[]>([]);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [brandIdentity, setBrandIdentity] = useState<{
     clinicName: string;
     primaryColor: string;
@@ -411,7 +420,12 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
              { id: "history", href: "/dashboard/historial", label: "Historial" },
              { id: "calendar", href: "/dashboard/calendario", label: "Calendario" },
              { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
-           ] as const).map((destination) => (
+             { id: "team", href: "/dashboard/equipo", label: "Equipo" },
+           ] as const).filter(destination => {
+             if (destination.id === "create") return currentRole !== "REVIEWER";
+             if (destination.id === "connections" || destination.id === "team") return currentRole === "OWNER" || currentRole === "ADMIN";
+             return true;
+           }).map((destination) => (
              <a key={destination.id}
                className={`studio-nav-link ${view === destination.id ? "is-current" : ""}`}
                href={destination.href}
@@ -444,7 +458,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         <header className="studio-topbar">
           <div>
             <p className="eyebrow">{view === "create" ? "ESTUDIO CREATIVO" : view === "pending" ? "FLUJO DE REVISIÓN" : "DENTAL STUDIO"}</p>
-            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : view === "calendar" ? "Calendario editorial" : "Conexiones"}</h1>
+            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : view === "calendar" ? "Calendario editorial" : view === "team" ? "Equipo y permisos" : "Conexiones"}</h1>
             <p>{view === "create"
               ? "Prepara fotografías, videos e ideas listas para revisar."
               : view === "pending"
@@ -453,12 +467,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   ? "Consulta las publicaciones y sus estados por red."
                   : view === "calendar"
                     ? "Organiza el contenido de la clínica con fechas y horarios."
-                    : "Administra las cuentas sociales de la clínica."}</p>
+                    : view === "team" ? "Invita usuarios y controla sus permisos." : "Administra las cuentas sociales de la clínica."}</p>
           </div>
           <div className="studio-topbar-actions">{view === "create" ? <a href="/dashboard/pendientes" className="studio-topbar-link">Ver pendientes <span aria-hidden="true">↗</span></a> : <a href="/dashboard/crear" className="studio-topbar-link"><span aria-hidden="true">＋</span> Nueva propuesta</a>}</div>
         </header>
         <div className="studio-content">
           {view === "calendar" && <EditorialCalendar posts={posts} onReload={reloadPosts} />}
+          {view === "team" && <ClinicTeam />}
            {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
             <AccountConnector />
             <BrandSettings />
