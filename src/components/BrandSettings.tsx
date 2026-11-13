@@ -18,6 +18,7 @@ const initialBrand: Brand = {
 
 export default function BrandSettings() {
   const [brand, setBrand] = useState<Brand>(initialBrand);
+  const [savedBrand, setSavedBrand] = useState<Brand>(initialBrand);
   const [logo, setLogo] = useState<File | null>(null);
   const [samplePhoto, setSamplePhoto] = useState<File | null>(null);
   const [previewFormat, setPreviewFormat] = useState<"FEED" | "STORY">("FEED");
@@ -38,7 +39,10 @@ export default function BrandSettings() {
         return response.json();
       })
       .then(({ brand: savedBrand }) => {
-        if (active) setBrand(savedBrand);
+        if (active) {
+          setBrand(savedBrand);
+          setSavedBrand(savedBrand);
+        }
       })
       .catch((cause) => {
         if (active) setError(cause instanceof Error ? cause.message : "No se pudo cargar la configuración.");
@@ -123,6 +127,7 @@ export default function BrandSettings() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "No se pudo guardar la marca.");
       setBrand(payload.brand);
+      setSavedBrand(payload.brand);
       setLogo(null);
       setRemoveLogo(false);
       setFeedback("Identidad de marca guardada.");
@@ -134,6 +139,10 @@ export default function BrandSettings() {
     }
   }
 
+  const hasUnsavedChanges = Boolean(logo) || (removeLogo && Boolean(savedBrand.logoDataUrl)) ||
+    brand.clinicName !== savedBrand.clinicName ||
+    brand.primaryColor !== savedBrand.primaryColor ||
+    brand.fontFamily !== savedBrand.fontFamily;
   const visibleLogo = removeLogo ? null : logoPreview ?? brand.logoDataUrl;
   const font = brand.fontFamily === "SERIF"
     ? "Georgia, serif"
@@ -195,7 +204,7 @@ export default function BrandSettings() {
           </button>
         </form>
         <div className="studio-brand-example">
-          <p>Vista de publicación · {logo || removeLogo ? "Cambios sin guardar" : "Marca actual"}</p>
+          <p>Vista de publicación · {hasUnsavedChanges ? "Cambios sin guardar" : "Marca actual"}</p>
           <label className="studio-brand-sample-picker">
             Fotografía de ejemplo (opcional)
             <input type="file" accept="image/png,image/jpeg,image/webp" disabled={loading || saving}
@@ -204,6 +213,8 @@ export default function BrandSettings() {
                 if (chosen && (chosen.size > 20 * 1024 * 1024 ||
                   !["image/png", "image/jpeg", "image/webp"].includes(chosen.type))) {
                   setPreviewError("La fotografía debe ser PNG, JPG o WebP de máximo 20 MB.");
+                  setSamplePhoto(null);
+                  setComposedPreview(null);
                   event.target.value = "";
                   return;
                 }
