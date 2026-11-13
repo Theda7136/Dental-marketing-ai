@@ -29,6 +29,7 @@ function harness({
   clinicId = "pilot",
   respond,
   publicMediaUrl = "https://demo.example.test",
+  mediaContentType = "image/png",
 } = {}) {
   const saved = {
     id: draft.id,
@@ -68,6 +69,15 @@ function harness({
 
   const fetchMock = async (url, options) => {
     const path = new URL(url).pathname;
+    if (new URL(url).hostname === "example.test") {
+      const contentType = new URL(url).searchParams.has("format") ? "image/jpeg" : mediaContentType;
+      return {
+        status: 200,
+        ok: true,
+        headers: new Headers({ "content-type": contentType }),
+        body: { cancel: async () => {} },
+      };
+    }
     requests.push({ path, method: options?.method ?? "GET", body: options?.body?.toString() || "" });
     if (respond) return respond(path, options);
     if (path === "/v26.0/123/photos") return graphResponse({ id: "123_999" });
@@ -286,6 +296,7 @@ test("Facebook photo Story uploads unpublished media, then publishes a Story", a
 test("Facebook video Story uses the video_stories upload flow", async () => {
   const { publishToMeta, saved, requests } = harness({
     deliveryFormat: "STORY",
+    mediaContentType: "video/mp4",
     respond: async (path, options) => {
       if (path === "/v26.0/123/video_stories") {
         const phase = new URLSearchParams(options.body).get("upload_phase");
