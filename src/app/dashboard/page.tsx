@@ -220,6 +220,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
   function changeFormat(next: ContentFormat) {
     setFormat(next);
+    setDeliveryFormat(next === "video" ? "REEL" : "FEED");
     setSelectedPhoto(null);
     setSelectedMedia(null);
     setSavedProposal(false);
@@ -636,9 +637,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               <div>
                 <span className="studio-section-kicker">02 / COMPOSICIÓN</span>
                  <h2>Vista previa</h2>
-                <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? "Video para redes" : "Idea de contenido"}</p>
+                <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? (deliveryFormat === "STORY" ? "Historia vertical" : "Reel vertical") : "Idea de contenido"}</p>
               </div>
-              <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "VIDEO" : "TEXTO"}</span>
+              <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "9:16" : "TEXTO"}</span>
             </div>
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
