@@ -191,7 +191,7 @@ export async function overlayOnClinicTemplate(input: {
   const footerHeight = 104;
   const photoHeight = brand ? canvasHeight - footerHeight : canvasHeight;
   const photoOptions = canvasHeight === 1920
-    ? { ...DEFAULT_PHOTO_OPTIONS, ...input.options, background: "BLUR" as const, layout: "CONTAIN" as const, zoom: 1, offsetX: 0, offsetY: 0 }
+    ? { ...DEFAULT_PHOTO_OPTIONS, ...input.options, background: "LIGHT" as const, layout: "CONTAIN" as const, zoom: 1, offsetX: 0, offsetY: 0 }
     : input.options;
   const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, photoOptions, photoHeight));
   if (!brand) return new Uint8Array(photo);
