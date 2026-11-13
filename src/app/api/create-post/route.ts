@@ -419,6 +419,7 @@ async function prepareImage(
   enableVision: boolean,
   photoOptions: PhotoOptions,
   clinicId: string,
+  isStory = false,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
     throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
@@ -431,6 +432,14 @@ async function prepareImage(
     ]);
     return overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
   })();
+
+  if (isStory) {
+    return {
+      media: await composition,
+      generatedCaption: "", educationalCaption: null, commercialCaption: null,
+      selectedStyle: "EDUCATIONAL" as const, visualSummary: null, mediaType: "IMAGE" as const,
+    };
+  }
 
   const copywriting = (async () => {
     let visualSummary: string | null = null;
@@ -466,10 +475,18 @@ async function prepareVideo(
   transcript: TranscriptWord[] | undefined,
   notes?: string,
   muteAudio = false,
+  isStory = false,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
   const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
   const rendered = muteAudio ? await muteClinicalVideo(captioned) : captioned;
+  if (isStory) {
+    return {
+      media: rendered, generatedCaption: "", educationalCaption: null,
+      commercialCaption: null, selectedStyle: "EDUCATIONAL" as const,
+      visualSummary: null, mediaType: "VIDEO" as const,
+    };
+  }
   const variants = await generateDentalVariants(
     procedureName,
     videoContextFor(procedureName, transcript !== undefined, notes),
@@ -564,7 +581,7 @@ export async function POST(request: Request) {
     const input = await readRequestInput(request);
     const procedureName = resolveProcedureName(input.procedureName);
     const kind = detectMediaKind(input.media);
-    if (kind === "image" && !input.visionConsent) {
+    if (kind === "image" && input.deliveryFormat !== "STORY" && !input.visionConsent) {
       throw new RequestInputError(
         400, "VISION_CONSENT_REQUIRED",
         "Confirma la autorización para enviar esta fotografía a Google Gemini Vision.",
@@ -585,13 +602,14 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, true, input.photoOptions, session.clinic.id)
+        ? await prepareImage(procedureName, input.media, input.notes, input.enableVision, input.photoOptions, session.clinic.id, input.deliveryFormat === "STORY")
         : await prepareVideo(
             procedureName,
             input.media,
             input.transcript,
             input.notes,
             input.muteAudio,
+            input.deliveryFormat === "STORY",
           );
 
     const photoReel = kind === "image" && input.deliveryFormat === "REEL";
@@ -619,10 +637,10 @@ export async function POST(request: Request) {
         mediaType: finalMediaType,
         deliveryFormat: input.deliveryFormat,
         mediaUrl,
-        generatedCaption: input.selectedStyle === "COMMERCIAL" ? prepared.commercialCaption : prepared.educationalCaption,
+        generatedCaption: input.deliveryFormat === "STORY" ? "" : input.selectedStyle === "COMMERCIAL" ? prepared.commercialCaption! : prepared.educationalCaption!,
         educationalCaption: prepared.educationalCaption,
         commercialCaption: prepared.commercialCaption,
-        selectedStyle: input.selectedStyle,
+        selectedStyle: input.deliveryFormat === "STORY" ? "EDUCATIONAL" : input.selectedStyle,
         visualSummary: prepared.visualSummary,
         status: "PENDING_APPROVAL",
       },
