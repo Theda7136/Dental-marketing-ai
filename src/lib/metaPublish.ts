@@ -46,9 +46,6 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   if (!savedPost) throw new Error("La propuesta ya no existe.");
   const deliveryFormat = savedPost.deliveryFormat || "FEED";
   const isVideo = post.mediaKind === "video";
-  if (deliveryFormat === "STORY" && onlyNetwork !== "instagram") {
-    throw new Error("Por ahora, las historias se publican únicamente en Instagram. Selecciona Instagram para esta propuesta.");
-  }
   if (deliveryFormat === "REEL" && !isVideo) {
     throw new Error("Un Reel debe estar guardado como video MP4 vertical.");
   }
@@ -132,8 +129,28 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     });
     if (claim.count === 1) {
       try {
-        if (isVideo) {
-          const started = await graphPost(`${account.pageId}/video_reels`, {
+        if (deliveryFormat === "STORY" && !isVideo) {
+          const uploaded = await graphPost(`${account.pageId}/photos`, {
+            url: instagramMediaUrl,
+            published: "false",
+            access_token: token,
+          });
+          if (!uploaded.id) throw new Error("Meta no confirmó la carga de la foto para Facebook Stories.");
+          const story = await graphPost(`${account.pageId}/photo_stories`, {
+            photo_id: String(uploaded.id),
+            access_token: token,
+          });
+          if (!story.post_id || story.success === false) {
+            throw new Error("Meta no confirmó la historia fotográfica de Facebook.");
+          }
+          facebookId = String(story.post_id);
+          await prisma.scheduledPost.update({
+            where: { id: post.id, clinicId: "pilot" },
+            data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
+          });
+        } else if (isVideo) {
+          const videoEndpoint = deliveryFormat === "STORY" ? "video_stories" : "video_reels";
+          const started = await graphPost(`${account.pageId}/${videoEndpoint}`, {
             upload_phase: "start",
             access_token: token,
           });
@@ -149,23 +166,22 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           if (!upload.ok || uploadData.error || uploadData.success === false) {
             throw new Error("Meta no pudo cargar el video de Facebook.");
           }
-          const finished = await graphPost(`${account.pageId}/video_reels`, {
+          const finished = await graphPost(`${account.pageId}/${videoEndpoint}`, {
             video_id: String(started.video_id),
             upload_phase: "finish",
-            video_state: "PUBLISHED",
-            description: captions.facebook,
+            ...(deliveryFormat === "STORY" ? {} : { video_state: "PUBLISHED", description: captions.facebook }),
             access_token: token,
           });
           if (finished.success === false || finished.error) {
             throw new Error("Meta no confirmó la publicación del Reel de Facebook.");
           }
-          facebookId = String(started.video_id);
+          facebookId = String(deliveryFormat === "STORY" ? finished.post_id || started.video_id : started.video_id);
           await prisma.scheduledPost.update({
             where: { id: post.id, clinicId: "pilot" },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
           try {
-            const state = await graphGet(facebookId, token, "status");
+            const state = await graphGet(String(started.video_id), token, "status");
             if (state.status?.publishing_phase?.status !== "complete") {
               warnings.push("Meta aceptó el Reel de Facebook y todavía puede estar procesándolo.");
             }
