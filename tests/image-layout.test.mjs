@@ -25,7 +25,7 @@ runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer
   module.exports,
 );
 
-const { renderSocialPhoto, renderStoryPhoto, parsePhotoOptions } = module.exports;
+const { renderSocialPhoto, renderStoryPhoto, overlayOnClinicTemplate, parsePhotoOptions } = module.exports;
 
 async function fixture(width, height) {
   return sharp({
@@ -66,4 +66,35 @@ test("Story preview and export use a full 1080x1920 frame", async () => {
   assert.equal(metadata.width, 1080);
   assert.equal(metadata.height, 1920);
   assert.equal(metadata.format, "png");
+});
+
+
+test("automatic framing preserves the top and bottom of a clinical portrait", async () => {
+  const source = await sharp({
+    create: { width: 760, height: 1000, channels: 3, background: "#b75a43" },
+  }).composite([
+    { input: { create: { width: 760, height: 30, channels: 3, background: "#1428e6" } }, left: 0, top: 0 },
+    { input: { create: { width: 760, height: 30, channels: 3, background: "#11b45a" } }, left: 0, top: 970 },
+  ]).png().toBuffer();
+  const frame = await renderSocialPhoto(source);
+  const top = await sharp(frame).extract({ left: 540, top: 10, width: 1, height: 1 }).raw().toBuffer();
+  const bottom = await sharp(frame).extract({ left: 540, top: 1330, width: 1, height: 1 }).raw().toBuffer();
+
+  assert.ok(top[2] > top[0], "the upper clinical edge must be visible");
+  assert.ok(bottom[1] > bottom[0], "the lower clinical edge must be visible");
+});
+
+test("clinic branding reserves a footer without cropping the photo", async () => {
+  const branded = await overlayOnClinicTemplate({
+    cleanImage: await fixture(760, 1000),
+    procedureName: "Ortodoncia",
+    brand: { clinicName: "Consultorio Dental", primaryColor: "#116D60", fontFamily: "SANS", logoDataUrl: null },
+  });
+  const metadata = await sharp(branded).metadata();
+  const photoPixel = await sharp(branded).extract({ left: 540, top: 20, width: 1, height: 1 }).raw().toBuffer();
+  const footerPixel = await sharp(branded).extract({ left: 540, top: 1300, width: 1, height: 1 }).raw().toBuffer();
+
+  assert.deepEqual([metadata.width, metadata.height], [1080, 1350]);
+  assert.ok(photoPixel[0] < 220, "the photo fills its reserved composition area");
+  assert.ok(footerPixel[0] > 240 && footerPixel[1] > 240, "the footer has its own unclipped space");
 });
