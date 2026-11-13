@@ -29,6 +29,7 @@ export interface ApprovalQueuePost {
   facebookRetryCount?: number;
   instagramRetryCount?: number;
   instagramStatus?: string;
+  canRecoverRejectedStory?: boolean;
   facebookPostId?: string | null;
   instagramPostId?: string | null;
   tiktokStatus?: string;
@@ -52,6 +53,7 @@ export interface ApprovalQueuePost {
 interface ApprovalQueueProps {
   role?: string | null;
   onConfirmReview?: (postId: string) => Promise<void>;
+  onRecoverStory?: (postId: string) => Promise<void>;
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onPublishSelected: (postId: string, networks: PublishNetwork[], tiktok?: {
@@ -156,6 +158,7 @@ export function ApprovalQueue({
   posts,
   role,
   onConfirmReview,
+  onRecoverStory,
   mode = "both",
   onPublishSelected,
   onReload,
@@ -240,6 +243,7 @@ export function ApprovalQueue({
   }
 
   function verificationControl(post: ApprovalQueuePost, network: "facebook" | "instagram") {
+    if (!canReview && !canPublish) return null;
     const status = network === "facebook" ? post.facebookStatus : post.instagramStatus;
     if (status !== "UNKNOWN" && status !== "IN_PROGRESS") return null;
 
@@ -250,7 +254,7 @@ export function ApprovalQueue({
     const label = network === "facebook" ? "Facebook" : "Instagram";
 
     return (
-      <div key={key} className="mt-3 rounded-xl border border-[#e6d8b4] bg-[#fffbf1] p-3">
+      <div id={`review-${post.id}-${network}`} key={key} className="mt-3 scroll-mt-8 rounded-xl border border-[#e6d8b4] bg-[#fffbf1] p-3">
         <p className="text-sm font-semibold text-[#685335]">{label} · requiere comprobación</p>
         {outcome && (
           <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-[#685335]">
@@ -259,7 +263,17 @@ export function ApprovalQueue({
             {evidence ? ` · ${evidence}` : ""}
           </p>
         )}
-        {status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
+        {canPublish && network === "instagram" && post.canRecoverRejectedStory && onRecoverStory && (
+          <button type="button" disabled={busyId === post.id}
+            className="mt-2 mr-2 rounded-lg bg-teal-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            onClick={() => {
+              if (!window.confirm("¿Confirmas que la historia no apareció en Instagram? El rechazo de Meta permite habilitar un único reintento; esta acción NO publica automáticamente.")) return;
+              void runAction(post.id, onRecoverStory);
+            }}>
+            Recuperar historia rechazada
+          </button>
+        )}
+        {canPublish && status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
           network === "facebook" ? post.facebookPostId : post.instagramPostId
         ) && (
           <button
@@ -656,7 +670,7 @@ export function ApprovalQueue({
                 {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
                       post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
                       <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        Meta no confirmó el resultado anterior. «Aprobar y publicar» te permitirá revisar y decidir cómo continuar; no reenviará contenido sin tu confirmación.
+                        Meta no confirmó el envío anterior. Usa «Revisar publicación» y «Registrar comprobación» para conciliarlo antes de autorizar otro intento.
                       </p>
                     )}
 

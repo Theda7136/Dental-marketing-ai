@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         instagramReviewedAt: Date | null;
         facebookRetryCount: number;
         instagramRetryCount: number;
+        instagramError: string | null;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
@@ -62,6 +63,9 @@ export async function GET(request: Request) {
         facebookPostId: post.facebookPostId,
         facebookRetryCount: post.facebookRetryCount,
         instagramRetryCount: post.instagramRetryCount,
+        canRecoverRejectedStory: post.mediaType === "IMAGE" && post.deliveryFormat === "STORY" &&
+          post.instagramStatus === "UNKNOWN" && post.instagramRetryCount === 0 && !post.instagramPostId &&
+          Boolean(post.instagramError?.includes("Only photo or video can be accepted as media type.")),
         instagramPostId: post.instagramPostId,
         tiktokStatus: post.tiktokStatus,
         tiktokPublishId: post.tiktokPublishId,

@@ -10,7 +10,7 @@ import BrandSettings from "../../components/BrandSettings";
 import { AccountConnector } from "../../components/AccountConnector";
 import { EditorialCalendar } from "../../components/EditorialCalendar";
 import { ClinicTeam } from "../../components/ClinicTeam";
-import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, publishSelectedNetworks, confirmClinicalReview, type PublishNetwork } from "./actions";
+import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, reopenRejectedInstagramStory, publishSelectedNetworks, confirmClinicalReview, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -334,6 +334,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
     if (!result.ok) throw new Error(result.message);
     setNotice(result.message);
+  }
+
+  async function recoverStory(postId: string) {
+    const recovered = await reopenRejectedInstagramStory(postId);
+    if (!recovered.ok) throw new Error(recovered.message);
+    await reloadPosts();
+    setNotice(recovered.message);
   }
 
   async function reconcileRetry(postId: string, network: "facebook" | "instagram") {
@@ -797,6 +804,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           onLookup={lookupMetaId}
           onChooseStyle={changeCopyStyle}
           onAuthorizeRetry={reconcileRetry}
+          onRecoverStory={recoverStory}
         />}
       </div>
         </div>

@@ -143,21 +143,22 @@ export function MultinetworkPublisher({
   }
 
   if (post.mediaKind === "text" || !post.mediaUrl) return null;
-  if (availableNetworks.every((network) => statuses[network] !== "PENDING")) return null;
+  const hasPending = availableNetworks.some((network) => statuses[network] === "PENDING");
+  const needsReview = availableNetworks.some((network) => ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network]));
 
   return (
     <div className="order-first w-full basis-full">
       {!open ? (
         <button type="button" onClick={() => setOpen(true)}
           className="studio-primary-action inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#126f60] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d]">
-          <span aria-hidden="true">↗</span> Publicar en redes
+          <span aria-hidden="true">↗</span> {hasPending ? "Publicar en redes" : needsReview ? "Revisar publicación" : "Ver estado de publicación"}
         </button>
       ) : (
         <div className="rounded-xl border border-[#d9e5df] bg-[#f8faf8] p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-[#173b3a]">Selecciona las redes</h4>
-              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Las historias están disponibles actualmente en Instagram." : "Se enviará una vez a cada red seleccionada."}</p>
+              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Esta historia se envía únicamente a Instagram. Facebook Stories no está implementado." : "Puedes publicar en redes pendientes y consultar las que requieren verificación."}</p>
             </div>
             {!busy && <button type="button" onClick={() => { setOpen(false); setOutcome(null); }} className="text-sm text-[#667d72]">Cerrar</button>}
           </div>
@@ -173,10 +174,29 @@ export function MultinetworkPublisher({
                   onChange={() => toggle(network)} className="accent-[#126f60]"/>
                 {labels[network]}
                 {!connected ? <span className="text-xs">(sin conectar)</span>
-                  : !pending ? <span className="text-xs">(ya enviado o por verificar)</span> : null}
+                  : statuses[network] === "SUCCEEDED" ? <span className="text-xs">(confirmado, no se reenviará)</span>
+                  : ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network]) ? <span className="text-xs">(requiere comprobación)</span>
+                  : !pending ? <span className="text-xs">(no disponible)</span> : null}
               </label>;
             })}
           </div>
+          {availableNetworks.filter((network) => ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network])).map((network) => (
+            <div key={network} className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-semibold">{labels[network]} · Resultado no confirmado</p>
+              <p className="mt-1 text-xs leading-5">
+                Comprueba primero en la cuenta social si el contenido apareció. No lo reenviaremos automáticamente: una respuesta fallida podría ocultar una publicación aceptada.
+              </p>
+              {network === "facebook" || network === "instagram"
+                ? <a href={`#review-${post.id}-${network}`} onClick={() => setOpen(false)}
+                    className="mt-2 inline-block rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold">
+                    Registrar comprobación y recuperar envío
+                  </a>
+                : <p className="mt-2 text-xs">Revisa el estado desde la herramienta de TikTok antes de solicitar otro envío.</p>}
+            </div>
+          ))}
+          {!hasPending && !needsReview && (
+            <p className="mt-3 text-sm text-stone-600">No hay redes pendientes para esta propuesta. Las publicaciones confirmadas se conservan sin reenviarse.</p>
+          )}
           {selected.includes("tiktok") && (
             <div className="mt-3 space-y-3 rounded-lg border border-[#d9e5df] bg-white p-3">
               <p className="text-xs font-semibold text-[#40665a]">Preferencias requeridas por TikTok</p>
@@ -209,11 +229,11 @@ export function MultinetworkPublisher({
               </> : <p className="text-xs text-[#687e73]">Consultando opciones de privacidad…</p>}
             </div>
           )}
-          <button type="button" onClick={() => void publish()}
+          {hasPending && <button type="button" onClick={() => void publish()}
             disabled={busy || !selected.length || !accounts || (selected.includes("tiktok") && !privacy)}
             className="mt-3 min-h-11 rounded-lg bg-[#126f60] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d] disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? "Publicando en las redes seleccionadas…" : "Publicar en redes seleccionadas"}
-          </button>
+          </button>}
           <p className="mt-2 text-xs leading-5 text-[#71837b]">La aprobación autoriza el material y el texto. TikTok puede continuar procesando después del envío.</p>
           {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         </div>
