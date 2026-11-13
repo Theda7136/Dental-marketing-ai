@@ -9,6 +9,7 @@ type FacebookSnapshot = {
   metrics: { id: string; reactions: number; comments: number }[];
   checked: number;
   unavailable: number;
+  failures?: Record<string, number>;
   scope: string;
 };
 
@@ -16,8 +17,19 @@ type InstagramSnapshot = {
   metrics: { id: string; likes: number; comments: number }[];
   checked: number;
   unavailable: number;
+  failures?: Record<string, number>;
   scope: string;
 };
+
+function insightsMessage(checked: number, unavailable: number, failures?: Record<string, number>) {
+  if (checked === 0) return "No hay publicaciones confirmadas de este formato para consultar.";
+  if (unavailable === 0) return null;
+  if (failures?.token) return "La sesión de Meta podría haber expirado. Revisa la conexión de la cuenta.";
+  if (failures?.permissions) return "Meta no autorizó la consulta de interacciones. Revisa los permisos de la conexión.";
+  if (failures?.identifier) return "Meta no reconoció algunos identificadores de publicación para esta consulta.";
+  if (failures?.incomplete) return "Meta no entregó todas las métricas solicitadas.";
+  return "Meta no devolvió los datos de algunas publicaciones. Puedes volver a consultar más tarde.";
+}
 
 function deliveryStates(post: ApprovalQueuePost): Delivery[] {
   if (!post.mediaUrl || post.status === "REJECTED") return [];
@@ -209,7 +221,8 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
                   </p>
                 </div>
               </div>
-            ) : <p className="text-sm text-[#687e73]">No se recibieron métricas de Instagram para las publicaciones consultadas.</p>}
+            ) : <p className="text-sm text-[#687e73]">{instagram.checked === 0 ? "Todavía no hay publicaciones elegibles para esta consulta." : "Instagram no devolvió interacciones para las publicaciones consultadas."}</p>}
+            {insightsMessage(instagram.checked, instagram.unavailable, instagram.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(instagram.checked, instagram.unavailable, instagram.failures)}</p>}
             <p className="mt-3 text-xs text-[#71847a]">
               {instagram.scope}. Datos disponibles para {instagram.metrics.length} de {instagram.checked} publicaciones.
               {instagram.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
@@ -249,7 +262,8 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
                   </p>
                 </div>
               </div>
-            ) : <p className="text-sm text-[#687e73]">No se recibieron métricas para las publicaciones consultadas.</p>}
+            ) : <p className="text-sm text-[#687e73]">{facebook.checked === 0 ? "Todavía no hay publicaciones elegibles para esta consulta." : "Facebook no devolvió interacciones para las publicaciones consultadas."}</p>}
+            {insightsMessage(facebook.checked, facebook.unavailable, facebook.failures) && <p className="mt-2 text-xs text-[#8a5a51]">{insightsMessage(facebook.checked, facebook.unavailable, facebook.failures)}</p>}
             <p className="mt-3 text-xs text-[#71847a]">
               {facebook.scope}. Datos disponibles para {facebook.metrics.length} de {facebook.checked} publicaciones.
               {facebook.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
@@ -258,12 +272,6 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
         )}
       </section>
 
-      {summary.uncertain.length > 0 && (
-        <p className="text-sm text-[#786344]">
-          Hay {summary.uncertain.length} envíos que requieren seguimiento.
-          {" "}<a href="/dashboard/pendientes" className="font-semibold text-[#176c63] hover:underline">Revisar pendientes</a>
-        </p>
-      )}
       <p className="text-xs leading-5 text-[#71847a]">
         El período se calcula según la fecha de creación de cada propuesta, no la fecha exacta de publicación.
         Solo se incluyen registros actualmente visibles en el panel. Los datos de Instagram se consultan
