@@ -172,10 +172,12 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
             ...(deliveryFormat === "STORY" ? {} : { video_state: "PUBLISHED", description: captions.facebook }),
             access_token: token,
           });
-          if (finished.success === false || finished.error) {
-            throw new Error("Meta no confirmó la publicación del Reel de Facebook.");
+          if (finished.success === false || finished.error || (deliveryFormat === "STORY" && !finished.post_id)) {
+            throw new Error(deliveryFormat === "STORY"
+              ? "Meta no confirmó la historia de video de Facebook."
+              : "Meta no confirmó la publicación del Reel de Facebook.");
           }
-          facebookId = String(deliveryFormat === "STORY" ? finished.post_id || started.video_id : started.video_id);
+          facebookId = String(deliveryFormat === "STORY" ? finished.post_id : started.video_id);
           await prisma.scheduledPost.update({
             where: { id: post.id, clinicId: "pilot" },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
