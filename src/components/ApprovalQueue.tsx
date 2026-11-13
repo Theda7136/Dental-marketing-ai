@@ -45,6 +45,7 @@ export interface ApprovalQueuePost {
   clinicalVerifiedAt?: string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
   mediaKind?: "image" | "video" | "text";
+  deliveryFormat?: "FEED" | "REEL" | "STORY";
 }
 
 interface ApprovalQueueProps {
@@ -740,7 +741,7 @@ export function ApprovalQueue({
               <li key={post.id} className="rounded-2xl border border-[#d7e5df] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-[#173b3a]">{post.procedureName}</p>
+                    <p className="font-semibold text-[#173b3a]">{post.procedureName} {post.deliveryFormat === "REEL" ? "· Reel" : post.deliveryFormat === "STORY" ? "· Historia" : ""}</p>
                     <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {publishingSummary(post)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
