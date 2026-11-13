@@ -25,7 +25,7 @@ runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer
   module.exports,
 );
 
-const { renderSocialPhoto, parsePhotoOptions } = module.exports;
+const { renderSocialPhoto, renderStoryPhoto, parsePhotoOptions } = module.exports;
 
 async function fixture(width, height) {
   return sharp({
@@ -55,4 +55,15 @@ test("blurred background and intentional cover preserve export dimensions", asyn
 
 test("out of range zoom is rejected", () => {
   assert.throws(() => parsePhotoOptions({ zoom: 9 }), /Opciones de encuadre/);
+});
+
+
+test("Story preview and export use a full 1080x1920 frame", async () => {
+  const portrait = await renderSocialPhoto(await fixture(720, 1280));
+  const story = await renderStoryPhoto(portrait);
+  const metadata = await sharp(story).metadata();
+
+  assert.equal(metadata.width, 1080);
+  assert.equal(metadata.height, 1920);
+  assert.equal(metadata.format, "png");
 });
