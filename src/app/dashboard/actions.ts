@@ -720,8 +720,8 @@ export async function publishSelectedNetworks(
     return { ok: false, results: [], message: "La propuesta no está disponible para publicar." };
   }
 
-  if (post.deliveryFormat === "STORY" && selected.some((network) => network !== "instagram")) {
-    return { ok: false, results: [], message: "Las historias solo están habilitadas para Instagram. Desmarca las otras redes." };
+  if (post.deliveryFormat === "STORY" && selected.includes("tiktok")) {
+    return { ok: false, results: [], message: "Las historias están disponibles en Facebook e Instagram. TikTok no admite este formato desde este publicador." };
   }
 
   const results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] = [];
