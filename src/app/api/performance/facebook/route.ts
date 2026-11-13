@@ -23,7 +23,13 @@ type MetaResponse = {
 
 type Failure = "token" | "permissions" | "identifier" | "incomplete" | "unavailable";
 type MetricState = "zero" | "available" | "omitted" | "rejected" | "unavailable";
-type Diagnostic = { photo: number; reactions: MetricState; comments: MetricState };
+type Diagnostic = {
+  photo: number;
+  reactions: MetricState;
+  comments: MetricState;
+  reactionsDetail?: string;
+  commentsDetail?: string;
+};
 
 function metricState(total: number | null, failure?: Failure): MetricState {
   if (total === 0) return "zero";
@@ -73,7 +79,7 @@ async function getCount(
   objectId: string,
   field: "reactions" | "likes" | "comments",
   token: string,
-): Promise<{ total: number | null; failure?: Failure }> {
+): Promise<{ total: number | null; failure?: Failure; detail?: string }> {
   const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(objectId)}/${field}`);
   url.searchParams.set("summary", "true");
   url.searchParams.set("limit", "1");
@@ -85,19 +91,25 @@ async function getCount(
       signal: AbortSignal.timeout(8000),
     });
     const payload: unknown = await response.json();
-    if (!payload || typeof payload !== "object") return { total: null, failure: "unavailable" };
+    if (!payload || typeof payload !== "object") return { total: null, failure: "unavailable", detail: "invalid_response" };
     const edge = payload as {
       data?: unknown[];
       summary?: { total_count?: unknown };
       error?: { code?: number };
     };
     if (!response.ok || edge.error) {
-      return { total: null, failure: classifyFailure(edge.error?.code) };
+      return { total: null, failure: classifyFailure(edge.error?.code), detail: `meta_error_${edge.error?.code ?? response.status}` };
     }
     const total = count(edge.summary?.total_count);
-    return total === null ? { total: null, failure: "incomplete" } : { total };
+    if (total !== null) return { total, detail: "summary_count" };
+    // Empty edges without a summary cannot be assumed to mean zero.
+    const detail = !("summary" in edge) ? "summary_missing"
+      : edge.summary === null ? "summary_null"
+      : !edge.summary || !("total_count" in edge.summary) ? "count_missing"
+      : "count_invalid";
+    return { total: null, failure: "incomplete", detail };
   } catch {
-    return { total: null, failure: "unavailable" };
+    return { total: null, failure: "unavailable", detail: "request_failed" };
   }
 }
 
@@ -172,6 +184,8 @@ export async function GET() {
       photo: index + 1,
       reactions: metricState(reactions.total, reactions.failure),
       comments: metricState(comments.total, comments.failure),
+      reactionsDetail: reactions.detail,
+      commentsDetail: comments.detail,
     });
     if (reactions.total !== null || comments.total !== null) {
       metrics.push({ id: post.id, reactions: reactions.total, comments: comments.total, source });
