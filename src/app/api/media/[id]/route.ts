@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { prisma } from "../../../../lib/prisma";
 import { isClinicAuthorized } from "../../../../lib/clinicAuth";
 import { isValidMediaSignature } from "../../../../lib/mediaSignature";
@@ -47,8 +48,12 @@ export async function GET(
     }
 
     const kind = post.mediaType === "VIDEO" ? "video" : "image";
-    const contentType = kind === "video" ? "video/mp4" : "image/png";
-    const bytes = await readPostMedia(id, kind);
+    const jpeg = kind === "image" && url.searchParams.get("format") === "jpeg";
+    const contentType = kind === "video" ? "video/mp4" : jpeg ? "image/jpeg" : "image/png";
+    const original = await readPostMedia(id, kind);
+    const bytes = jpeg
+      ? await sharp(Buffer.from(original)).jpeg({ quality: 90, mozjpeg: true }).toBuffer()
+      : original;
     return new NextResponse(new Uint8Array(bytes), {
       status: 200,
       headers: {
