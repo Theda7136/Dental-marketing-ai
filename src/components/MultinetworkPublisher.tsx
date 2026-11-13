@@ -180,22 +180,16 @@ export function MultinetworkPublisher({
               </label>;
             })}
           </div>
-          {availableNetworks.filter((network) => ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network])).map((network) => (
-            <div key={network} className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-              <p className="font-semibold">{labels[network]} · Resultado no confirmado</p>
-              <p className="mt-1 text-xs leading-5">
-                Comprueba primero en la cuenta social si el contenido apareció. No lo reenviaremos automáticamente: una respuesta fallida podría ocultar una publicación aceptada.
-              </p>
-              {network === "facebook" || network === "instagram"
-                ? <a href={`#review-${post.id}-${network}`} onClick={() => setOpen(false)}
-                    className="mt-2 inline-block rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold">
-                    Registrar comprobación y recuperar envío
-                  </a>
-                : <p className="mt-2 text-xs">Revisa el estado desde la herramienta de TikTok antes de solicitar otro envío.</p>}
-            </div>
-          ))}
+          {needsReview && (
+            <p className="mt-3 text-sm text-amber-800">
+              Hay envíos por verificar. Usa <strong>Resolver incidencias</strong> debajo de esta propuesta
+              para consultar el error y recuperar solo los intentos que no llegaron a publicarse.
+            </p>
+          )}
           {!hasPending && !needsReview && (
-            <p className="mt-3 text-sm text-stone-600">No hay redes pendientes para esta propuesta. Las publicaciones confirmadas se conservan sin reenviarse.</p>
+            <p className="mt-3 text-sm text-stone-600">
+              No hay envíos pendientes. Las publicaciones confirmadas no se duplicarán.
+            </p>
           )}
           {selected.includes("tiktok") && (
             <div className="mt-3 space-y-3 rounded-lg border border-[#d9e5df] bg-white p-3">
@@ -234,7 +228,7 @@ export function MultinetworkPublisher({
             className="mt-3 min-h-11 rounded-lg bg-[#126f60] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d] disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? "Publicando en las redes seleccionadas…" : "Publicar en redes seleccionadas"}
           </button>}
-          <p className="mt-2 text-xs leading-5 text-[#71837b]">La aprobación autoriza el material y el texto. TikTok puede continuar procesando después del envío.</p>
+          {hasPending && <p className="mt-2 text-xs text-[#71837b]">Solo se enviarán las redes pendientes seleccionadas.</p>}
           {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         </div>
       )}
