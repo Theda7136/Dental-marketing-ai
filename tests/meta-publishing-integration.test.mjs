@@ -283,6 +283,34 @@ test("Facebook photo Story uploads unpublished media, then publishes a Story", a
   assert.equal(new URLSearchParams(requests[1].body).get("photo_id"), "123_999");
 });
 
+test("Facebook video Story uses the video_stories upload flow", async () => {
+  const { publishToMeta, saved, requests } = harness({
+    deliveryFormat: "STORY",
+    respond: async (path, options) => {
+      if (path === "/v26.0/123/video_stories") {
+        const phase = new URLSearchParams(options.body).get("upload_phase");
+        return phase === "start"
+          ? graphResponse({ video_id: "555", upload_url: "https://rupload.facebook.com/upload" })
+          : graphResponse({ success: true, post_id: "123_888" });
+      }
+      if (path === "/upload") return graphResponse({ success: true });
+      if (path === "/v26.0/555") return graphResponse({ status: { publishing_phase: { status: "complete" } } });
+      throw new Error(`Unexpected Meta call: ${path}`);
+    },
+  });
+
+  const published = await publishToMeta({ ...draft, mediaKind: "video" }, "facebook");
+  assert.equal(published.facebookId, "123_888");
+  assert.equal(saved.facebookStatus, "SUCCEEDED");
+  assert.deepEqual(requests.map((request) => request.path), [
+    "/v26.0/123/video_stories",
+    "/upload",
+    "/v26.0/123/video_stories",
+    "/v26.0/555",
+  ]);
+  assert.equal(new URLSearchParams(requests[2].body).get("video_state"), null);
+});
+
 test("Facebook Stories do not fall back to feed when the story endpoint fails", async () => {
   const { publishToMeta, saved, requests } = harness({
     deliveryFormat: "STORY",
