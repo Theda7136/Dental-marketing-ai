@@ -109,6 +109,7 @@ export async function createTextProposal(formData: FormData) {
 
     const post = await prisma.scheduledPost.create({
       data: {
+        clinicId: "pilot",
         procedureName,
         mediaType: "IMAGE",
         generatedCaption: selectedStyle === "COMMERCIAL" ? commercialCaption : educationalCaption,
@@ -146,7 +147,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
     return { ok: false, message: "Estilo de contenido no válido." };
   }
 
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   if (!post || post.status !== "PENDING_APPROVAL" || post.tiktokStatus !== "PENDING" || !canEditUnsentProposal(post) || post.facebookRetryCount > 0 || post.instagramRetryCount > 0) {
     return { ok: false, message: "La propuesta ya inició su publicación o no está pendiente." };
   }
@@ -186,14 +187,14 @@ export async function updatePendingCaption(postId: string, caption: string) {
   try {
     clinicalGuardrails.validate(revisedCaption);
     const currentPost = await prisma.scheduledPost.findUnique({
-      where: { id: postId },
+      where: { id: postId, clinicId: "pilot" },
       select: { facebookStatus: true, instagramStatus: true, tiktokStatus: true, selectedStyle: true, facebookRetryCount: true, instagramRetryCount: true },
     });
     if (!currentPost || currentPost.tiktokStatus !== "PENDING" || !canEditUnsentProposal(currentPost) || currentPost.facebookRetryCount > 0 || currentPost.instagramRetryCount > 0) {
       return { ok: false, message: "No puedes modificar el texto después de iniciar la publicación." };
     }
     const updated = await prisma.scheduledPost.updateMany({
-      where: { id: postId, status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING" },
+      where: { id: postId, clinicId: "pilot", status: "PENDING_APPROVAL", facebookStatus: "PENDING", instagramStatus: "PENDING", tiktokStatus: "PENDING" },
       data: {
         generatedCaption: revisedCaption,
         clinicalVerifiedAt: null,
@@ -224,7 +225,7 @@ export async function approveAndPublishPost(
   }
 
   try {
-    const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+    const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
     if (!post || post.status !== "PENDING_APPROVAL") {
       return { ok: false, message: "La publicación ya no está pendiente de aprobación." };
     }
@@ -240,6 +241,7 @@ export async function approveAndPublishPost(
     const confirmed = await prisma.scheduledPost.updateMany({
       where: {
         id: post.id,
+        clinicId: "pilot",
         status: "PENDING_APPROVAL",
         archivedAt: null,
         facebookStatus: "PENDING",
@@ -260,7 +262,7 @@ export async function approveAndPublishPost(
     });
     const approvedAt = new Date();
     await prisma.scheduledPost.update({
-      where: { id: post.id },
+      where: { id: post.id, clinicId: "pilot" },
       data: { status: "PUBLISHED", approvedAt },
     });
 
@@ -286,7 +288,7 @@ export async function retryPendingNetwork(
   }
 
   try {
-    const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+    const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
     if (!post || !["PENDING_APPROVAL", "PUBLISHED"].includes(post.status)) {
       return { ok: false, message: "La propuesta ya no admite publicaciones." };
     }
@@ -304,7 +306,7 @@ export async function retryPendingNetwork(
 
     if (!post.clinicalVerifiedAt) {
       const confirmed = await prisma.scheduledPost.updateMany({
-        where: { id: post.id, archivedAt: null, clinicalVerifiedAt: null },
+        where: { id: post.id, clinicId: "pilot", archivedAt: null, clinicalVerifiedAt: null },
         data: { clinicalVerifiedAt: new Date() },
       });
       if (confirmed.count !== 1) {
@@ -326,7 +328,7 @@ export async function retryPendingNetwork(
 
     if (post.status === "PENDING_APPROVAL") {
       await prisma.scheduledPost.update({
-        where: { id: post.id },
+        where: { id: post.id, clinicId: "pilot" },
         data: { status: "PUBLISHED", approvedAt: new Date() },
       });
     }
@@ -368,7 +370,7 @@ export async function checkPublicMediaAccess(postId: string): Promise<{ ok: bool
   }
 
   const post = await prisma.scheduledPost.findUnique({
-    where: { id: postId },
+    where: { id: postId, clinicId: "pilot" },
     select: { mediaUrl: true, mediaType: true, status: true },
   });
 
@@ -447,7 +449,7 @@ export async function recordDeliveryReview(
 
   try {
     const statusField = network === "facebook" ? "facebookStatus" : "instagramStatus";
-    const where = { id: postId, [statusField]: { in: ["UNKNOWN", "IN_PROGRESS"] } };
+    const where = { id: postId, clinicId: "pilot", [statusField]: { in: ["UNKNOWN", "IN_PROGRESS"] } };
     const reviewedAt = new Date();
     const data = network === "facebook"
       ? { facebookReviewOutcome: outcome, facebookReviewEvidence: note, facebookReviewedAt: reviewedAt }
@@ -477,7 +479,7 @@ export async function authorizeManualRetry(
     return { ok: false, message: "Red social no válida." };
   }
 
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   if (!post || !post.mediaUrl || post.status !== "PENDING_APPROVAL") {
     return { ok: false, message: "La propuesta no está pendiente de aprobación." };
   }
@@ -542,7 +544,7 @@ export async function confirmMissingAndRetry(postId: string, network: "facebook"
     return { ok: false, message: "Red social no válida." };
   }
 
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   const status = network === "facebook" ? post?.facebookStatus : post?.instagramStatus;
   const postIdFromMeta = network === "facebook" ? post?.facebookPostId : post?.instagramPostId;
   const retries = network === "facebook" ? post?.facebookRetryCount : post?.instagramRetryCount;
@@ -556,8 +558,8 @@ export async function confirmMissingAndRetry(postId: string, network: "facebook"
   const evidence = "El operador confirmó expresamente que revisó la red y no encontró la publicación antes de reintentar.";
   const changed = await prisma.scheduledPost.updateMany({
     where: network === "facebook"
-      ? { id: postId, status: "PENDING_APPROVAL", facebookStatus: "UNKNOWN", facebookPostId: null, facebookRetryCount: 0 }
-      : { id: postId, status: "PENDING_APPROVAL", instagramStatus: "UNKNOWN", instagramPostId: null, instagramRetryCount: 0 },
+      ? { id: postId, clinicId: "pilot", status: "PENDING_APPROVAL", facebookStatus: "UNKNOWN", facebookPostId: null, facebookRetryCount: 0 }
+      : { id: postId, clinicId: "pilot", status: "PENDING_APPROVAL", instagramStatus: "UNKNOWN", instagramPostId: null, instagramRetryCount: 0 },
     data: network === "facebook"
       ? {
         facebookStatus: "PENDING",
@@ -591,7 +593,7 @@ export async function rejectPost(postId: string) {
 
   try {
     const result = await prisma.scheduledPost.updateMany({
-      where: { id: postId, status: "PENDING_APPROVAL" },
+      where: { id: postId, clinicId: "pilot", status: "PENDING_APPROVAL" },
       data: { status: "REJECTED" },
     });
     return result.count === 1
@@ -623,7 +625,7 @@ export async function publishSelectedNetworks(
     return { ok: false, results: [], message: "Selecciona la privacidad de TikTok antes de publicar." };
   }
 
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   if (!post || post.archivedAt || !post.mediaUrl || !["PENDING_APPROVAL", "PUBLISHED"].includes(post.status)) {
     return { ok: false, results: [], message: "La propuesta no está disponible para publicar." };
   }
@@ -646,11 +648,11 @@ export async function publishSelectedNetworks(
 
     try {
       const approval = await prisma.scheduledPost.updateMany({
-        where: { id: postId, archivedAt: null, clinicalVerifiedAt: null },
+        where: { id: postId, clinicId: "pilot", archivedAt: null, clinicalVerifiedAt: null },
         data: { clinicalVerifiedAt: new Date() },
       });
       if (approval.count === 0) {
-        const current = await prisma.scheduledPost.findUnique({ where: { id: postId }, select: { archivedAt: true } });
+        const current = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" }, select: { archivedAt: true } });
         if (!current || current.archivedAt) throw new Error("La publicación ya no está disponible.");
       }
       await publishToTikTok(postId, tiktok!.privacy, {
