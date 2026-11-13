@@ -171,6 +171,35 @@ test("new proposals belong to the pilot clinic after the foundation migration", 
   assert.equal(saved.clinicId, "pilot");
 });
 
+test("pilot clinic cannot read or update another clinic's post", async () => {
+  const otherPost = await prisma.scheduledPost.create({
+    data: {
+      id: randomUUID(),
+      clinicId: "second-clinic",
+      procedureName: "Prueba de aislamiento",
+      generatedCaption: "Contenido de otra clínica",
+      mediaUrl: "https://example.test/other-clinic.jpg",
+    },
+  });
+
+  const visible = await prisma.scheduledPost.findUnique({
+    where: { id: otherPost.id, clinicId: "pilot" },
+  });
+  assert.equal(visible, null);
+
+  const changed = await prisma.scheduledPost.updateMany({
+    where: { id: otherPost.id, clinicId: "pilot" },
+    data: { status: "REJECTED" },
+  });
+  assert.equal(changed.count, 0);
+
+  const stillOwned = await prisma.scheduledPost.findUniqueOrThrow({
+    where: { id: otherPost.id },
+  });
+  assert.equal(stillOwned.clinicId, "second-clinic");
+  assert.equal(stillOwned.status, "PENDING_APPROVAL");
+});
+
 test("editorial planning stores a timestamp without changing review or publishing statuses", async () => {
   const post = await makePost();
   const date = new Date("2027-01-15T14:00:00.000Z");
