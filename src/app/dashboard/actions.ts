@@ -291,16 +291,17 @@ export async function retryPendingNetwork(
   try {
     const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: access.clinic.id } });
     if (!post || !["PENDING_APPROVAL", "PUBLISHED"].includes(post.status)) {
-      return { ok: false, message: "La propuesta ya no admite publicaciones." };
+      return { ok: false, notSent: true, message: "La propuesta ya no admite publicaciones." };
     }
     if (!post.mediaUrl) {
-      return { ok: false, message: "Las ideas de texto no se pueden enviar como imágenes." };
+      return { ok: false, notSent: true, message: "Las ideas de texto no se pueden enviar como imágenes." };
     }
 
     const networkStatus = network === "facebook" ? post.facebookStatus : post.instagramStatus;
     if (!canSendToNetwork(networkStatus)) {
       return {
         ok: false,
+        notSent: false,
         message: "Esta red ya fue utilizada o tiene un resultado incierto. Verifica el estado en Meta antes de continuar.",
       };
     }
@@ -311,7 +312,7 @@ export async function retryPendingNetwork(
         data: { clinicalVerifiedAt: new Date() },
       });
       if (confirmed.count !== 1) {
-        return { ok: false, message: "No se pudo registrar la aprobación. Actualiza el panel." };
+        return { ok: false, notSent: true, message: "No se pudo registrar la aprobación. Actualiza el panel." };
       }
     }
 
