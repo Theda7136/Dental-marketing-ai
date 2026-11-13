@@ -266,8 +266,7 @@ export function ApprovalQueue({
 
   useEffect(() => {
     if (!focusedPostId) return;
-    const visible = mode === "history" ? historyVisible : pendingVisible;
-    if (!visible.some((post) => post.id === focusedPostId)) return;
+    if (![...pendingVisible, ...historyVisible].some((post) => post.id === focusedPostId)) return;
 
     const frame = requestAnimationFrame(() => {
       document.getElementById(`proposal-${focusedPostId}`)?.scrollIntoView({
