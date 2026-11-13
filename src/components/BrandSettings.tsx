@@ -66,7 +66,6 @@ export default function BrandSettings() {
   useEffect(() => {
     if (!samplePhoto || loading) {
       setComposedPreview(null);
-      setPreviewError(null);
       return;
     }
     const controller = new AbortController();
