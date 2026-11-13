@@ -613,6 +613,7 @@ export async function POST(request: Request) {
 
     const post = await prisma.scheduledPost.create({
       data: {
+        clinicId: "pilot",
         id,
         procedureName,
         mediaType: finalMediaType,
