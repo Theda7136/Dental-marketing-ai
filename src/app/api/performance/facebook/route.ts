@@ -81,7 +81,7 @@ async function findPagePosts(
 ): Promise<{ photoToPost: Map<string, string>; failure?: Failure; detail?: string }> {
   const photoToPost = new Map<string, string>();
   const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/posts`);
-  url.searchParams.set("fields", "id,object_id");
+  url.searchParams.set("fields", "id,attachments{target{id}}");
   url.searchParams.set("limit", "100");
 
   try {
@@ -95,7 +95,7 @@ async function findPagePosts(
       return { photoToPost, failure: "unavailable", detail: "invalid_response" };
     }
     const payload = rawPayload as {
-      data?: { id?: string; object_id?: string }[];
+      data?: { id?: string; attachments?: { data?: { target?: { id?: string } }[] } }[];
       error?: { code?: number; error_subcode?: number };
     };
     if (!response.ok || payload.error) {
@@ -109,8 +109,12 @@ async function findPagePosts(
       return { photoToPost, failure: "incomplete", detail: "posts_missing" };
     }
     for (const post of payload.data) {
-      if (/^\d+_\d+$/.test(post.id ?? "") && /^\d+$/.test(post.object_id ?? "")) {
-        photoToPost.set(post.object_id!, post.id!);
+      if (!/^\d+_\d+$/.test(post.id ?? "")) continue;
+      for (const attachment of post.attachments?.data ?? []) {
+        const photoId = attachment.target?.id;
+        if (photoId && /^\d+$/.test(photoId)) {
+          photoToPost.set(photoId, post.id!);
+        }
       }
     }
     return { photoToPost };
