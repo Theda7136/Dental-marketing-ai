@@ -1227,3 +1227,9 @@ body { background: var(--canvas); color: var(--ink); }
     width: min(100%, 280px, 44vh);
   }
 }
+
+.studio-brand-sample-picker { display: grid; gap: 7px; margin-bottom: 12px; color: #38574d; font-size: .83rem; font-weight: 600; }
+.studio-brand-sample-picker input { display: block; width: 100%; font-size: .78rem; }
+.studio-brand-composition { display: block; width: min(100%, 330px); height: auto; margin: 0 auto; border-radius: 9px; border: 1px solid #dce7df; }
+.studio-brand-preview-loading { padding: 28px 8px; color: #65786f; text-align: center; font-size: .85rem; }
+.studio-brand-preview-note { display: block; margin-top: 12px; color: #687d71; font-size: .75rem; line-height: 1.5; }
