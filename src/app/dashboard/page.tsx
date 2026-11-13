@@ -786,6 +786,8 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
         {(view === "pending" || view === "history") && <ApprovalQueue
           posts={posts}
+          role={currentRole}
+          onConfirmReview={approveClinicalReview}
           onPublishSelected={publishNetworks}
           onReload={reloadPosts}
           onDelete={deletePost}
