@@ -45,6 +45,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
   const deliveryFormat = savedPost.deliveryFormat || "FEED";
+  const isVideo = post.mediaKind === "video";
   if (deliveryFormat === "STORY" && onlyNetwork !== "instagram") {
     throw new Error("Por ahora, las historias se publican únicamente en Instagram. Selecciona Instagram para esta propuesta.");
   }
@@ -75,7 +76,6 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
-  const isVideo = post.mediaKind === "video";
   const captions = platformCaptions(savedPost.generatedCaption);
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
