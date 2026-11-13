@@ -8,6 +8,7 @@ import {
 import { clinicalGuardrails } from "../../config/clinicalGuardrails";
 import BrandSettings from "../../components/BrandSettings";
 import { AccountConnector } from "../../components/AccountConnector";
+import { EditorialCalendar } from "../../components/EditorialCalendar";
 import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, publishSelectedNetworks, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
@@ -27,7 +28,7 @@ function mediaFormat(file: File): "photo" | "video" | null {
   return null;
 }
 
-type StudioView = "create" | "pending" | "history" | "connections";
+type StudioView = "create" | "pending" | "history" | "calendar" | "connections";
 
 export default function DashboardPage({ view = "create" }: { view?: StudioView }) {
   // Limpieza segura de parámetros de URL una sola vez al cargar la página
@@ -408,6 +409,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
              { id: "create", href: "/dashboard/crear", label: "Crear contenido" },
              { id: "pending", href: "/dashboard/pendientes", label: "Pendientes" },
              { id: "history", href: "/dashboard/historial", label: "Historial" },
+             { id: "calendar", href: "/dashboard/calendario", label: "Calendario" },
              { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
            ] as const).map((destination) => (
              <a key={destination.id}
@@ -436,19 +438,22 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         <header className="studio-topbar">
           <div>
             <p className="eyebrow">{view === "create" ? "ESTUDIO CREATIVO" : view === "pending" ? "FLUJO DE REVISIÓN" : "DENTAL STUDIO"}</p>
-            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : "Conexiones"}</h1>
+            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : view === "calendar" ? "Calendario editorial" : "Conexiones"}</h1>
             <p>{view === "create"
               ? "Prepara fotografías, videos e ideas listas para revisar."
               : view === "pending"
                 ? "Revisa el material antes de publicarlo."
                 : view === "history"
                   ? "Consulta las publicaciones y sus estados por red."
-                  : "Administra las cuentas sociales de la clínica."}</p>
+                  : view === "calendar"
+                    ? "Organiza el contenido de la clínica con fechas y horarios."
+                    : "Administra las cuentas sociales de la clínica."}</p>
           </div>
           <div className="studio-topbar-actions">{view === "create" ? <a href="/dashboard/pendientes" className="studio-topbar-link">Ver pendientes <span aria-hidden="true">↗</span></a> : <a href="/dashboard/crear" className="studio-topbar-link"><span aria-hidden="true">＋</span> Nueva propuesta</a>}</div>
         </header>
         <div className="studio-content">
-          {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
+          {view === "calendar" && <EditorialCalendar posts={posts} onReload={reloadPosts} />}
+           {view === "connections" && <section id="connected-accounts" aria-label="Canales conectados">
             <AccountConnector />
             <BrandSettings />
           </section>}
