@@ -49,7 +49,7 @@ async function checkPublicMedia(url: string, kind: "image" | "video"): Promise<v
   await response.body?.cancel();
 
   const validType = kind === "image"
-    ? contentType === "image/jpeg"
+    ? contentType === "image/jpeg" || contentType === "image/png"
     : contentType === "video/mp4";
   if (response.status !== 200 || !validType) {
     throw new Error(`El archivo público no está disponible para Meta (HTTP ${response.status}, ${contentType || "sin tipo de archivo"}). Revisa el túnel HTTPS y vuelve a intentarlo.`);
@@ -107,7 +107,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     if (shouldSendInstagram && !isVideo) await checkPublicMedia(instagramMediaUrl, "image");
     if (isVideo) await checkPublicMedia(mediaUrl, "video");
     if (shouldSendFacebook && !isVideo && !shouldSendInstagram) {
-      await checkPublicMedia(instagramMediaUrl, "image");
+      await checkPublicMedia(deliveryFormat === "STORY" ? instagramMediaUrl : mediaUrl, "image");
     }
   }
 
