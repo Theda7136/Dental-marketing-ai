@@ -23,14 +23,6 @@ function bogotaDate(date: Date): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-function bogotaDateTime(date: Date): string {
-  const datePart = bogotaDate(date);
-  const time = new Intl.DateTimeFormat("en-GB", {
-    timeZone: BOGOTA_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).format(date);
-  return `${datePart}T${time}`;
-}
-
 function monthCells(year: number, month: number): (string | null)[] {
   const first = new Date(Date.UTC(year, month, 1));
   const offset = (first.getUTCDay() + 6) % 7;
@@ -81,7 +73,8 @@ export function EditorialCalendar({ posts, onReload }: {
   const activeDays = cells.filter((day): day is string => Boolean(day));
   const plannedDays = activeDays.filter((day) => grouped.has(day)).length;
   const emptyDays = activeDays.length - plannedDays;
-  const ideas = IDEAS.slice((year + month) % IDEAS.length).concat(IDEAS.slice(0, (year + month) % IDEAS.length)).slice(0, 3);
+  const ideaOffset = (year + month) % IDEAS.length;
+  const ideas = [...IDEAS.slice(ideaOffset), ...IDEAS.slice(0, ideaOffset)].slice(0, 3);
 
   function changeMonth(offset: number) {
     const date = new Date(Date.UTC(year, month + offset, 1));
