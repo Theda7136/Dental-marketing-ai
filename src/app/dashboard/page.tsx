@@ -637,9 +637,9 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               <div>
                 <span className="studio-section-kicker">02 / COMPOSICIÓN</span>
                  <h2>Vista previa</h2>
-                <p>{format === "photo" ? "Imagen para el feed" : format === "video" ? (deliveryFormat === "STORY" ? "Historia vertical" : "Reel vertical") : "Idea de contenido"}</p>
+                <p>{format === "photo" ? (deliveryFormat === "FEED" ? "Imagen para el feed" : deliveryFormat === "REEL" ? "Imagen para Reel" : "Historia vertical") : format === "video" ? (deliveryFormat === "STORY" ? "Historia vertical" : "Reel vertical") : "Idea de contenido"}</p>
               </div>
-              <span className="studio-preview-format">{format === "photo" ? "4:5" : format === "video" ? "9:16" : "TEXTO"}</span>
+              <span className="studio-preview-format">{format === "photo" ? (deliveryFormat === "FEED" ? "4:5" : "9:16") : format === "video" ? "9:16" : "TEXTO"}</span>
             </div>
             {format === "photo" && selectedPhoto && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
@@ -703,7 +703,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? "Vista de composición · formato 4:5 sin recortar información clínica." : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "La fotografía se adaptará al formato vertical 9:16 sin recortar información clínica.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
