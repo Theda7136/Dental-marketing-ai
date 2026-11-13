@@ -63,7 +63,7 @@ interface ApprovalQueueProps {
     disableComment: boolean;
     disableDuet: boolean;
     disableStitch: boolean;
-  }) => Promise<{ ok: boolean; message: string; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] }>;
+  }) => Promise<{ ok: boolean; message: string; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain" | "not_sent"; message: string }[] }>;
   onReload: () => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onEdit: (post: ApprovalQueuePost, caption: string) => Promise<void>;
