@@ -32,8 +32,15 @@ export async function POST(request: Request) {
       offsetY: form.get("photoOffsetY"),
     });
     const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
-    const preview = await overlayOnClinicTemplate({ cleanImage: new Uint8Array(await file.arrayBuffer()), procedureName: String(form.get("procedureName") || ""), options, brand });
-    const rendered = deliveryFormat === "STORY" ? await renderStoryPhoto(preview) : preview;
+    const composition = {
+      cleanImage: new Uint8Array(await file.arrayBuffer()),
+      procedureName: String(form.get("procedureName") || ""),
+      options,
+      brand,
+    };
+    const rendered = deliveryFormat === "STORY"
+      ? await renderStoryPhoto(composition)
+      : await overlayOnClinicTemplate(composition);
     return new NextResponse(new Uint8Array(rendered), {
       status: 200,
       headers: {
