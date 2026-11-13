@@ -211,7 +211,7 @@ export function MultinetworkPublisher({
               </> : <p className="text-xs text-[#687e73]">Consultando opciones de privacidad…</p>}
             </div>
           )}
-          <button type="button" onClick={() => void publish()
+          <button type="button" onClick={() => void publish()}
             disabled={busy || !selected.length || !accounts || (selected.includes("tiktok") && !privacy)}
             className="mt-3 min-h-11 rounded-lg bg-[#126f60] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d] disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? "Publicando en las redes seleccionadas…" : "Publicar en redes seleccionadas"}
