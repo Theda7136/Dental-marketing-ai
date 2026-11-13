@@ -200,21 +200,28 @@ export async function overlayOnClinicTemplate(input: {
     ? brand.primaryColor : "#116D60";
   const family = brand.fontFamily === "SERIF" ? "Georgia, serif"
     : brand.fontFamily === "MODERN" ? "Arial, sans-serif" : "sans-serif";
-  const clinicName = xmlText(brand.clinicName.slice(0, 70));
+  const clinicName = xmlText(brand.clinicName.trim().slice(0, 70));
+  const hasLogo = Boolean(brand.logoDataUrl?.startsWith("data:image/"));
+  const textLeft = hasLogo ? 120 : 40;
+  const availableWidth = WIDTH - textLeft - 36;
+  const fontSize = Math.max(20, Math.min(34,
+    Math.floor(availableWidth / Math.max(1, brand.clinicName.trim().length * 0.58)),
+  ));
+
   const footer = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${footerHeight}">
     <rect width="100%" height="100%" fill="#ffffff"/>
-    <rect width="6" height="100%" fill="${accent}"/>
-    <text x="48" y="62" font-family="${family}" font-size="34" font-weight="600" fill="#203c38">${clinicName}</text>
+    <rect width="100%" height="4" fill="${accent}"/>
+    <text x="${textLeft}" y="65" font-family="${family}" font-size="${fontSize}" font-weight="600" fill="#203c38">${clinicName}</text>
   </svg>`);
 
   const layers: sharp.OverlayOptions[] = [{ input: footer, top: canvasHeight - footerHeight, left: 0 }];
-  if (brand.logoDataUrl?.startsWith("data:image/")) {
-    const encoded = brand.logoDataUrl.split(",")[1];
+  if (hasLogo) {
+    const encoded = brand.logoDataUrl!.split(",")[1];
     if (encoded) {
       const bytes = Buffer.from(encoded, "base64");
       const logo = await sharp(bytes, { failOn: "error", limitInputPixels: 8_000_000 })
-        .resize(76, 76, { fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, left: WIDTH - 115, top: canvasHeight - footerHeight + 12 });
+        .resize(64, 64, { fit: "inside" }).png().toBuffer();
+      layers.push({ input: logo, left: 36, top: canvasHeight - footerHeight + 22 });
     }
   }
 
