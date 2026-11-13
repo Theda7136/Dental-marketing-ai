@@ -19,6 +19,7 @@ const initialBrand: Brand = {
 export default function BrandSettings() {
   const [brand, setBrand] = useState<Brand>(initialBrand);
   const [logo, setLogo] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,6 +44,16 @@ export default function BrandSettings() {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!logo) {
+      setLogoPreview(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(logo);
+    setLogoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [logo]);
 
   async function saveBrand(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +84,7 @@ export default function BrandSettings() {
     }
   }
 
+  const visibleLogo = removeLogo ? null : logoPreview ?? brand.logoDataUrl;
   const font = brand.fontFamily === "SERIF"
     ? "Georgia, serif"
     : brand.fontFamily === "MODERN"
@@ -112,11 +124,18 @@ export default function BrandSettings() {
             <input type="file" accept="image/png,image/jpeg,image/webp" disabled={loading || saving}
               onChange={(event) => {
                 const chosen = event.target.files?.[0] ?? null;
+                if (chosen && (chosen.size > 2_000_000 ||
+                  !["image/png", "image/jpeg", "image/webp"].includes(chosen.type))) {
+                  setError("El logotipo debe ser PNG, JPG o WebP de máximo 2 MB.");
+                  event.target.value = "";
+                  return;
+                }
+                setError(null);
                 setLogo(chosen);
                 if (chosen) setRemoveLogo(false);
               }}/>
           </label>
-          {brand.logoDataUrl && <label className="studio-brand-remove">
+          {(brand.logoDataUrl || logo) && <label className="studio-brand-remove">
             <input type="checkbox" checked={removeLogo} onChange={(event) => setRemoveLogo(event.target.checked)}
               disabled={loading || saving}/>
             Quitar logotipo actual
@@ -126,16 +145,16 @@ export default function BrandSettings() {
           </button>
         </form>
         <div className="studio-brand-example">
-          <p>Vista de identidad</p>
+          <p>Vista de identidad · {logo || removeLogo ? "Cambios sin guardar" : "Actual"}</p>
           <div className="studio-brand-artwork" style={{ borderTopColor: brand.primaryColor, fontFamily: font }}>
-            {brand.logoDataUrl && !removeLogo
-              ? <img src={brand.logoDataUrl} alt="Logotipo de la clínica" />
+            {visibleLogo
+              ? <img src={visibleLogo} alt="Logotipo de la clínica" />
               : <span className="studio-brand-initial" style={{ backgroundColor: brand.primaryColor }}>
                   {brand.clinicName.slice(0, 1).toUpperCase()}
                 </span>}
             <h3>{brand.clinicName || "Nombre de la clínica"}</h3>
             <span style={{ color: brand.primaryColor }}>Cuidamos cada sonrisa</span>
-            <small>Ejemplo de identidad. No contiene afirmaciones clínicas.</small>
+            <small>Vista orientativa. Guarda los cambios para aplicarlos a nuevas piezas.</small>
           </div>
         </div>
       </div>
