@@ -20,6 +20,7 @@ export default function BrandSettings() {
   const [brand, setBrand] = useState<Brand>(initialBrand);
   const [logo, setLogo] = useState<File | null>(null);
   const [samplePhoto, setSamplePhoto] = useState<File | null>(null);
+  const [previewFormat, setPreviewFormat] = useState<"FEED" | "STORY">("FEED");
   const [composedPreview, setComposedPreview] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -65,11 +66,12 @@ export default function BrandSettings() {
       return;
     }
     const controller = new AbortController();
+    setComposedPreview(null);
     let imageUrl: string | null = null;
     const timeout = setTimeout(async () => {
       const form = new FormData();
       form.set("photo", samplePhoto);
-      form.set("deliveryFormat", "FEED");
+      form.set("deliveryFormat", previewFormat);
       form.set("brandPreview", "true");
       form.set("clinicName", brand.clinicName);
       form.set("primaryColor", brand.primaryColor);
@@ -101,7 +103,7 @@ export default function BrandSettings() {
       controller.abort();
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     };
-  }, [samplePhoto, loading, brand.clinicName, brand.primaryColor, brand.fontFamily, logo, removeLogo, brand.logoDataUrl]);
+  }, [samplePhoto, loading, previewFormat, brand.clinicName, brand.primaryColor, brand.fontFamily, logo, removeLogo, brand.logoDataUrl]);
 
   async function saveBrand(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -209,10 +211,17 @@ export default function BrandSettings() {
                 setSamplePhoto(chosen);
               }}/>
           </label>
+          {samplePhoto && <label className="studio-brand-sample-picker">
+            Formato de ejemplo
+            <select value={previewFormat} onChange={(event) => setPreviewFormat(event.target.value as "FEED" | "STORY")} disabled={loading || saving}>
+              <option value="FEED">Publicación · 4:5</option>
+              <option value="STORY">Historia · 9:16</option>
+            </select>
+          </label>}
           {previewError && <p role="alert" className="studio-brand-error">{previewError}</p>}
           {samplePhoto ? (
             composedPreview
-              ? <img className="studio-brand-composition" src={composedPreview} alt="Vista previa de la publicación con la marca configurada" />
+              ? <img className={`studio-brand-composition ${previewFormat === "STORY" ? "is-story" : ""}`} src={composedPreview} alt={`Vista previa de ${previewFormat === "STORY" ? "la historia" : "la publicación"} con la marca configurada`} />
               : !previewError && <p className="studio-brand-preview-loading">Preparando publicación de ejemplo…</p>
           ) : (
             <div className="studio-brand-artwork" style={{ borderTopColor: brand.primaryColor, fontFamily: font }}>
