@@ -20,6 +20,7 @@ before(async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE "ScheduledPost" (
       "id" TEXT NOT NULL PRIMARY KEY,
+      "clinicId" TEXT NOT NULL DEFAULT 'pilot',
       "procedureName" TEXT NOT NULL,
       "mediaType" TEXT NOT NULL DEFAULT 'IMAGE',
       "deliveryFormat" TEXT NOT NULL DEFAULT 'FEED',
@@ -161,6 +162,13 @@ test("an uncertain publication cannot be reclaimed after saving review evidence"
   const saved = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   assert.equal(saved.facebookStatus, "UNKNOWN");
   assert.equal(saved.facebookReviewOutcome, "NOT_FOUND");
+});
+
+test("new proposals belong to the pilot clinic after the foundation migration", async () => {
+  const post = await makePost();
+  assert.equal(post.clinicId, "pilot");
+  const saved = await prisma.scheduledPost.findUniqueOrThrow({ where: { id: post.id } });
+  assert.equal(saved.clinicId, "pilot");
 });
 
 test("editorial planning stores a timestamp without changing review or publishing statuses", async () => {

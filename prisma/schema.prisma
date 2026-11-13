@@ -23,8 +23,17 @@ enum MediaType {
   VIDEO
 }
 
+model Clinic {
+  id        String   @id
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Account {
   id                String   @id @default(cuid())
+  clinicId          String   @default("pilot")
   provider          String
   providerAccountId String
   name              String?  // Nombre del usuario de Meta
@@ -39,9 +48,11 @@ model Account {
   updatedAt         DateTime @updatedAt
 
   @@unique([provider, providerAccountId])
+  @@index([clinicId])
 }
 model ScheduledPost {
   id               String     @id @default(cuid())
+  clinicId         String     @default("pilot")
   procedureName    String
   mediaType        MediaType  @default(IMAGE)
   deliveryFormat   String     @default("FEED")
@@ -80,9 +91,11 @@ model ScheduledPost {
 
   @@index([status, createdAt])
   @@index([scheduledFor])
+  @@index([clinicId, status, createdAt])
 }
 model BrandProfile {
   id String @id @default("default")
+  clinicId String @default("pilot")
   clinicName String @default("Dental Studio")
   primaryColor String @default("#116D60")
   fontFamily String @default("SANS")
