@@ -114,3 +114,30 @@ test("clinic branding reserves a footer without cropping the photo", async () =>
   assert.ok(photoPixel[0] < 220, "the photo fills its reserved composition area");
   assert.ok(footerPixel[0] > 240 && footerPixel[1] > 240, "the footer has its own unclipped space");
 });
+
+
+test("clinic logo and long brand name remain within the reserved footer", async () => {
+  const logo = await sharp({
+    create: { width: 80, height: 80, channels: 4, background: "#ff0000" },
+  }).png().toBuffer();
+  const branded = await overlayOnClinicTemplate({
+    cleanImage: await fixture(760, 1000),
+    procedureName: "Ortodoncia",
+    brand: {
+      clinicName: "Centro Integral de Odontología Estética y Rehabilitación Oral",
+      primaryColor: "#116D60",
+      fontFamily: "SANS",
+      logoDataUrl: `data:image/png;base64,${logo.toString("base64")}`,
+    },
+  });
+
+  const metadata = await sharp(branded).metadata();
+  const logoPixel = await sharp(branded)
+    .extract({ left: 68, top: 1290, width: 1, height: 1 }).raw().toBuffer();
+  const imagePixel = await sharp(branded)
+    .extract({ left: 540, top: 20, width: 1, height: 1 }).raw().toBuffer();
+
+  assert.deepEqual([metadata.width, metadata.height], [1080, 1350]);
+  assert.ok(logoPixel[0] > 200 && logoPixel[1] < 50, "clinic logo appears in the footer");
+  assert.ok(imagePixel[0] < 220, "clinical photo remains in its own area");
+});
