@@ -30,6 +30,7 @@ export async function GET(request: Request) {
         approvedAt: Date | null;
         clinicalVerifiedAt: Date | null;
         mediaType: string;
+        deliveryFormat: string;
         facebookStatus: string;
         instagramStatus: string;
         facebookPostId: string | null;
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
         id: post.id,
         procedureName: post.procedureName,
         mediaUrl: post.mediaUrl,
+        deliveryFormat: post.deliveryFormat,
         generatedCaption: post.generatedCaption,
         educationalCaption: post.educationalCaption,
         commercialCaption: post.commercialCaption,
