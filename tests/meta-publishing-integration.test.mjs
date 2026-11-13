@@ -31,6 +31,7 @@ function harness({
 } = {}) {
   const saved = {
     id: draft.id,
+    clinicId: "pilot",
     facebookStatus,
     instagramStatus,
     deliveryFormat,
@@ -46,7 +47,7 @@ function harness({
   const prisma = {
     account: { findFirst: async () => account },
     scheduledPost: {
-      findUnique: async ({ where }) => where.id === saved.id ? { ...saved } : null,
+      findUnique: async ({ where }) => Object.entries(where).every(([field, expected]) => saved[field] === expected) ? { ...saved } : null,
       updateMany: async ({ where, data }) => {
         if (where.id !== saved.id) return { count: 0 };
         for (const [field, expected] of Object.entries(where)) {
@@ -57,6 +58,7 @@ function harness({
       },
       update: async ({ where, data }) => {
         assert.equal(where.id, saved.id);
+        assert.equal(where.clinicId, saved.clinicId);
         Object.assign(saved, data);
         return { ...saved };
       },
