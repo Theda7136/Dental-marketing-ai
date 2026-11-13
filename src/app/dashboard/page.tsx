@@ -506,13 +506,15 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 onDrop={(event) => {
                   if (isPending) return;
                   event.preventDefault();
-                  const file = event.dataTransfer.files[0] ?? null;
+                  const file = event.dataTransfer.files[0];
+                  if (!file) return;
                   selectMedia(file);
-                  if (fileInputRef.current) {
-                    const transfer = new DataTransfer();
-                    if (file) transfer.items.add(file);
-                    fileInputRef.current.files = transfer.files;
-                  }
+                  if (!fileInputRef.current) return;
+                  const mediaKind = mediaFormat(file);
+                  const maxBytes = mediaKind === "photo" ? 20 * 1024 * 1024 : 80 * 1024 * 1024;
+                  const transfer = new DataTransfer();
+                  if (mediaKind && file.size <= maxBytes) transfer.items.add(file);
+                  fileInputRef.current.files = transfer.files;
                 }}>
                 <span className="studio-field-label">Fotografía o video</span>
                 <input
