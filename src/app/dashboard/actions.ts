@@ -129,6 +129,7 @@ export async function createTextProposal(formData: FormData) {
         clinicalVerifiedAt: post.clinicalVerifiedAt?.toISOString() ?? null,
         facebookReviewedAt: post.facebookReviewedAt?.toISOString() ?? null,
         instagramReviewedAt: post.instagramReviewedAt?.toISOString() ?? null,
+        deliveryFormat: "FEED" as const,
         mediaKind: "text" as const,
       },
     };
