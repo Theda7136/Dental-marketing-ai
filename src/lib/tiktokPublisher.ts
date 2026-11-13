@@ -16,7 +16,7 @@ function publicMediaBase() {
 }
 
 export async function publishToTikTok(postId: string, privacy: string, requested: { disableComment: boolean; disableDuet: boolean; disableStitch: boolean }) {
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   if (!post || post.archivedAt || !post.mediaUrl) throw new Error("Propuesta no disponible para TikTok.");
   if (post.tiktokStatus !== "PENDING") {
     throw new Error("TikTok ya recibió un intento para esta propuesta. Comprueba su estado antes de reenviarla.");
@@ -35,7 +35,7 @@ export async function publishToTikTok(postId: string, privacy: string, requested
   const isVideo = post.mediaType === "VIDEO";
 
   const claim = await prisma.scheduledPost.updateMany({
-    where: { id: postId, tiktokStatus: "PENDING", archivedAt: null },
+    where: { id: postId, clinicId: "pilot", tiktokStatus: "PENDING", archivedAt: null },
     data: { tiktokStatus: "IN_PROGRESS", tiktokPrivacy: privacy, tiktokError: null },
   });
   if (claim.count !== 1) throw new Error("Otro envío de TikTok ya está en curso.");
@@ -70,7 +70,7 @@ export async function publishToTikTok(postId: string, privacy: string, requested
     const initiated = await tikTokRequest<{ publish_id: string }>(endpoint, token, body);
     if (!initiated.publish_id) throw new Error("TikTok no devolvió un identificador para el envío.");
     await prisma.scheduledPost.update({
-      where: { id: postId },
+      where: { id: postId, clinicId: "pilot" },
       data: {
         tiktokStatus: "PROCESSING",
         tiktokPublishId: initiated.publish_id,
@@ -80,7 +80,7 @@ export async function publishToTikTok(postId: string, privacy: string, requested
     return { status: "PROCESSING", publishId: initiated.publish_id };
   } catch (error) {
     await prisma.scheduledPost.update({
-      where: { id: postId },
+      where: { id: postId, clinicId: "pilot" },
       data: { tiktokStatus: "UNKNOWN", tiktokError: error instanceof Error ? error.message.slice(0, 400) : "Resultado no confirmado." },
     });
     throw error;
@@ -88,7 +88,7 @@ export async function publishToTikTok(postId: string, privacy: string, requested
 }
 
 export async function refreshTikTokPostStatus(postId: string) {
-  const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
+  const post = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: "pilot" } });
   if (!post?.tiktokPublishId || !["PROCESSING", "IN_PROGRESS"].includes(post.tiktokStatus)) {
     throw new Error("No existe una publicación de TikTok pendiente de comprobación.");
   }
@@ -99,7 +99,7 @@ export async function refreshTikTokPostStatus(postId: string) {
   const completed = status.status === "PUBLISH_COMPLETE";
   const failed = status.status === "FAILED";
   await prisma.scheduledPost.update({
-    where: { id: postId },
+    where: { id: postId, clinicId: "pilot" },
     data: {
       tiktokStatus: completed ? "SUCCEEDED" : failed ? "FAILED" : "PROCESSING",
       ...(completed && post.status === "PENDING_APPROVAL" ? { status: "PUBLISHED" } : {}),
