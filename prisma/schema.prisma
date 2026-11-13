@@ -54,6 +54,7 @@ model ScheduledPost {
   status           PostStatus @default(PENDING_APPROVAL)
   createdAt        DateTime   @default(now())
   approvedAt       DateTime?
+  scheduledFor     DateTime?
   archivedAt       DateTime?
   clinicalVerifiedAt DateTime?
   facebookStatus   String     @default("PENDING")
@@ -78,6 +79,7 @@ model ScheduledPost {
   instagramLastRetryAt DateTime?
 
   @@index([status, createdAt])
+  @@index([scheduledFor])
 }
 model BrandProfile {
   id String @id @default("default")
