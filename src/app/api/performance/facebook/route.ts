@@ -18,7 +18,7 @@ type MetaResponse = {
   reactions?: { summary?: { total_count?: number } };
   likes?: { summary?: { total_count?: number } };
   comments?: { summary?: { total_count?: number } };
-  error?: { code?: number };
+  error?: { code?: number; error_subcode?: number };
 };
 
 type Failure = "token" | "permissions" | "identifier" | "incomplete" | "unavailable";
@@ -42,7 +42,7 @@ function metricState(total: number | null, failure?: Failure): MetricState {
 function classifyFailure(code?: number): Failure {
   if (code === 190) return "token";
   if (code === 10 || code === 200 || code === 283) return "permissions";
-  if (code === 100) return "incomplete";
+  if (code === 100) return "identifier";
   return "unavailable";
 }
 
@@ -50,7 +50,7 @@ async function fetchMeta(
   objectId: string,
   fields: string,
   token: string,
-): Promise<{ value: MetaResponse | null; failure?: Failure }> {
+): Promise<{ value: MetaResponse | null; failure?: Failure; detail?: string }> {
   const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(objectId)}`);
   url.searchParams.set("fields", fields);
   try {
@@ -61,13 +61,17 @@ async function fetchMeta(
     });
     const payload = await response.json() as MetaResponse;
     if (!response.ok || payload.error) {
-      return { value: null, failure: classifyFailure(payload.error?.code) };
+      const code = payload.error?.code;
+      const subcode = payload.error?.error_subcode;
+      const detail = `meta_error_${typeof code === "number" ? code : response.status}`
+        + (typeof subcode === "number" ? `_sub_${subcode}` : "");
+      return { value: null, failure: classifyFailure(code), detail };
     }
     return String(payload.id) === objectId
       ? { value: payload }
-      : { value: null, failure: "identifier" };
+      : { value: null, failure: "identifier", detail: "object_id_mismatch" };
   } catch {
-    return { value: null, failure: "unavailable" };
+    return { value: null, failure: "unavailable", detail: "object_request_failed" };
   }
 }
 
@@ -159,8 +163,8 @@ export async function GET() {
         photo: index + 1,
         reactions: state,
         comments: state,
-        reactionsDetail: `photo_lookup_${reason}`,
-        commentsDetail: `photo_lookup_${reason}`,
+        reactionsDetail: `photo_lookup_${photo.detail ?? reason}`,
+        commentsDetail: `photo_lookup_${photo.detail ?? reason}`,
       });
       continue;
     }
