@@ -22,6 +22,16 @@ type MetaResponse = {
 };
 
 type Failure = "token" | "permissions" | "identifier" | "incomplete" | "unavailable";
+type MetricState = "zero" | "available" | "omitted" | "rejected" | "unavailable";
+type Diagnostic = { photo: number; reactions: MetricState; comments: MetricState };
+
+function metricState(total: number | null, failure?: Failure): MetricState {
+  if (total === 0) return "zero";
+  if (total !== null) return "available";
+  if (failure === "incomplete") return "omitted";
+  if (failure === "permissions" || failure === "token" || failure === "identifier") return "rejected";
+  return "unavailable";
+}
 
 function classifyFailure(code?: number): Failure {
   if (code === 190) return "token";
@@ -97,12 +107,14 @@ export async function GET() {
   });
 
   const metrics: FacebookMetrics[] = [];
+  const diagnostics: Diagnostic[] = [];
   const failures: Record<string, number> = {};
 
-  for (const post of posts) {
+  for (const [index, post] of posts.entries()) {
     const photoId = post.facebookPostId;
     if (!photoId || !/^\d+(?:_\d+)?$/.test(photoId)) {
       failures.identifier = (failures.identifier ?? 0) + 1;
+      diagnostics.push({ photo: index + 1, reactions: "rejected", comments: "rejected" });
       continue;
     }
 
@@ -110,6 +122,8 @@ export async function GET() {
     if (!photo.value) {
       const reason = photo.failure ?? "unavailable";
       failures[reason] = (failures[reason] ?? 0) + 1;
+      const state = metricState(null, reason);
+      diagnostics.push({ photo: index + 1, reactions: state, comments: state });
       continue;
     }
 
@@ -134,6 +148,11 @@ export async function GET() {
       ? storyComments
       : await getCount(photoId, "comments", account.accessToken);
 
+    diagnostics.push({
+      photo: index + 1,
+      reactions: metricState(reactions.total, reactions.failure),
+      comments: metricState(comments.total, comments.failure),
+    });
     if (reactions.total !== null || comments.total !== null) {
       metrics.push({ id: post.id, reactions: reactions.total, comments: comments.total, source });
     }
@@ -152,6 +171,7 @@ export async function GET() {
       entry.reactions !== null && entry.comments !== null,
     ).length,
     failures,
+    diagnostics,
     scope: "Últimas 10 fotografías confirmadas del Feed de Facebook",
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
