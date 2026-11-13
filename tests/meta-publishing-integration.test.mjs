@@ -232,6 +232,10 @@ test("Meta receives a different caption for each supported network", async () =>
   assert.notEqual(igCaption, fbCaption);
   assert.match(igCaption, /mensaje directo/);
   assert.match(fbCaption, /Escríbenos/);
+  const instagramMedia = new URLSearchParams(ig.body).get("image_url") || "";
+  const facebookMedia = new URLSearchParams(fb.body).get("url") || "";
+  assert.match(instagramMedia, /[?&]format=jpeg(?:&|$)/);
+  assert.doesNotMatch(facebookMedia, /[?&]format=jpeg(?:&|$)/);
 });
 
 test("archived proposals are rejected before contacting Meta", async () => {
@@ -249,7 +253,7 @@ test("Instagram image Story uses STORIES instead of a feed container", async () 
   const params = new URLSearchParams(container.body);
   assert.equal(params.get("media_type"), "STORIES");
   assert.equal(params.has("video_url"), false);
-  assert.ok(params.has("image_url"));
+  assert.match(params.get("image_url") || "", /[?&]format=jpeg(?:&|$)/);
   assert.equal(saved.instagramStatus, "SUCCEEDED");
   assert.equal(saved.facebookStatus, "PENDING");
 });
