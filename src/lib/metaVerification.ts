@@ -17,7 +17,7 @@ export async function inspectMetaObject(
   }
 
   const post = await prisma.scheduledPost.findUnique({
-    where: { id: postId },
+    where: { id: postId, clinicId: "pilot" },
     select: {
       facebookPostId: true,
       instagramPostId: true,
@@ -35,7 +35,7 @@ export async function inspectMetaObject(
   }
 
   const account = await prisma.account.findFirst({
-    where: { provider: "facebook" },
+    where: { provider: "facebook", clinicId: "pilot" },
     select: { accessToken: true },
   });
   if (!account?.accessToken) {

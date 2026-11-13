@@ -44,15 +44,25 @@ export async function GET(request: NextRequest) {
       return redirect("exchange_failed");
     }
     const scopes = tokens.scope || "";
+    const existingAccount = await prisma.account.findUnique({
+      where: { provider_providerAccountId: { provider: "tiktok", providerAccountId: tokens.open_id } },
+      select: { clinicId: true },
+    });
+    if (existingAccount && existingAccount.clinicId !== "pilot") {
+      return redirect("account_already_linked");
+    }
+
     await prisma.account.upsert({
       where: { provider_providerAccountId: { provider: "tiktok", providerAccountId: tokens.open_id } },
       update: {
+        clinicId: "pilot",
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 7200) * 1000),
         grantedScopes: scopes,
       },
       create: {
+        clinicId: "pilot",
         provider: "tiktok",
         providerAccountId: tokens.open_id,
         accessToken: tokens.access_token,
@@ -62,7 +72,7 @@ export async function GET(request: NextRequest) {
       },
     });
     await prisma.account.deleteMany({
-      where: { provider: "tiktok", providerAccountId: { not: tokens.open_id } },
+      where: { provider: "tiktok", clinicId: "pilot", providerAccountId: { not: tokens.open_id } },
     });
     return redirect(scopes.split(",").includes("video.publish") ? "connected" : "scope_missing");
   } catch (error) {

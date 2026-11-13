@@ -108,6 +108,14 @@ export async function GET(request: NextRequest) {
       console.warn("Meta no permitió verificar Instagram directamente en la Página:", error);
     }
 
+    const existingAccount = await prisma.account.findUnique({
+      where: { provider_providerAccountId: { provider: "facebook", providerAccountId: providerAccountId } },
+      select: { clinicId: true },
+    });
+    if (existingAccount && existingAccount.clinicId !== "pilot") {
+      return redirectWithError("account_already_linked");
+    }
+
     // 3. Guardar o actualizar de forma segura usando el índice único de Prisma
     await prisma.account.upsert({
       where: {
@@ -117,6 +125,7 @@ export async function GET(request: NextRequest) {
         },
       },
       update: {
+        clinicId: "pilot",
         accessToken: page.access_token,
         name: userData.name || "Usuario Meta",
         pageName: page.name || "Página de Facebook",
@@ -124,6 +133,7 @@ export async function GET(request: NextRequest) {
         instagramId,
       },
       create: {
+        clinicId: "pilot",
         provider: "facebook",
         providerAccountId: providerAccountId,
         accessToken: page.access_token,

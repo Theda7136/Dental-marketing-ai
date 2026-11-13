@@ -20,7 +20,7 @@ export async function DELETE(
 
   try {
     const post = await prisma.scheduledPost.findUnique({
-      where: { id },
+      where: { id, clinicId: "pilot" },
       select: {
         status: true,
         archivedAt: true,
@@ -55,6 +55,7 @@ export async function DELETE(
     const updated = await prisma.scheduledPost.updateMany({
       where: {
         id,
+        clinicId: "pilot",
         archivedAt: null,
         status: post.status,
         facebookStatus: post.facebookStatus,

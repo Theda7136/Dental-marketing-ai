@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const account = await prisma.account.findFirst({ where: { provider: "facebook" } });
+    const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId: "pilot" } });
     if (!account?.accessToken || !account.pageId) {
       return NextResponse.json({ connected: false, instagramConnected: false });
     }
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       instagramId = linkedId;
       if (linkedId !== account.instagramId) {
         await prisma.account.update({
-          where: { id: account.id },
+          where: { id: account.id, clinicId: "pilot" },
           data: { instagramId: linkedId },
         });
       }
