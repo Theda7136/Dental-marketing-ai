@@ -314,7 +314,15 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     setErrorMessage(null);
     setNotice(null);
     const outcome = await publishSelectedNetworks(postId, networks, tiktok);
-    setNotice(outcome.message);
+    const networkNames: Record<PublishNetwork, string> = {
+      facebook: "Facebook",
+      instagram: "Instagram",
+      tiktok: "TikTok",
+    };
+    setNotice([
+      outcome.message,
+      ...outcome.results.map((entry) => `${networkNames[entry.network]}: ${entry.message}`),
+    ].join(" · "));
     return outcome;
   }
 
