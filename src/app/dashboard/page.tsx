@@ -256,6 +256,15 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       return;
     }
 
+    const sizeLimit = detected === "photo" ? 20 : 80;
+    if (file.size > sizeLimit * 1024 * 1024) {
+      setErrorMessage(`El archivo supera el límite de ${sizeLimit} MB para ${detected === "photo" ? "fotografías" : "videos"}.`);
+      setSelectedMedia(null);
+      setSelectedPhoto(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setErrorMessage(null);
     setFormat(detected);
     setSelectedMedia(file);
@@ -492,7 +501,19 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             </label>
 
             {format !== "text" && (
-              <div className="studio-file-field">
+              <div className="studio-file-field"
+                onDragOver={(event) => { if (!isPending) event.preventDefault(); }}
+                onDrop={(event) => {
+                  if (isPending) return;
+                  event.preventDefault();
+                  const file = event.dataTransfer.files[0] ?? null;
+                  selectMedia(file);
+                  if (fileInputRef.current) {
+                    const transfer = new DataTransfer();
+                    if (file) transfer.items.add(file);
+                    fileInputRef.current.files = transfer.files;
+                  }
+                }}>
                 <span className="studio-field-label">Fotografía o video</span>
                 <input
                   ref={fileInputRef}
@@ -530,7 +551,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   <button type="button" className="studio-upload-button" disabled={isPending}
                     onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ""; fileInputRef.current.click(); } }}>
                     <span className="studio-upload-icon" aria-hidden="true">＋</span>
-                    <span><strong>Agregar fotografía o video</strong>
+                    <span><strong>Agregar o arrastrar fotografía o video</strong>
                     <small>JPG, PNG, WebP, MP4, MOV o WebM</small></span>
                   </button>
                 )}
@@ -719,7 +740,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "La fotografía se adaptará al formato vertical 9:16 sin recortar información clínica.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Vista de la imagen base. La salida final será vertical 9:16 y se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
