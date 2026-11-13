@@ -139,10 +139,10 @@ export function MultinetworkPublisher({
       try {
         await onReload();
       } catch {
-        setError("El envío terminó, pero no se pudo actualizar el panel. Recarga para comprobar el estado.");
+        setError("El envío terminó, pero no se pudo actualizar el panel. Actualiza la página para ver el resultado.");
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "El estado de alguna red es incierto. Recarga el panel.");
+      setError(failure instanceof Error ? failure.message : "No fue posible completar el envío. Actualiza la página para consultar el resultado.");
     } finally {
       setBusy(false);
     }
@@ -163,7 +163,7 @@ export function MultinetworkPublisher({
           <div className="flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-[#173b3a]">Selecciona las redes</h4>
-              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Esta historia se puede enviar a Facebook e Instagram." : "Puedes publicar en redes pendientes y consultar las que requieren verificación."}</p>
+              <p className="mt-1 text-xs text-[#667d72]">{storyOnly ? "Esta historia se puede enviar a Facebook e Instagram." : "Selecciona las redes en las que quieres publicar."}</p>
             </div>
             {!busy && <button type="button" onClick={() => { setOpen(false); setOutcome(null); }} className="text-sm text-[#667d72]">Cerrar</button>}
           </div>
@@ -180,7 +180,7 @@ export function MultinetworkPublisher({
                 {labels[network]}
                 {!connected ? <span className="text-xs">(sin conectar)</span>
                   : statuses[network] === "SUCCEEDED" ? <span className="text-xs">(confirmado, no se reenviará)</span>
-                  : ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network]) ? <span className="text-xs">(requiere comprobación)</span>
+                  : ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network]) ? <span className="text-xs">(envío no disponible)</span>
                   : !pending ? <span className="text-xs">(no disponible)</span> : null}
               </label>;
             })}
