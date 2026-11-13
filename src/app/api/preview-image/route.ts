@@ -40,7 +40,7 @@ export async function POST(request: Request) {
           .png()
           .toBuffer()
       : Buffer.from(preview);
-    return new NextResponse(rendered, {
+    return new NextResponse(new Uint8Array(rendered), {
       status: 200,
       headers: {
         "Content-Type": "image/png",
