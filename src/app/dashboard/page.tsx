@@ -632,12 +632,12 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                   <p className="text-xs leading-5 text-[#607970]">Convertiremos la fotografía en un Reel vertical silencioso de 7 segundos.</p>
                 )}
                 {deliveryFormat === "STORY" && (
-                  <p className="text-xs leading-5 text-[#607970]">Las Historias se publican por ahora únicamente en Instagram.</p>
+                  <p className="text-xs leading-5 text-[#607970]">Las historias se publican en Facebook e Instagram sin generar texto adicional.</p>
                 )}
               </fieldset>
             )}
 
-            {canConfigure && <div className="studio-progressive-content">
+            {canConfigure && deliveryFormat !== "STORY" && <div className="studio-progressive-content">
               <p className="studio-stage-label">Personaliza tu propuesta</p>
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-semibold text-stone-800">Tipo de mensaje</legend>
@@ -678,14 +678,14 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </fieldset>
             )}
 
-            {format === "photo" && hasMedia && (
+            {format === "photo" && hasMedia && deliveryFormat !== "STORY" && (
               <label className="studio-vision-consent">
                 <input type="checkbox" name="visionConsent" value="true" required disabled={isPending} />
                 <span>Autorizo el análisis de esta fotografía con Gemini Vision. Confirmo que tengo permiso y que no contiene datos identificables.</span>
               </label>
             )}
 
-            {canConfigure && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
+            {canConfigure && deliveryFormat !== "STORY" && <label className="flex flex-col gap-2 text-sm font-medium text-stone-800">
               Notas de la consulta o idea del video
               <textarea
                 name="notes"
@@ -707,7 +707,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               {isPending ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  La IA está preparando el contenido...
+                  Preparando el contenido...
                 </>
               ) : (
                 "Generar propuesta"
