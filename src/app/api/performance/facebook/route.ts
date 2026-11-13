@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 type FacebookMetrics = {
   id: string;
-  reactions: number;
-  comments: number;
+  reactions: number | null;
+  comments: number | null;
   source: "reactions" | "likes";
 };
 
@@ -33,14 +33,13 @@ function classifyFailure(code?: number): Failure {
 async function fetchMeta(
   objectId: string,
   fields: string,
-  accessToken: string,
+  token: string,
 ): Promise<{ value: MetaResponse | null; failure?: Failure }> {
   const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(objectId)}`);
   url.searchParams.set("fields", fields);
-
   try {
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
@@ -48,15 +47,28 @@ async function fetchMeta(
     if (!response.ok || payload.error) {
       return { value: null, failure: classifyFailure(payload.error?.code) };
     }
-    if (String(payload.id) !== objectId) return { value: null, failure: "identifier" };
-    return { value: payload };
+    return String(payload.id) === objectId
+      ? { value: payload }
+      : { value: null, failure: "identifier" };
   } catch {
     return { value: null, failure: "unavailable" };
   }
 }
 
-function count(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+function count(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+async function getCount(
+  objectId: string,
+  field: "reactions" | "likes" | "comments",
+  token: string,
+): Promise<{ total: number | null; failure?: Failure }> {
+  const summary = field === "reactions" ? "total_count" : "true";
+  const response = await fetchMeta(objectId, `id,${field}.limit(0).summary(${summary})`, token);
+  if (!response.value) return { total: null, failure: response.failure ?? "unavailable" };
+  const total = count(response.value[field]?.summary?.total_count);
+  return total === null ? { total: null, failure: "incomplete" } : { total };
 }
 
 export async function GET() {
@@ -94,8 +106,6 @@ export async function GET() {
       continue;
     }
 
-    // Facebook /photos returns a Photo ID. The page story, when present,
-    // can expose reactions that are not available on the Photo node itself.
     const photo = await fetchMeta(photoId, "id,page_story_id", account.accessToken);
     if (!photo.value) {
       const reason = photo.failure ?? "unavailable";
@@ -104,40 +114,43 @@ export async function GET() {
     }
 
     const storyId = photo.value.page_story_id;
-    if (storyId && /^\d+_\d+$/.test(storyId)) {
-      const story = await fetchMeta(
-        storyId,
-        "id,reactions.limit(0).summary(total_count),comments.limit(0).summary(true)",
-        account.accessToken,
-      );
-      const reactions = story.value?.reactions?.summary?.total_count;
-      const comments = story.value?.comments?.summary?.total_count;
-      if (count(reactions) && count(comments)) {
-        metrics.push({ id: post.id, reactions, comments, source: "reactions" });
-        continue;
+    const validStoryId = storyId && /^\d+_\d+$/.test(storyId) ? storyId : null;
+
+    // Facebook /photos returns a Photo ID. Reactions belong to the associated
+    // page post when it exists; photo likes are a useful independent fallback.
+    const storyReactions = validStoryId
+      ? await getCount(validStoryId, "reactions", account.accessToken)
+      : null;
+    const reactions = storyReactions?.total !== null && storyReactions?.total !== undefined
+      ? storyReactions
+      : await getCount(photoId, "likes", account.accessToken);
+    const source = storyReactions?.total !== null && storyReactions?.total !== undefined
+      ? "reactions" as const : "likes" as const;
+
+    const storyComments = validStoryId
+      ? await getCount(validStoryId, "comments", account.accessToken)
+      : null;
+    const comments = storyComments?.total !== null && storyComments?.total !== undefined
+      ? storyComments
+      : await getCount(photoId, "comments", account.accessToken);
+
+    if (reactions.total !== null || comments.total !== null) {
+      metrics.push({ id: post.id, reactions: reactions.total, comments: comments.total, source });
+    }
+    for (const metric of [reactions, comments]) {
+      if (metric.total === null) {
+        const reason = metric.failure ?? "incomplete";
+        failures[reason] = (failures[reason] ?? 0) + 1;
       }
     }
-
-    const photoEngagement = await fetchMeta(
-      photoId,
-      "id,likes.limit(0).summary(true),comments.limit(0).summary(true)",
-      account.accessToken,
-    );
-    const likes = photoEngagement.value?.likes?.summary?.total_count;
-    const comments = photoEngagement.value?.comments?.summary?.total_count;
-    if (count(likes) && count(comments)) {
-      metrics.push({ id: post.id, reactions: likes, comments, source: "likes" });
-      continue;
-    }
-
-    const reason = photoEngagement.failure ?? "incomplete";
-    failures[reason] = (failures[reason] ?? 0) + 1;
   }
 
   return NextResponse.json({
     metrics,
     checked: posts.length,
-    unavailable: posts.length - metrics.length,
+    unavailable: posts.length - metrics.filter((entry) =>
+      entry.reactions !== null && entry.comments !== null,
+    ).length,
     failures,
     scope: "Últimas 10 fotografías confirmadas del Feed de Facebook",
   }, { headers: { "Cache-Control": "private, no-store" } });
