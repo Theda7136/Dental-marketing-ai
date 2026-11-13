@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { isClinicAuthorized, unauthorizedResponse } from "../../../lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import {
   ClinicalGuardrailWarning,
   clinicalGuardrails,
@@ -418,6 +418,7 @@ async function prepareImage(
   notes: string | undefined,
   enableVision: boolean,
   photoOptions: PhotoOptions,
+  clinicId: string,
 ) {
   if (media.byteLength > MAX_IMAGE_BYTES) {
     throw new RequestInputError(400, "FILE_TOO_LARGE", "La imagen supera el máximo de 20 MB.");
@@ -426,7 +427,7 @@ async function prepareImage(
   const composition = (async () => {
     const [cleanImage, brand] = await Promise.all([
       removeClinicalBackground(media),
-      prisma.brandProfile.findUnique({ where: { id: "default", clinicId: "pilot" } }),
+      prisma.brandProfile.findUnique({ where: { id: "default", clinicId } }),
     ]);
     return overlayOnClinicTemplate({ cleanImage, procedureName, options: photoOptions, brand });
   })();
@@ -553,9 +554,8 @@ function toErrorResponse(error: unknown) {
 }
 
 export async function POST(request: Request) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) {
-    return unauthorizedResponse(true);
-  }
+  const session = await getStudioAccess("content:write");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   let storedMedia: { id: string; kind: MediaKind } | undefined;
   let createdId: string | undefined;
@@ -585,7 +585,7 @@ export async function POST(request: Request) {
 
     const prepared =
       kind === "image"
-        ? await prepareImage(procedureName, input.media, input.notes, true, input.photoOptions)
+        ? await prepareImage(procedureName, input.media, input.notes, true, input.photoOptions, session.clinic.id)
         : await prepareVideo(
             procedureName,
             input.media,
@@ -613,7 +613,7 @@ export async function POST(request: Request) {
 
     const post = await prisma.scheduledPost.create({
       data: {
-        clinicId: "pilot",
+        clinicId: session.clinic.id,
         id,
         procedureName,
         mediaType: finalMediaType,
