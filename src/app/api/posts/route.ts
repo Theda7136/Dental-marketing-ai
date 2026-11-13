@@ -28,6 +28,7 @@ export async function GET(request: Request) {
         status: string;
         createdAt: Date;
         approvedAt: Date | null;
+        scheduledFor: Date | null;
         clinicalVerifiedAt: Date | null;
         mediaType: string;
         deliveryFormat: string;
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
         instagramReviewedAt: post.instagramReviewedAt?.toISOString() ?? null,
         createdAt: post.createdAt.toISOString(),
         approvedAt: post.approvedAt?.toISOString() ?? null,
+        scheduledFor: post.scheduledFor?.toISOString() ?? null,
         clinicalVerifiedAt: post.clinicalVerifiedAt?.toISOString() ?? null,
         mediaKind: post.mediaUrl.length === 0
           ? "text"

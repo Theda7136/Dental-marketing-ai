@@ -43,6 +43,7 @@ export interface ApprovalQueuePost {
   createdAt: Date | string;
   approvedAt?: Date | string | null;
   clinicalVerifiedAt?: string | null;
+  scheduledFor?: string | null;
   /** Foto, video o guion. Si no viene, se infiere por la URL. */
   mediaKind?: "image" | "video" | "text";
   deliveryFormat?: "FEED" | "REEL" | "STORY";
@@ -491,6 +492,7 @@ export function ApprovalQueue({
                       </h3>
                       <p className="mt-1 text-xs font-medium text-[#8a9994]">
                         Creado el {formatCreatedAt(post.createdAt)}
+                        {post.scheduledFor && <span className="ml-2 font-semibold text-[#176c63]">· Planificado: {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(post.scheduledFor))}</span>}
                       </p>
                     </div>
 

@@ -32,6 +32,7 @@ before(async () => {
       "status" TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "approvedAt" DATETIME,
+      "scheduledFor" DATETIME,
       "archivedAt" DATETIME,
       "clinicalVerifiedAt" DATETIME,
       "facebookStatus" TEXT NOT NULL DEFAULT 'PENDING',
@@ -160,4 +161,16 @@ test("an uncertain publication cannot be reclaimed after saving review evidence"
   const saved = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
   assert.equal(saved.facebookStatus, "UNKNOWN");
   assert.equal(saved.facebookReviewOutcome, "NOT_FOUND");
+});
+
+test("editorial planning stores a timestamp without changing review or publishing statuses", async () => {
+  const post = await makePost();
+  const date = new Date("2027-01-15T14:00:00.000Z");
+  await prisma.scheduledPost.update({ where: { id: post.id }, data: { scheduledFor: date } });
+  const planned = await prisma.scheduledPost.findUniqueOrThrow({ where: { id: post.id } });
+  assert.equal(planned.scheduledFor?.toISOString(), date.toISOString());
+  assert.equal(planned.status, "PENDING_APPROVAL");
+  assert.equal(planned.facebookStatus, "PENDING");
+  assert.equal(planned.instagramStatus, "PENDING");
+  assert.equal(planned.tiktokStatus, "PENDING");
 });
