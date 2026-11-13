@@ -78,7 +78,7 @@ async function fetchMeta(
 async function findPagePosts(
   pageId: string,
   token: string,
-): Promise<{ photoToPost: Map<string, string>; failure?: Failure }> {
+): Promise<{ photoToPost: Map<string, string>; failure?: Failure; detail?: string }> {
   const photoToPost = new Map<string, string>();
   const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/posts`);
   url.searchParams.set("fields", "id,object_id");
@@ -90,21 +90,35 @@ async function findPagePosts(
       cache: "no-store",
       signal: AbortSignal.timeout(12000),
     });
-    const payload = await response.json() as {
+    const rawPayload: unknown = await response.json();
+    if (!rawPayload || typeof rawPayload !== "object") {
+      return { photoToPost, failure: "unavailable", detail: "invalid_response" };
+    }
+    const payload = rawPayload as {
       data?: { id?: string; object_id?: string }[];
-      error?: { code?: number };
+      error?: { code?: number; error_subcode?: number };
     };
     if (!response.ok || payload.error) {
-      return { photoToPost, failure: classifyFailure(payload.error?.code) };
+      const code = payload.error?.code;
+      const subcode = payload.error?.error_subcode;
+      const detail = `meta_error_${typeof code === "number" ? code : response.status}`
+        + (typeof subcode === "number" ? `_sub_${subcode}` : "");
+      return { photoToPost, failure: classifyFailure(code), detail };
     }
-    for (const post of payload.data ?? []) {
+    if (!Array.isArray(payload.data)) {
+      return { photoToPost, failure: "incomplete", detail: "posts_missing" };
+    }
+    for (const post of payload.data) {
       if (/^\d+_\d+$/.test(post.id ?? "") && /^\d+$/.test(post.object_id ?? "")) {
         photoToPost.set(post.object_id!, post.id!);
       }
     }
     return { photoToPost };
-  } catch {
-    return { photoToPost, failure: "unavailable" };
+  } catch (error) {
+    const detail = error instanceof DOMException && error.name === "TimeoutError"
+      ? "request_timeout"
+      : error instanceof SyntaxError ? "invalid_json" : "request_failed";
+    return { photoToPost, failure: "unavailable", detail };
   }
 }
 
@@ -210,8 +224,8 @@ export async function GET() {
         photo: index + 1,
         reactions: state,
         comments: state,
-        reactionsDetail: pagePosts?.failure ? `page_posts_${pagePosts.failure}` : "photo_not_found_on_page",
-        commentsDetail: pagePosts?.failure ? `page_posts_${pagePosts.failure}` : "photo_not_found_on_page",
+        reactionsDetail: pagePosts?.failure ? `page_posts_${pagePosts.detail ?? pagePosts.failure}` : "photo_not_found_on_page",
+        commentsDetail: pagePosts?.failure ? `page_posts_${pagePosts.detail ?? pagePosts.failure}` : "photo_not_found_on_page",
       });
       continue;
     }
