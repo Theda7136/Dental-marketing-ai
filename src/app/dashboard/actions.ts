@@ -626,6 +626,10 @@ export async function publishSelectedNetworks(
     return { ok: false, results: [], message: "La propuesta no está disponible para publicar." };
   }
 
+  if (post.deliveryFormat === "STORY" && selected.some((network) => network !== "instagram")) {
+    return { ok: false, results: [], message: "Las historias solo están habilitadas para Instagram. Desmarca las otras redes." };
+  }
+
   const results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[] = [];
   for (const network of selected) {
     if (network === "facebook" || network === "instagram") {
