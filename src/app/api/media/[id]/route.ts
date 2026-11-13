@@ -38,7 +38,7 @@ export async function GET(
 
   try {
     const post = await prisma.scheduledPost.findUnique({
-      where: { id },
+      where: { id, clinicId: "pilot" },
       select: { id: true, mediaType: true },
     });
 
