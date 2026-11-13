@@ -75,6 +75,39 @@ async function fetchMeta(
   }
 }
 
+async function findPagePosts(
+  pageId: string,
+  token: string,
+): Promise<{ photoToPost: Map<string, string>; failure?: Failure }> {
+  const photoToPost = new Map<string, string>();
+  const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/posts`);
+  url.searchParams.set("fields", "id,object_id");
+  url.searchParams.set("limit", "100");
+
+  try {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+    const payload = await response.json() as {
+      data?: { id?: string; object_id?: string }[];
+      error?: { code?: number };
+    };
+    if (!response.ok || payload.error) {
+      return { photoToPost, failure: classifyFailure(payload.error?.code) };
+    }
+    for (const post of payload.data ?? []) {
+      if (/^\d+_\d+$/.test(post.id ?? "") && /^\d+$/.test(post.object_id ?? "")) {
+        photoToPost.set(post.object_id!, post.id!);
+      }
+    }
+    return { photoToPost };
+  } catch {
+    return { photoToPost, failure: "unavailable" };
+  }
+}
+
 function count(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -145,6 +178,7 @@ export async function GET() {
   const metrics: FacebookMetrics[] = [];
   const diagnostics: Diagnostic[] = [];
   const failures: Record<string, number> = {};
+  let pagePosts: Awaited<ReturnType<typeof findPagePosts>> | null = null;
 
   for (const [index, post] of posts.entries()) {
     const photoId = post.facebookPostId;
@@ -155,25 +189,32 @@ export async function GET() {
     }
 
     const photo = await fetchMeta(photoId, "id", account.accessToken);
-    if (!photo.value) {
-      const reason = photo.failure ?? "unavailable";
+    // A photo returned by /photos may not be accessible as a Photo node
+    // with the current Page token. Resolve its Page Post via object_id.
+    if (!photo.value && pagePosts === null) {
+      pagePosts = await findPagePosts(account.pageId, account.accessToken);
+    }
+
+    const storyLookup = photo.value
+      ? await fetchMeta(photoId, "id,page_story_id", account.accessToken)
+      : null;
+    const storyId = storyLookup?.value?.page_story_id
+      ?? pagePosts?.photoToPost.get(photoId);
+    const validStoryId = storyId && /^\d+_\d+$/.test(storyId) ? storyId : null;
+
+    if (!photo.value && !validStoryId) {
+      const reason = pagePosts?.failure ?? photo.failure ?? "identifier";
       failures[reason] = (failures[reason] ?? 0) + 1;
       const state = metricState(null, reason);
       diagnostics.push({
         photo: index + 1,
         reactions: state,
         comments: state,
-        reactionsDetail: `photo_lookup_${photo.detail ?? reason}`,
-        commentsDetail: `photo_lookup_${photo.detail ?? reason}`,
+        reactionsDetail: pagePosts?.failure ? `page_posts_${pagePosts.failure}` : "photo_not_found_on_page",
+        commentsDetail: pagePosts?.failure ? `page_posts_${pagePosts.failure}` : "photo_not_found_on_page",
       });
       continue;
     }
-
-    // The Photo node can be readable even when its optional page_story_id
-    // field is not. Missing that field must not block photo engagement.
-    const storyLookup = await fetchMeta(photoId, "id,page_story_id", account.accessToken);
-    const storyId = storyLookup.value?.page_story_id;
-    const validStoryId = storyId && /^\d+_\d+$/.test(storyId) ? storyId : null;
 
     // Facebook /photos returns a Photo ID. Reactions belong to the associated
     // page post when it exists; photo likes are a useful independent fallback.
@@ -182,7 +223,8 @@ export async function GET() {
       : null;
     const reactions = storyReactions?.total !== null && storyReactions?.total !== undefined
       ? storyReactions
-      : await getCount(photoId, "likes", account.accessToken);
+      : photo.value ? await getCount(photoId, "likes", account.accessToken)
+        : storyReactions ?? { total: null, failure: "unavailable" as const, detail: "post_reactions_unavailable" };
     const source = storyReactions?.total !== null && storyReactions?.total !== undefined
       ? "reactions" as const : "likes" as const;
 
@@ -191,7 +233,8 @@ export async function GET() {
       : null;
     const comments = storyComments?.total !== null && storyComments?.total !== undefined
       ? storyComments
-      : await getCount(photoId, "comments", account.accessToken);
+      : photo.value ? await getCount(photoId, "comments", account.accessToken)
+        : storyComments ?? { total: null, failure: "unavailable" as const, detail: "post_comments_unavailable" };
 
     diagnostics.push({
       photo: index + 1,
