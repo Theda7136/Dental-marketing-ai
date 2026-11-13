@@ -725,7 +725,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           </form>
         </section>}
         {view === "create" && (
-          <aside className={`studio-preview-panel ${!hasMedia ? "is-empty" : "has-media"}`} aria-label="Previsualización de contenido">
+          <aside className={`studio-preview-panel ${!hasMedia ? "is-empty" : "has-media"} ${deliveryFormat === "STORY" ? "is-story" : ""}`} aria-label="Previsualización de contenido">
             <div className="studio-preview-heading">
               <div>
                 <span className="studio-section-kicker">02 / COMPOSICIÓN</span>
@@ -734,7 +734,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               </div>
               <span className="studio-preview-format">{format === "photo" ? (deliveryFormat === "FEED" ? "4:5" : "9:16") : format === "video" ? "9:16" : "TEXTO"}</span>
             </div>
-            {format === "photo" && selectedPhoto && (
+            {format === "photo" && selectedPhoto && deliveryFormat !== "STORY" && (
               <div className="studio-image-controls" aria-label="Ajustar encuadre de la fotografía">
                 <div className="studio-image-toolbar">
                   <strong>Encuadre <small>{showOriginal ? "Original" : `Arrastra para mover · ${deliveryFormat === "STORY" ? "9:16" : "4:5"}`}</small></strong>
@@ -755,16 +755,16 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                 </div>
               </div>
             )}
-            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && photoPreview && !showOriginal && !isPending ? "is-adjustable" : ""}`} aria-live="polite"
+            <div className={`studio-preview-canvas ${format === "photo" && selectedPhoto && photoPreview && !showOriginal && !isPending && deliveryFormat !== "STORY" ? "is-adjustable" : ""}`} aria-live="polite"
               onPointerDown={(event) => {
-                if (format !== "photo" || !selectedPhoto || isPending || showOriginal) return;
+                if (format !== "photo" || !selectedPhoto || isPending || showOriginal || deliveryFormat === "STORY") return;
                 if (event.button !== 0 || !photoPreview) return;
                 dragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, offsetX: photoOffsetX, offsetY: photoOffsetY };
                 event.currentTarget.setPointerCapture(event.pointerId);
               }}
               onPointerMove={(event) => {
                 const origin = dragStart.current;
-                if (!origin || origin.pointerId !== event.pointerId || format !== "photo" || showOriginal) return;
+                if (!origin || origin.pointerId !== event.pointerId || format !== "photo" || showOriginal || deliveryFormat === "STORY") return;
                 const frame = event.currentTarget.getBoundingClientRect();
                 if (!frame.width || !frame.height) return;
                 setPhotoOffsetX(Math.max(-100, Math.min(100, Math.round(origin.offsetX + (event.clientX - origin.x) / frame.width * 180))));
@@ -796,7 +796,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               )}
             </div>
             {photoPreviewError && <p role="alert" className="studio-preview-error">{photoPreviewError}</p>}
-            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Vista previa de la composición vertical. Se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
+            <p className="studio-preview-caption">{format === "photo" && hasMedia ? (deliveryFormat === "FEED" ? "Vista de composición · formato 4:5 sin recortar información clínica." : "Historia 9:16 con la fotografía completa, sin recortes. Se guardará en Pendientes.") : format === "photo" ? "Selecciona una fotografía para ajustar su encuadre." : "La propuesta se guardará para revisión antes de publicarse."}</p>
           </aside>
         )}
 
