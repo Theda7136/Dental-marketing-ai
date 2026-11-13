@@ -7,7 +7,8 @@ import { readStudioSession, STUDIO_SESSION_COOKIE } from "@/lib/studioSession";
 function permissionFor(pathname: string, method: string): ClinicPermission | null {
   if (pathname === "/dashboard/equipo" || pathname.startsWith("/api/studio/members") || pathname.startsWith("/api/studio/invitations")) return "members:manage";
   if (pathname === "/api/studio/me" || pathname === "/dashboard" || pathname === "/dashboard/pendientes" ||
-      pathname === "/dashboard/historial" || pathname === "/dashboard/calendario" || pathname === "/") return "content:read";
+      pathname === "/dashboard/historial" || pathname === "/dashboard/calendario" ||
+      pathname === "/dashboard/rendimiento" || pathname === "/") return "content:read";
   if (pathname === "/dashboard/crear" || pathname === "/api/create-post" || pathname === "/api/preview-image") return "content:write";
   if (pathname === "/dashboard/conexiones" || pathname.startsWith("/api/auth/") ||
       pathname.startsWith("/api/social/") || pathname === "/api/tiktok/creator") return "connections:manage";
