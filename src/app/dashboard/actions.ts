@@ -543,6 +543,60 @@ export async function authorizeManualRetry(
   };
 }
 
+export async function reopenRejectedInstagramStory(postId: string): Promise<{ ok: boolean; message: string }> {
+  const access = await getStudioAccess("content:publish");
+  if (!access) return { ok: false, message: "No tienes permiso para publicar." };
+
+  const post = await prisma.scheduledPost.findUnique({
+    where: { id: postId, clinicId: access.clinic.id },
+    select: {
+      status: true,
+      archivedAt: true,
+      mediaType: true,
+      deliveryFormat: true,
+      instagramStatus: true,
+      instagramError: true,
+      instagramPostId: true,
+      instagramRetryCount: true,
+    },
+  });
+
+  const knownRejection = post?.instagramError?.includes("Only photo or video can be accepted as media type.") ?? false;
+  if (!post || post.status !== "PENDING_APPROVAL" || post.archivedAt ||
+      post.mediaType !== "IMAGE" || post.deliveryFormat !== "STORY" ||
+      post.instagramStatus !== "UNKNOWN" || !knownRejection ||
+      post.instagramPostId || post.instagramRetryCount !== 0) {
+    return { ok: false, message: "Este intento no admite recuperación directa; utiliza la verificación manual." };
+  }
+
+  const updated = await prisma.scheduledPost.updateMany({
+    where: {
+      id: postId,
+      clinicId: access.clinic.id,
+      status: "PENDING_APPROVAL",
+      archivedAt: null,
+      mediaType: "IMAGE",
+      deliveryFormat: "STORY",
+      instagramStatus: "UNKNOWN",
+      instagramError: post.instagramError,
+      instagramPostId: null,
+      instagramRetryCount: 0,
+    },
+    data: {
+      instagramStatus: "PENDING",
+      instagramRetryCount: { increment: 1 },
+      instagramLastRetryAt: new Date(),
+      instagramReviewOutcome: "NOT_FOUND",
+      instagramReviewEvidence: "Rechazo explícito de Meta al crear el contenedor: tipo de media no admitido. El operador confirmó que la historia no se publicó.",
+      instagramReviewedAt: new Date(),
+    },
+  });
+
+  return updated.count === 1
+    ? { ok: true, message: "La historia quedó lista para un único reintento. Confirma su publicación desde Instagram." }
+    : { ok: false, message: "El registro cambió; recarga la página antes de continuar." };
+}
+
 export async function confirmMissingAndRetry(postId: string, network: "facebook" | "instagram") {
   const access = await getStudioAccess("content:publish");
   if (!access) return { ok: false, message: "Inicia sesión para publicar." };
