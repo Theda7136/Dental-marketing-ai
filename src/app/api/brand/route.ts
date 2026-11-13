@@ -20,7 +20,7 @@ function isAuthorized(request: Request) {
 export async function GET(request: Request) {
   if (!isAuthorized(request)) return unauthorizedResponse(true);
 
-  const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
+  const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: "pilot" } });
   return NextResponse.json({ brand: brand ?? DEFAULT_BRAND }, {
     headers: { "Cache-Control": "no-store, private" },
   });
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Revisa el nombre, color o tipografía." }, { status: 400 });
     }
 
-    const current = await prisma.brandProfile.findUnique({ where: { id: "default" } });
+    const current = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: "pilot" } });
     const logo = form.get("logo");
     let logoDataUrl = current?.logoDataUrl ?? null;
     if (form.get("removeLogo") === "true") {
@@ -65,8 +65,8 @@ export async function POST(request: Request) {
     }
 
     const brand = await prisma.brandProfile.upsert({
-      where: { id: "default" },
-      create: { id: "default", clinicName, primaryColor, fontFamily, logoDataUrl },
+      where: { id: "default", clinicId: "pilot" },
+      create: { id: "default", clinicId: "pilot", clinicName, primaryColor, fontFamily, logoDataUrl },
       update: { clinicName, primaryColor, fontFamily, logoDataUrl },
     });
     return NextResponse.json({ brand });
