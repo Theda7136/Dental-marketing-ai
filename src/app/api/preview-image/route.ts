@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
 import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate } from "@/services/imageService";
@@ -18,6 +19,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Selecciona una foto JPEG, PNG o WebP de máximo 20 MB." }, { status: 400 });
     }
 
+    const deliveryFormat = form.get("deliveryFormat");
+    if (!["FEED", "REEL", "STORY"].includes(String(deliveryFormat))) {
+      return NextResponse.json({ error: "Selecciona un formato de publicación válido." }, { status: 400 });
+    }
+
     const options = parsePhotoOptions({
       layout: form.get("photoLayout"),
       background: form.get("photoBackground"),
@@ -28,7 +34,13 @@ export async function POST(request: Request) {
     });
     const brand = await prisma.brandProfile.findUnique({ where: { id: "default" } });
     const preview = await overlayOnClinicTemplate({ cleanImage: new Uint8Array(await file.arrayBuffer()), procedureName: String(form.get("procedureName") || ""), options, brand });
-    return new NextResponse(Buffer.from(preview), {
+    const rendered = deliveryFormat === "STORY"
+      ? await sharp(Buffer.from(preview))
+          .resize(1080, 1920, { fit: "contain", background: "#ffffff" })
+          .png()
+          .toBuffer()
+      : Buffer.from(preview);
+    return new NextResponse(rendered, {
       status: 200,
       headers: {
         "Content-Type": "image/png",
