@@ -32,6 +32,30 @@ async function waitForInstagramContainer(id: string, token: string): Promise<voi
   throw new Error("Meta sigue procesando el video. Intenta aprobar la publicación de nuevo más tarde.");
 }
 
+async function checkPublicMedia(url: string, kind: "image" | "video"): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new Error("No se pudo descargar el archivo desde la URL pública. Comprueba el túnel HTTPS antes de publicar.");
+  }
+
+  const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  await response.body?.cancel();
+
+  const validType = kind === "image"
+    ? contentType === "image/jpeg"
+    : contentType === "video/mp4";
+  if (response.status !== 200 || !validType) {
+    throw new Error(`El archivo público no está disponible para Meta (HTTP ${response.status}, ${contentType || "sin tipo de archivo"}). Revisa el túnel HTTPS y vuelve a intentarlo.`);
+  }
+}
+
 export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" | "instagram") {
   if (post.mediaKind !== "image" && post.mediaKind !== "video") {
     throw new Error("El tipo de archivo no se puede publicar en Meta.");
@@ -76,6 +100,17 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   const instagramMedia = new URL(mediaUrl);
   if (!isVideo) instagramMedia.searchParams.set("format", "jpeg");
   const instagramMediaUrl = instagramMedia.toString();
+  const shouldSendInstagram = onlyNetwork !== "facebook" &&
+    Boolean(account.instagramId) && canSendToNetwork(savedPost.instagramStatus);
+  const shouldSendFacebook = onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus);
+  if (shouldSendInstagram || shouldSendFacebook) {
+    if (shouldSendInstagram && !isVideo) await checkPublicMedia(instagramMediaUrl, "image");
+    if (isVideo) await checkPublicMedia(mediaUrl, "video");
+    if (shouldSendFacebook && !isVideo && !shouldSendInstagram) {
+      await checkPublicMedia(instagramMediaUrl, "image");
+    }
+  }
+
   const captions = platformCaptions(savedPost.generatedCaption);
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
