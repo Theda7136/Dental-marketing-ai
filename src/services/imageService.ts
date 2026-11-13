@@ -154,6 +154,13 @@ export async function renderSocialPhoto(
     .png().toBuffer());
 }
 
+export async function renderStoryPhoto(image: Uint8Array): Promise<Uint8Array> {
+  return new Uint8Array(await sharp(Buffer.from(image))
+    .resize(1080, 1920, { fit: "contain", background: "#ffffff" })
+    .png()
+    .toBuffer());
+}
+
 export async function removeClinicalBackground(image: Uint8Array): Promise<Uint8Array> {
   const source = await getSource(image);
   return new Uint8Array(await sharp(source.buffer).png().toBuffer());
