@@ -75,28 +75,6 @@ interface ApprovalQueueProps {
   onAuthorizeRetry: (postId: string, network: "facebook" | "instagram") => Promise<void>;
 }
 
-const NETWORK_LABELS: Record<string, string> = {
-  PENDING: "Sin enviar",
-  IN_PROGRESS: "En curso",
-  SUCCEEDED: "Confirmado",
-  UNKNOWN: "Sin confirmación",
-};
-
-function networkStatus(label: string, status?: string) {
-  if (!status) return null;
-  const isConfirmed = status === "SUCCEEDED";
-  const needsReview = status === "UNKNOWN" || status === "IN_PROGRESS";
-  return (
-    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-      isConfirmed ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : needsReview ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-[#d7e5df] bg-[#f4f7f5] text-[#657873]"
-    }`}>
-      {label}: {NETWORK_LABELS[status] || status}
-    </span>
-  );
-}
-
 function historyNetworks(post: ApprovalQueuePost) {
   return [
     { name: "Facebook", status: post.facebookStatus ?? "PENDING" },
@@ -395,7 +373,7 @@ export function ApprovalQueue({
         <p className="mt-1 text-sm text-[#637773]">
           {pendingPosts.length === 0
             ? "Las nuevas propuestas aparecerán aquí."
-            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta lista" : "propuestas listas"} para revisar.`}
+            : `${pendingPosts.length} ${pendingPosts.length === 1 ? "propuesta" : "propuestas"} en tu bandeja.`}
         </p>
           </div>
         </div>
@@ -409,7 +387,7 @@ export function ApprovalQueue({
           { key: "all", label: "Todas", count: pendingPosts.length },
           { key: "review", label: "Por revisar", count: stageCounts.review },
           { key: "ready", label: "Listas para publicar", count: stageCounts.ready },
-          { key: "followup", label: "Con actividad", count: stageCounts.followup },
+          { key: "followup", label: "Con envíos", count: stageCounts.followup },
         ] as const).map((stage) => (
           <button key={stage.key} type="button" aria-pressed={editorialFilter === stage.key}
             onClick={() => { setEditorialFilter(stage.key); setPendingPage(1); }}
@@ -698,7 +676,6 @@ export function ApprovalQueue({
                   <option value="all">Todos los estados</option>
                   <option value="confirmed">Todas las redes confirmadas</option>
                   <option value="partial">Publicación parcial</option>
-                  <option value="review">Requiere verificación</option>
                   <option value="pending">Con redes sin enviar</option>
                   <option value="rejected">Propuesta descartada</option>
                 </select>
@@ -717,11 +694,11 @@ export function ApprovalQueue({
                     <p className="font-semibold text-[#173b3a]">{post.procedureName} {post.deliveryFormat === "REEL" ? "· Reel" : post.deliveryFormat === "STORY" ? "· Historia" : ""}</p>
                     <p className="mt-1 text-xs text-[#82928e]">{formatCreatedAt(post.createdAt)} · {publishingSummary(post)}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {networkStatus("Facebook", post.facebookStatus ?? "PENDING")}
-                    {networkStatus("Instagram", post.instagramStatus ?? "PENDING")}
-                    {post.deliveryFormat !== "STORY" && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus ?? "PENDING")}
-                  </div>
+                  {historyNetworks(post).some(({ status }) => status === "SUCCEEDED") && (
+                    <p className="text-xs font-medium text-[#176c63]">
+                      Publicada en {historyNetworks(post).filter(({ status }) => status === "SUCCEEDED").map(({ name }) => name).join(", ")}
+                    </p>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
