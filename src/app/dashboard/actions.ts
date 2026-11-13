@@ -1,9 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { prisma } from "@/lib/prisma";
-import { isClinicAuthorized } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
+import type { ClinicPermission } from "@/lib/clinicPermissions";
 import { publishToMeta } from "@/lib/metaPublish";
 import { publishToTikTok } from "@/lib/tiktokPublisher";
 import { inspectMetaObject } from "@/lib/metaVerification";
@@ -11,8 +11,8 @@ import { generateDentalVariants } from "@/services/aiProvider";
 import { createSignedMediaUrl } from "@/lib/mediaSignature";
 import { canEditUnsentProposal, canSendToNetwork, canStartInitialPublication } from "@/lib/metaDeliveryPolicy.mjs";
 
-async function hasClinicAccess(): Promise<boolean> {
-  return isClinicAuthorized((await headers()).get("authorization"));
+async function hasClinicAccess(permission: ClinicPermission): Promise<boolean> {
+  return Boolean(await getStudioAccess(permission));
 }
 
 async function generateCaptionWithAI(procedureName: string, notes: string) {
@@ -32,7 +32,7 @@ async function generateCaptionWithAI(procedureName: string, notes: string) {
 }
 
 export async function createMarketingProposal(formData: FormData) {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:write"))) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
   }
 
@@ -74,7 +74,7 @@ export async function createMarketingProposal(formData: FormData) {
 }
 
 export async function createTextProposal(formData: FormData) {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:write"))) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
   }
 
@@ -142,7 +142,7 @@ export async function createTextProposal(formData: FormData) {
 }
 
 export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "COMMERCIAL") {
-  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para editar propuestas." };
+  if (!(await hasClinicAccess("content:write"))) return { ok: false, message: "Inicia sesión para editar propuestas." };
   if (style !== "EDUCATIONAL" && style !== "COMMERCIAL") {
     return { ok: false, message: "Estilo de contenido no válido." };
   }
@@ -175,7 +175,7 @@ export async function chooseCopyStyle(postId: string, style: "EDUCATIONAL" | "CO
 }
 
 export async function updatePendingCaption(postId: string, caption: string) {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:write"))) {
     return { ok: false, message: "Inicia sesión para editar propuestas." };
   }
 
@@ -220,7 +220,7 @@ type ApproveAndPublishResult =
 export async function approveAndPublishPost(
   postId: string,
 ): Promise<ApproveAndPublishResult> {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:publish"))) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
   }
 
@@ -283,7 +283,7 @@ export async function retryPendingNetwork(
   postId: string,
   network: "facebook" | "instagram",
 ): Promise<{ ok: boolean; message: string }> {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:publish"))) {
     return { ok: false, message: "Inicia sesión para publicar." };
   }
 
@@ -349,7 +349,7 @@ export async function retryPendingNetwork(
 }
 
 export async function checkPublicMediaAccess(postId: string): Promise<{ ok: boolean; message: string }> {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:read"))) {
     return { ok: false, message: "Inicia sesión para comprobar el archivo." };
   }
 
@@ -416,7 +416,7 @@ export async function checkPublicMediaAccess(postId: string): Promise<{ ok: bool
 }
 
 export async function verifyMetaObject(postId: string, network: "facebook" | "instagram") {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:review"))) {
     return { ok: false as const, message: "Inicia sesión para consultar Meta." };
   }
 
@@ -434,7 +434,7 @@ export async function recordDeliveryReview(
   outcome: "FOUND" | "NOT_FOUND" | "UNCERTAIN",
   evidence: string,
 ): Promise<{ ok: boolean; message: string }> {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:review"))) {
     return { ok: false, message: "Inicia sesión para registrar verificaciones." };
   }
 
@@ -474,7 +474,7 @@ export async function authorizeManualRetry(
   postId: string,
   network: "facebook" | "instagram",
 ): Promise<{ ok: boolean; message: string }> {
-  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para continuar." };
+  if (!(await hasClinicAccess("content:publish"))) return { ok: false, message: "Inicia sesión para continuar." };
   if (network !== "facebook" && network !== "instagram") {
     return { ok: false, message: "Red social no válida." };
   }
@@ -539,7 +539,7 @@ export async function authorizeManualRetry(
 }
 
 export async function confirmMissingAndRetry(postId: string, network: "facebook" | "instagram") {
-  if (!(await hasClinicAccess())) return { ok: false, message: "Inicia sesión para publicar." };
+  if (!(await hasClinicAccess("content:publish"))) return { ok: false, message: "Inicia sesión para publicar." };
   if (network !== "facebook" && network !== "instagram") {
     return { ok: false, message: "Red social no válida." };
   }
@@ -587,7 +587,7 @@ export async function confirmMissingAndRetry(postId: string, network: "facebook"
 }
 
 export async function rejectPost(postId: string) {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:review"))) {
     return { ok: false, message: "Inicia sesión para usar el panel." };
   }
 
@@ -612,7 +612,7 @@ export async function publishSelectedNetworks(
   networks: PublishNetwork[],
   tiktok?: { privacy: string; disableComment: boolean; disableDuet: boolean; disableStitch: boolean },
 ): Promise<{ ok: boolean; results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[]; message: string }> {
-  if (!(await hasClinicAccess())) {
+  if (!(await hasClinicAccess("content:publish"))) {
     return { ok: false, results: [], message: "Inicia sesión para publicar." };
   }
 
