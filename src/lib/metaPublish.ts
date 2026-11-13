@@ -37,12 +37,12 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
     throw new Error("El tipo de archivo no se puede publicar en Meta.");
   }
 
-  const account = await prisma.account.findFirst({ where: { provider: "facebook" } });
+  const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId: "pilot" } });
   if (!account?.accessToken || !account.pageId) {
     throw new Error("Vuelve a conectar la Página de Meta desde el panel.");
   }
 
-  const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
+  const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId: "pilot" } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
   const deliveryFormat = savedPost.deliveryFormat || "FEED";
   const isVideo = post.mediaKind === "video";
@@ -85,7 +85,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   // since Meta could have accepted a post even when our server lost its response.
   if (onlyNetwork !== "facebook" && account.instagramId && canSendToNetwork(savedPost.instagramStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
-      where: { id: post.id, instagramStatus: "PENDING" },
+      where: { id: post.id, clinicId: "pilot", instagramStatus: "PENDING" },
       data: { instagramStatus: "IN_PROGRESS", instagramError: null },
     });
     if (claim.count === 1) {
@@ -106,13 +106,13 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
         if (!published.id) throw new Error("Meta no confirmó la publicación en Instagram.");
         instagramId = String(published.id);
         await prisma.scheduledPost.update({
-          where: { id: post.id },
+          where: { id: post.id, clinicId: "pilot" },
           data: { instagramStatus: "SUCCEEDED", instagramPostId: instagramId },
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo confirmar Instagram.";
         await prisma.scheduledPost.update({
-          where: { id: post.id },
+          where: { id: post.id, clinicId: "pilot" },
           data: { instagramStatus: "UNKNOWN", instagramError: message.slice(0, 500) },
         });
         warnings.push("No se confirmó el resultado de Instagram. Comprueba la cuenta antes de otro intento.");
@@ -124,7 +124,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   if (onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
-      where: { id: post.id, facebookStatus: "PENDING" },
+      where: { id: post.id, clinicId: "pilot", facebookStatus: "PENDING" },
       data: { facebookStatus: "IN_PROGRESS", facebookError: null },
     });
     if (claim.count === 1) {
@@ -158,7 +158,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           }
           facebookId = String(started.video_id);
           await prisma.scheduledPost.update({
-            where: { id: post.id },
+            where: { id: post.id, clinicId: "pilot" },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
           try {
@@ -178,14 +178,14 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           if (!published.id) throw new Error("Meta no confirmó la foto de Facebook.");
           facebookId = String(published.id);
           await prisma.scheduledPost.update({
-            where: { id: post.id },
+            where: { id: post.id, clinicId: "pilot" },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo confirmar Facebook.";
         await prisma.scheduledPost.update({
-          where: { id: post.id },
+          where: { id: post.id, clinicId: "pilot" },
           data: { facebookStatus: "UNKNOWN", facebookError: message.slice(0, 500) },
         });
         warnings.push("No se confirmó el resultado de Facebook. Comprueba la Página antes de otro intento.");
@@ -201,7 +201,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   if (!instagramId && !facebookId) {
-    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id } });
+    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId: "pilot" } });
     const unconfirmed = currentPost && [currentPost.facebookStatus, currentPost.instagramStatus]
       .some((status) => status === "UNKNOWN" || status === "IN_PROGRESS");
 
