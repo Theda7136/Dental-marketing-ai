@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
         },
       },
       update: {
+        clinicId: "pilot",
         accessToken: page.access_token,
         name: userData.name || "Usuario Meta",
         pageName: page.name || "Página de Facebook",
@@ -124,6 +125,7 @@ export async function GET(request: NextRequest) {
         instagramId,
       },
       create: {
+        clinicId: "pilot",
         provider: "facebook",
         providerAccountId: providerAccountId,
         accessToken: page.access_token,
