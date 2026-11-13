@@ -29,6 +29,8 @@ export interface ApprovalQueuePost {
   facebookRetryCount?: number;
   instagramRetryCount?: number;
   instagramStatus?: string;
+  facebookError?: string | null;
+  instagramError?: string | null;
   canRecoverRejectedStory?: boolean;
   facebookPostId?: string | null;
   instagramPostId?: string | null;
@@ -181,6 +183,7 @@ export function ApprovalQueue({
   const [historyNetwork, setHistoryNetwork] = useState<"all" | "facebook" | "instagram">("all");
   const [historyStatus, setHistoryStatus] = useState("all");
   const [reviewKey, setReviewKey] = useState<string | null>(null);
+  const [expandedIncidents, setExpandedIncidents] = useState<string[]>([]);
   const [reviewOutcome, setReviewOutcome] = useState<"FOUND" | "NOT_FOUND" | "UNCERTAIN">("UNCERTAIN");
   const [reviewEvidence, setReviewEvidence] = useState("");
   const [lookupMessages, setLookupMessages] = useState<Record<string, string>>({});
@@ -240,6 +243,35 @@ export function ApprovalQueue({
       <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page >= pages}
         onClick={() => setPage(page + 1)}>Siguiente</button>
     </nav>;
+  }
+
+  function incidentPanel(post: ApprovalQueuePost) {
+    const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus ?? "") ||
+      ["UNKNOWN", "IN_PROGRESS"].includes(post.instagramStatus ?? "");
+    if (!unresolved) return null;
+
+    const expanded = expandedIncidents.includes(post.id);
+    return (
+      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+        <button type="button" aria-expanded={expanded}
+          onClick={() => setExpandedIncidents((current) => expanded
+            ? current.filter((id) => id !== post.id)
+            : [...current, post.id])}
+          className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-amber-900">
+          <span>Resolver incidencias de publicación</span>
+          <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+        </button>
+        {expanded && (
+          <div className="mt-3 space-y-3">
+            {post.facebookError && <p className="break-words text-xs text-amber-900">Facebook: {post.facebookError}</p>}
+            {post.instagramError && <p className="break-words text-xs text-amber-900">Instagram: {post.instagramError}</p>}
+            <p className="text-xs text-amber-800">Comprueba si el contenido apareció en la red antes de solicitar otro envío.</p>
+            {verificationControl(post, "facebook")}
+            {verificationControl(post, "instagram")}
+          </div>
+        )}
+      </div>
+    );
   }
 
   function verificationControl(post: ApprovalQueuePost, network: "facebook" | "instagram") {
@@ -339,30 +371,6 @@ export function ApprovalQueue({
           }}>Registrar comprobación</button>
         )}
       </div>
-    );
-  }
-
-  function retryButton(post: ApprovalQueuePost, network: "facebook" | "instagram") {
-    if (!canPublish) return null;
-    const retryAuthorized = (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0;
-    const authorizedNetwork = network === "facebook" ? (post.facebookRetryCount ?? 0) > 0 : (post.instagramRetryCount ?? 0) > 0;
-    if ((retryAuthorized && !authorizedNetwork) || post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
-      return null;
-    }
-
-    return (
-      <button
-        type="button"
-        disabled={busyId === post.id}
-        onClick={() => {
-          const platform = network === "facebook" ? "Facebook" : "Instagram";
-          if (!window.confirm(`Publicar ahora únicamente en ${platform}? Comprueba que el material esté autorizado y la cuenta conectada.`)) return;
-          void runAction(post.id, () => onRetry(post.id, network));
-        }}
-        className="rounded-xl border border-[#b7d7ce] bg-[#f2faf6] px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
-      >
-        Publicar solo en {network === "facebook" ? "Facebook" : "Instagram"}
-      </button>
     );
   }
 
@@ -619,13 +627,6 @@ export function ApprovalQueue({
                       {post.tiktokStatus && networkStatus("TikTok", post.tiktokStatus === "PROCESSING" ? "IN_PROGRESS" : post.tiktokStatus)}
                     </div>
 
-                    {(post.facebookStatus !== "PENDING" || post.instagramStatus !== "PENDING" || (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0) && (
-                      <div className="flex flex-wrap gap-2">
-                        {retryButton(post, "facebook")}
-                        {retryButton(post, "instagram")}
-                      </div>
-                    )}
-
                     {(post.facebookPostId || post.instagramPostId) && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["facebook", "instagram"] as const).map((network) => {
@@ -661,20 +662,8 @@ export function ApprovalQueue({
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
                   </div>
                 )}
-                {post.status === "PUBLISHED" && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {retryButton(post, "facebook")}
-                    {retryButton(post, "instagram")}
-                  </div>
-                )}
-                {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
-                      post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
-                      <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        Meta no confirmó el envío anterior. Usa «Revisar publicación» y «Registrar comprobación» para conciliarlo antes de autorizar otro intento.
-                      </p>
-                    )}
-
-                    {error ? (
+                {incidentPanel(post)}
+                {error ? (
                       <p role="alert" className="text-sm text-red-700">
                         {error}
                       </p>
@@ -809,23 +798,12 @@ export function ApprovalQueue({
                     })}
                   </div>
                 )}
-                {post.status === "PUBLISHED" && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {retryButton(post, "facebook")}
-                    {retryButton(post, "instagram")}
-                  </div>
-                )}
-                {verificationControl(post, "facebook")}
-                {verificationControl(post, "instagram")}
+                {incidentPanel(post)}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
                   {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
                   {deleteButton(post)}
                 </div>
-                {(post.facebookStatus === "UNKNOWN" || post.instagramStatus === "UNKNOWN" ||
-                  post.facebookStatus === "IN_PROGRESS" || post.instagramStatus === "IN_PROGRESS") && (
-                    <p className="mt-3 text-sm text-amber-800">Estado sin confirmar: verifica directamente en Meta antes de cualquier nuevo envío.</p>
-                  )}
               </li>
             )) : <li className="text-sm text-[#637773]">No hay registros que coincidan con los filtros.</li>}
           </ul>

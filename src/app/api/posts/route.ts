@@ -47,6 +47,7 @@ export async function GET(request: Request) {
         facebookRetryCount: number;
         instagramRetryCount: number;
         instagramError: string | null;
+        facebookError: string | null;
       }) => ({
         id: post.id,
         procedureName: post.procedureName,
@@ -60,6 +61,8 @@ export async function GET(request: Request) {
         status: post.status,
         facebookStatus: post.facebookStatus,
         instagramStatus: post.instagramStatus,
+        facebookError: post.facebookError,
+        instagramError: post.instagramError,
         facebookPostId: post.facebookPostId,
         facebookRetryCount: post.facebookRetryCount,
         instagramRetryCount: post.instagramRetryCount,
