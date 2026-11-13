@@ -10,7 +10,7 @@ import BrandSettings from "../../components/BrandSettings";
 import { AccountConnector } from "../../components/AccountConnector";
 import { EditorialCalendar } from "../../components/EditorialCalendar";
 import { ClinicTeam } from "../../components/ClinicTeam";
-import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, publishSelectedNetworks, type PublishNetwork } from "./actions";
+import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, publishSelectedNetworks, confirmClinicalReview, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -297,6 +297,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     if (!response.ok) throw new Error("No se pudieron actualizar los estados de publicación.");
     const payload = await response.json() as { posts: ApprovalQueuePost[] };
     setPosts(payload.posts);
+  }
+
+  async function approveClinicalReview(postId: string) {
+    const outcome = await confirmClinicalReview(postId);
+    if (!outcome.ok) throw new Error(outcome.message);
+    await reloadPosts();
+    setNotice(outcome.message);
   }
 
   async function publishNetworks(
