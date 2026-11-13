@@ -84,7 +84,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
 
   const [isPending, startTransition] = useTransition();
   const hasMedia = Boolean(selectedMedia);
-  const canConfigure = format === "text" || hasMedia;
+  const canConfigure = format === "text" || deliveryFormat !== "STORY";
 
   useEffect(() => {
     if (!selectedMedia) {
