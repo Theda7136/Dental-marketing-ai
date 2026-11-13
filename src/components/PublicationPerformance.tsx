@@ -5,6 +5,13 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
+type FacebookSnapshot = {
+  metrics: { id: string; reactions: number; comments: number }[];
+  checked: number;
+  unavailable: number;
+  scope: string;
+};
+
 type InstagramSnapshot = {
   metrics: { id: string; likes: number; comments: number }[];
   checked: number;
@@ -27,6 +34,25 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
   const [instagram, setInstagram] = useState<InstagramSnapshot | null>(null);
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState<string | null>(null);
+  const [facebook, setFacebook] = useState<FacebookSnapshot | null>(null);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+  const [facebookError, setFacebookError] = useState<string | null>(null);
+
+  async function refreshFacebook() {
+    setFacebookLoading(true);
+    setFacebookError(null);
+    try {
+      const response = await fetch("/api/performance/facebook", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "No fue posible consultar Facebook.");
+      setFacebook(payload as FacebookSnapshot);
+    } catch (error) {
+      setFacebook(null);
+      setFacebookError(error instanceof Error ? error.message : "No fue posible consultar Facebook.");
+    } finally {
+      setFacebookLoading(false);
+    }
+  }
 
   async function refreshInstagram() {
     setInstagramLoading(true);
@@ -187,6 +213,46 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
             <p className="mt-3 text-xs text-[#71847a]">
               {instagram.scope}. Datos disponibles para {instagram.metrics.length} de {instagram.checked} publicaciones.
               {instagram.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[#dce7e0] bg-white p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-[#183d37]">Interacciones de Facebook</h3>
+            <p className="mt-1 text-xs text-[#6b8177]">
+              Reacciones y comentarios que Meta devuelve para las publicaciones confirmadas del Feed.
+            </p>
+          </div>
+          <button type="button" onClick={() => void refreshFacebook()} disabled={facebookLoading}
+            className="rounded-lg border border-[#cbded4] bg-white px-4 py-2 text-sm font-semibold text-[#176c63] disabled:opacity-50">
+            {facebookLoading ? "Consultando…" : facebook ? "Actualizar datos" : "Consultar Facebook"}
+          </button>
+        </div>
+        {facebookError && <p role="alert" className="mt-3 text-xs text-[#8a5a51]">{facebookError}</p>}
+        {facebook && (
+          <div className="mt-4">
+            {facebook.metrics.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-[#f3f8f5] p-4">
+                  <p className="text-xs text-[#63796e]">Reacciones</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
+                    {facebook.metrics.reduce((total, post) => total + post.reactions, 0).toLocaleString("es-CO")}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#f3f8f5] p-4">
+                  <p className="text-xs text-[#63796e]">Comentarios</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
+                    {facebook.metrics.reduce((total, post) => total + post.comments, 0).toLocaleString("es-CO")}
+                  </p>
+                </div>
+              </div>
+            ) : <p className="text-sm text-[#687e73]">No se recibieron métricas para las publicaciones consultadas.</p>}
+            <p className="mt-3 text-xs text-[#71847a]">
+              {facebook.scope}. Datos disponibles para {facebook.metrics.length} de {facebook.checked} publicaciones.
+              {facebook.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
             </p>
           </div>
         )}
