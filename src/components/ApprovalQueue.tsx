@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TikTokPublisher } from "./TikTokPublisher";
 import { MultinetworkPublisher } from "./MultinetworkPublisher";
 import type { PublishNetwork } from "@/app/dashboard/actions";
@@ -193,6 +193,8 @@ export function ApprovalQueue({
   const [historyQuery, setHistoryQuery] = useState("");
   const [pendingPage, setPendingPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
+  const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
+  const focusedOnce = useRef(false);
   const pageSize = 10;
 
   const reviewedPosts = useMemo(
@@ -233,6 +235,47 @@ export function ApprovalQueue({
   const historyPages = Math.max(1, Math.ceil(historyMatches.length / pageSize));
   const pendingVisible = pendingMatches.slice((Math.min(pendingPage, pendingPages) - 1) * pageSize, Math.min(pendingPage, pendingPages) * pageSize);
   const historyVisible = historyMatches.slice((Math.min(historyPage, historyPages) - 1) * pageSize, Math.min(historyPage, historyPages) * pageSize);
+
+  useEffect(() => {
+    if (focusedOnce.current || posts.length === 0) return;
+
+    const requestedId = new URLSearchParams(window.location.search).get("post");
+    if (!requestedId) {
+      focusedOnce.current = true;
+      return;
+    }
+
+    const matchingPost = posts.find((post) => post.id === requestedId);
+    if (!matchingPost) return;
+
+    focusedOnce.current = true;
+    setFocusedPostId(requestedId);
+    if (matchingPost.status === "PENDING_APPROVAL") {
+      setPendingQuery("");
+      const index = pendingPosts.findIndex((post) => post.id === requestedId);
+      setPendingPage(Math.floor(index / pageSize) + 1);
+    } else {
+      setShowPublished(true);
+      setHistoryQuery("");
+      setHistoryNetwork("all");
+      setHistoryStatus("all");
+      const index = reviewedPosts.findIndex((post) => post.id === requestedId);
+      setHistoryPage(Math.floor(index / pageSize) + 1);
+    }
+  }, [posts, pendingPosts, reviewedPosts]);
+
+  useEffect(() => {
+    if (!focusedPostId) return;
+    const visible = mode === "history" ? historyVisible : pendingVisible;
+    if (!visible.some((post) => post.id === focusedPostId)) return;
+
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`proposal-${focusedPostId}`)?.scrollIntoView({
+        behavior: "smooth", block: "center",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusedPostId, pendingPage, historyPage, mode, posts]);
 
   function pageNav(page: number, pages: number, setPage: (page: number) => void) {
     if (pages <= 1) return null;
@@ -469,7 +512,8 @@ export function ApprovalQueue({
             return (
               <li
                 key={post.id}
-                className="app-card studio-proposal overflow-hidden"
+                id={`proposal-${post.id}`}
+                className={`app-card studio-proposal overflow-hidden ${focusedPostId === post.id ? "ring-2 ring-[#64a58d] ring-offset-2" : ""}`}
               >
                 <article className="studio-proposal-grid grid gap-0">
                   <div className="studio-proposal-media overflow-hidden">
@@ -748,7 +792,7 @@ export function ApprovalQueue({
             <p role="status" className="mt-3 text-xs text-[#637773]">{historyMatches.length} de {reviewedPosts.length} registros</p>
             <ul className="mt-3 space-y-3">
             {historyMatches.length ? historyVisible.map((post) => (
-              <li key={post.id} className="rounded-2xl border border-[#d7e5df] bg-white p-4">
+              <li key={post.id} id={`proposal-${post.id}`} className={`rounded-2xl border border-[#d7e5df] bg-white p-4 ${focusedPostId === post.id ? "ring-2 ring-[#64a58d] ring-offset-2" : ""}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold text-[#173b3a]">{post.procedureName} {post.deliveryFormat === "REEL" ? "· Reel" : post.deliveryFormat === "STORY" ? "· Historia" : ""}</p>
