@@ -38,10 +38,12 @@ export async function GET() {
 
   const metrics: FacebookMetrics[] = [];
   let unavailable = 0;
+  const failures: Record<string, number> = {};
 
   for (const post of posts) {
     const postId = post.facebookPostId;
     if (!postId || !/^\d+(?:_\d+)?$/.test(postId)) {
+      failures.identifier = (failures.identifier ?? 0) + 1;
       unavailable++;
       continue;
     }
@@ -56,11 +58,19 @@ export async function GET() {
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        const metaError = errorPayload && typeof errorPayload === "object"
+          ? (errorPayload as { error?: { code?: number } }).error : undefined;
+        const reason = metaError?.code === 190 ? "token"
+          : [10, 200, 283].includes(metaError?.code ?? -1) ? "permissions"
+          : metaError?.code === 100 ? "identifier" : "unavailable";
+        failures[reason] = (failures[reason] ?? 0) + 1;
         unavailable++;
         continue;
       }
       const payload: unknown = await response.json();
       if (!payload || typeof payload !== "object") {
+        failures.unavailable = (failures.unavailable ?? 0) + 1;
         unavailable++;
         continue;
       }
@@ -70,11 +80,13 @@ export async function GET() {
       const comments = (entry.comments as { summary?: { total_count?: unknown } } | undefined)?.summary?.total_count;
       if (String(entry.id) !== postId || !Number.isSafeInteger(reactions) || !Number.isSafeInteger(comments) ||
         Number(reactions) < 0 || Number(comments) < 0) {
+        failures.incomplete = (failures.incomplete ?? 0) + 1;
         unavailable++;
         continue;
       }
       metrics.push({ id: post.id, reactions: Number(reactions), comments: Number(comments) });
     } catch {
+      failures.unavailable = (failures.unavailable ?? 0) + 1;
       unavailable++;
     }
   }
@@ -83,6 +95,7 @@ export async function GET() {
     metrics,
     checked: posts.length,
     unavailable,
+    failures,
     scope: "Últimas 10 publicaciones confirmadas en el Feed de Facebook",
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
