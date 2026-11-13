@@ -14,7 +14,7 @@ type Creator = {
 type PublishOutcome = {
   ok: boolean;
   message: string;
-  results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain"; message: string }[];
+  results: { network: PublishNetwork; outcome: "confirmed" | "processing" | "uncertain" | "not_sent"; message: string }[];
 };
 
 const labels: Record<PublishNetwork, string> = {
@@ -133,8 +133,14 @@ export function MultinetworkPublisher({
       const result = await onPublish(post.id, availableNetworks.filter((network) => selected.includes(network)),
         selected.includes("tiktok") ? { privacy, disableComment, disableDuet, disableStitch } : undefined);
       setOutcome(result);
-      await onReload();
-      setSelected([]);
+      setSelected((current) => current.filter((network) =>
+        result.results.some((entry) => entry.network === network && entry.outcome === "not_sent"),
+      ));
+      try {
+        await onReload();
+      } catch {
+        setError("El envío terminó, pero no se pudo actualizar el panel. Recarga para comprobar el estado.");
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "El estado de alguna red es incierto. Recarga el panel.");
     } finally {
