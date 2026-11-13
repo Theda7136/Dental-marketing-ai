@@ -374,30 +374,6 @@ export function ApprovalQueue({
     );
   }
 
-  function retryButton(post: ApprovalQueuePost, network: "facebook" | "instagram") {
-    if (!canPublish) return null;
-    const retryAuthorized = (post.facebookRetryCount ?? 0) > 0 || (post.instagramRetryCount ?? 0) > 0;
-    const authorizedNetwork = network === "facebook" ? (post.facebookRetryCount ?? 0) > 0 : (post.instagramRetryCount ?? 0) > 0;
-    if ((retryAuthorized && !authorizedNetwork) || post.mediaUrl.length === 0 || post[network === "facebook" ? "facebookStatus" : "instagramStatus"] !== "PENDING") {
-      return null;
-    }
-
-    return (
-      <button
-        type="button"
-        disabled={busyId === post.id}
-        onClick={() => {
-          const platform = network === "facebook" ? "Facebook" : "Instagram";
-          if (!window.confirm(`Publicar ahora únicamente en ${platform}? Comprueba que el material esté autorizado y la cuenta conectada.`)) return;
-          void runAction(post.id, () => onRetry(post.id, network));
-        }}
-        className="rounded-xl border border-[#b7d7ce] bg-[#f2faf6] px-3 py-2 text-xs font-semibold text-[#176c63] disabled:opacity-50"
-      >
-        Publicar solo en {network === "facebook" ? "Facebook" : "Instagram"}
-      </button>
-    );
-  }
-
   function deleteButton(post: ApprovalQueuePost) {
     if (!canWrite) return null;
     const unresolved = ["UNKNOWN", "IN_PROGRESS"].includes(post.facebookStatus || "") ||
