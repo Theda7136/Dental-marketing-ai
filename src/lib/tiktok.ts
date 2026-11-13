@@ -20,7 +20,7 @@ function credentials() {
 }
 
 export async function getTikTokAccess() {
-  const account = await prisma.account.findFirst({ where: { provider: "tiktok" } });
+  const account = await prisma.account.findFirst({ where: { provider: "tiktok", clinicId: "pilot" } });
   if (!account) throw new Error("Conecta tu cuenta de TikTok en Conexiones.");
   if (!(account.grantedScopes || "").split(",").includes("video.publish")) {
     throw new Error("Reconecta TikTok autorizando el permiso video.publish.");
@@ -48,7 +48,7 @@ export async function getTikTokAccess() {
     throw new Error("No se pudo renovar la autorización de TikTok. Reconecta la cuenta.");
   }
   await prisma.account.update({
-    where: { id: account.id },
+    where: { id: account.id, clinicId: "pilot" },
     data: {
       accessToken: refreshed.access_token,
       refreshToken: refreshed.refresh_token,
