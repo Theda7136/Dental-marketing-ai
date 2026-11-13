@@ -29,6 +29,7 @@ export interface ApprovalQueuePost {
   facebookRetryCount?: number;
   instagramRetryCount?: number;
   instagramStatus?: string;
+  canRecoverRejectedStory?: boolean;
   facebookPostId?: string | null;
   instagramPostId?: string | null;
   tiktokStatus?: string;
@@ -52,6 +53,7 @@ export interface ApprovalQueuePost {
 interface ApprovalQueueProps {
   role?: string | null;
   onConfirmReview?: (postId: string) => Promise<void>;
+  onRecoverStory?: (postId: string) => Promise<void>;
   mode?: "pending" | "history" | "both";
   posts: readonly ApprovalQueuePost[];
   onPublishSelected: (postId: string, networks: PublishNetwork[], tiktok?: {
@@ -156,6 +158,7 @@ export function ApprovalQueue({
   posts,
   role,
   onConfirmReview,
+  onRecoverStory,
   mode = "both",
   onPublishSelected,
   onReload,
@@ -259,6 +262,16 @@ export function ApprovalQueue({
             {reviewedAt ? ` · ${formatCreatedAt(reviewedAt)}` : ""}
             {evidence ? ` · ${evidence}` : ""}
           </p>
+        )}
+        {canPublish && network === "instagram" && post.canRecoverRejectedStory && onRecoverStory && (
+          <button type="button" disabled={busyId === post.id}
+            className="mt-2 mr-2 rounded-lg bg-teal-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            onClick={() => {
+              if (!window.confirm("¿Confirmas que la historia no apareció en Instagram? El rechazo de Meta permite habilitar un único reintento; esta acción NO publica automáticamente.")) return;
+              void runAction(post.id, onRecoverStory);
+            }}>
+            Recuperar historia rechazada
+          </button>
         )}
         {canPublish && status === "UNKNOWN" && outcome === "NOT_FOUND" && !(
           network === "facebook" ? post.facebookPostId : post.instagramPostId
