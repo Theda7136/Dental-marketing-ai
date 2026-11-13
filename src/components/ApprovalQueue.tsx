@@ -656,7 +656,6 @@ export function ApprovalQueue({
                     {post.instagramPostId && <p>Instagram · ID: {post.instagramPostId}</p>}
                   </div>
                 )}
-                {incidentPanel(post)}
                 {error ? (
                       <p role="alert" className="text-sm text-red-700">
                         {error}
@@ -792,7 +791,6 @@ export function ApprovalQueue({
                     })}
                   </div>
                 )}
-                {incidentPanel(post)}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   {canPublish && <MultinetworkPublisher post={post} onPublish={onPublishSelected} onReload={onReload} />}
                   {canPublish && post.tiktokStatus === "PROCESSING" && <TikTokPublisher postId={post.id} mediaKind={post.mediaKind} status={post.tiktokStatus} />}
