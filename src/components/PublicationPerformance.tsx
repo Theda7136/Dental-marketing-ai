@@ -5,6 +5,12 @@ import type { ApprovalQueuePost } from "./ApprovalQueue";
 
 type Network = "Facebook" | "Instagram" | "TikTok";
 type Delivery = { name: Network; status: string };
+type InstagramSnapshot = {
+  metrics: { id: string; likes: number; comments: number }[];
+  checked: number;
+  unavailable: number;
+  scope: string;
+};
 
 function deliveryStates(post: ApprovalQueuePost): Delivery[] {
   if (!post.mediaUrl || post.status === "REJECTED") return [];
@@ -18,6 +24,25 @@ function deliveryStates(post: ApprovalQueuePost): Delivery[] {
 export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueuePost[] }) {
   const [period, setPeriod] = useState("30");
   const [network, setNetwork] = useState<"all" | Network>("all");
+  const [instagram, setInstagram] = useState<InstagramSnapshot | null>(null);
+  const [instagramLoading, setInstagramLoading] = useState(false);
+  const [instagramError, setInstagramError] = useState<string | null>(null);
+
+  async function refreshInstagram() {
+    setInstagramLoading(true);
+    setInstagramError(null);
+    try {
+      const response = await fetch("/api/performance/instagram", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "No fue posible consultar Instagram.");
+      setInstagram(payload as InstagramSnapshot);
+    } catch (error) {
+      setInstagram(null);
+      setInstagramError(error instanceof Error ? error.message : "No fue posible consultar Instagram.");
+    } finally {
+      setInstagramLoading(false);
+    }
+  }
 
   const summary = useMemo(() => {
     const cutoff = period === "all" ? null : Date.now() - Number(period) * 24 * 60 * 60 * 1000;
@@ -127,6 +152,46 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
         </div>
       </section>
 
+      <section className="rounded-2xl border border-[#dce7e0] bg-white p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-[#183d37]">Interacciones de Instagram</h3>
+            <p className="mt-1 text-xs text-[#6b8177]">
+              Me gusta y comentarios consultados directamente en Meta, solo para publicaciones confirmadas.
+            </p>
+          </div>
+          <button type="button" onClick={() => void refreshInstagram()} disabled={instagramLoading}
+            className="rounded-lg border border-[#cbded4] bg-white px-4 py-2 text-sm font-semibold text-[#176c63] disabled:opacity-50">
+            {instagramLoading ? "Consultando…" : instagram ? "Actualizar datos" : "Consultar Instagram"}
+          </button>
+        </div>
+        {instagramError && <p role="alert" className="mt-3 text-xs text-[#8a5a51]">{instagramError}</p>}
+        {instagram && (
+          <div className="mt-4">
+            {instagram.metrics.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-[#f3f8f5] p-4">
+                  <p className="text-xs text-[#63796e]">Me gusta</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
+                    {instagram.metrics.reduce((total, post) => total + post.likes, 0).toLocaleString("es-CO")}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[#f3f8f5] p-4">
+                  <p className="text-xs text-[#63796e]">Comentarios</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#18483f]">
+                    {instagram.metrics.reduce((total, post) => total + post.comments, 0).toLocaleString("es-CO")}
+                  </p>
+                </div>
+              </div>
+            ) : <p className="text-sm text-[#687e73]">No se recibieron métricas de Instagram para las publicaciones consultadas.</p>}
+            <p className="mt-3 text-xs text-[#71847a]">
+              {instagram.scope}. Datos disponibles para {instagram.metrics.length} de {instagram.checked} publicaciones.
+              {instagram.unavailable > 0 ? " Algunos resultados no estuvieron disponibles en Meta." : ""}
+            </p>
+          </div>
+        )}
+      </section>
+
       {summary.uncertain.length > 0 && (
         <p className="text-sm text-[#786344]">
           Hay {summary.uncertain.length} envíos que requieren seguimiento.
@@ -135,8 +200,8 @@ export function PublicationPerformance({ posts }: { posts: readonly ApprovalQueu
       )}
       <p className="text-xs leading-5 text-[#71847a]">
         El período se calcula según la fecha de creación de cada propuesta, no la fecha exacta de publicación.
-        Solo se incluyen registros actualmente visibles en el panel. El alcance y las interacciones se incorporarán
-        cuando sus APIs y permisos estén verificados.
+        Solo se incluyen registros actualmente visibles en el panel. Los datos de Instagram se consultan
+        por separado y pueden requerir permisos adicionales de Meta.
       </p>
     </section>
   );
