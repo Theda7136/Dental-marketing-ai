@@ -10,7 +10,7 @@ import BrandSettings from "../../components/BrandSettings";
 import { AccountConnector } from "../../components/AccountConnector";
 import { EditorialCalendar } from "../../components/EditorialCalendar";
 import { ClinicTeam } from "../../components/ClinicTeam";
-import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, reopenRejectedInstagramStory, publishSelectedNetworks, confirmClinicalReview, type PublishNetwork } from "./actions";
+import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, reopenRejectedInstagramStory, publishSelectedNetworks, confirmClinicalReview, rejectPost, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
 
@@ -305,6 +305,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
     if (!outcome.ok) throw new Error(outcome.message);
     await reloadPosts();
     setNotice(outcome.message);
+  }
+
+  async function discardProposal(postId: string) {
+    const outcome = await rejectPost(postId);
+    if (!outcome.ok) throw new Error(outcome.message || "No se pudo descartar la propuesta.");
+    await reloadPosts();
+    setNotice("Propuesta descartada. Puedes consultarla en Historial.");
   }
 
   async function publishNetworks(
@@ -804,6 +811,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           posts={posts}
           role={currentRole}
           onConfirmReview={approveClinicalReview}
+          onReject={discardProposal}
           onPublishSelected={publishNetworks}
           onReload={reloadPosts}
           onDelete={deletePost}
