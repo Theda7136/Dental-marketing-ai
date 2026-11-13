@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { resolvePageInstagramAccount } from "@/lib/instagramAccount";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) {
-    return unauthorizedResponse(true);
-  }
+  const session = await getStudioAccess("connections:manage");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   try {
-    const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId: "pilot" } });
+    const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId: session.clinic.id } });
     if (!account?.accessToken || !account.pageId) {
       return NextResponse.json({ connected: false, instagramConnected: false });
     }
@@ -24,7 +23,7 @@ export async function GET(request: Request) {
       instagramId = linkedId;
       if (linkedId !== account.instagramId) {
         await prisma.account.update({
-          where: { id: account.id, clinicId: "pilot" },
+          where: { id: account.id, clinicId: session.clinic.id },
           data: { instagramId: linkedId },
         });
       }

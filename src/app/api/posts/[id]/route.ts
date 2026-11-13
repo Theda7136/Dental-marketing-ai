@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -9,9 +9,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) {
-    return unauthorizedResponse(true);
-  }
+  const session = await getStudioAccess("content:write");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   const { id } = await params;
   if (!/^[a-zA-Z0-9_-]{8,64}$/.test(id)) {
@@ -20,7 +19,7 @@ export async function DELETE(
 
   try {
     const post = await prisma.scheduledPost.findUnique({
-      where: { id, clinicId: "pilot" },
+      where: { id, clinicId: session.clinic.id },
       select: {
         status: true,
         archivedAt: true,
@@ -55,7 +54,7 @@ export async function DELETE(
     const updated = await prisma.scheduledPost.updateMany({
       where: {
         id,
-        clinicId: "pilot",
+        clinicId: session.clinic.id,
         archivedAt: null,
         status: post.status,
         facebookStatus: post.facebookStatus,

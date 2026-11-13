@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) {
-    return unauthorizedResponse(true);
-  }
+  const session = await getStudioAccess("content:read");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   try {
     const posts = await prisma.scheduledPost.findMany({
-      where: { clinicId: "pilot", archivedAt: null },
+      where: { clinicId: session.clinic.id, archivedAt: null },
       orderBy: { createdAt: "desc" },
     });
 

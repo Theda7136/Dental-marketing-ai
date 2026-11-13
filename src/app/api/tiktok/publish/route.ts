@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { publishToTikTok, refreshTikTokPostStatus } from "@/lib/tiktokPublisher";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) return unauthorizedResponse(true);
+  const session = await getStudioAccess("content:publish");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
   let params: { postId?: string; privacy?: string; disableComment?: boolean; disableDuet?: boolean; disableStitch?: boolean };
   try { params = await request.json(); }
   catch { return NextResponse.json({ error: "Datos de publicación inválidos." }, { status: 400 }); }
@@ -25,7 +26,8 @@ export async function POST(request: NextRequest) {
   }
 }
 export async function GET(request: NextRequest) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) return unauthorizedResponse(true);
+  const session = await getStudioAccess("content:publish");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
   const postId = new URL(request.url).searchParams.get("postId");
   if (!postId || !/^[\w-]{8,64}$/.test(postId)) {
     return NextResponse.json({ error: "Identificador inválido." }, { status: 400 });
