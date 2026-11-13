@@ -21,6 +21,7 @@ function harness({
   instagram = false,
   facebookStatus = "PENDING",
   instagramStatus = "PENDING",
+  deliveryFormat = "FEED",
   facebookPostId = null,
   instagramPostId = null,
   reviewed = true,
@@ -32,6 +33,7 @@ function harness({
     id: draft.id,
     facebookStatus,
     instagramStatus,
+    deliveryFormat,
     facebookPostId,
     instagramPostId,
     generatedCaption: draft.generatedCaption,
@@ -232,5 +234,27 @@ test("Meta receives a different caption for each supported network", async () =>
 test("archived proposals are rejected before contacting Meta", async () => {
   const { publishToMeta, requests } = harness({ archived: true });
   await assert.rejects(publishToMeta(draft), /archivada/i);
+  assert.equal(requests.length, 0);
+});
+
+test("Instagram image Story uses STORIES instead of a feed container", async () => {
+  const { publishToMeta, saved, requests } = harness({ instagram: true, deliveryFormat: "STORY" });
+  await publishToMeta(draft, "instagram");
+
+  const container = requests.find((request) => request.path.endsWith("/456/media"));
+  assert.ok(container);
+  const params = new URLSearchParams(container.body);
+  assert.equal(params.get("media_type"), "STORIES");
+  assert.equal(params.has("video_url"), false);
+  assert.ok(params.has("image_url"));
+  assert.equal(saved.instagramStatus, "SUCCEEDED");
+  assert.equal(saved.facebookStatus, "PENDING");
+});
+
+test("a Story can never be sent to Facebook as a normal photo", async () => {
+  const { publishToMeta, saved, requests } = harness({ instagram: true, deliveryFormat: "STORY" });
+  await assert.rejects(publishToMeta(draft, "facebook"), /historias.*Instagram/i);
+  assert.equal(saved.facebookStatus, "PENDING");
+  assert.equal(saved.instagramStatus, "PENDING");
   assert.equal(requests.length, 0);
 });
