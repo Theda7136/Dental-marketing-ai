@@ -1233,3 +1233,5 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-brand-composition { display: block; width: min(100%, 330px); height: auto; margin: 0 auto; border-radius: 9px; border: 1px solid #dce7df; }
 .studio-brand-preview-loading { padding: 28px 8px; color: #65786f; text-align: center; font-size: .85rem; }
 .studio-brand-preview-note { display: block; margin-top: 12px; color: #687d71; font-size: .75rem; line-height: 1.5; }
+.studio-brand-composition.is-story { width: min(100%, 250px); }
+.studio-brand-example select { width: 100%; min-height: 40px; border: 1px solid #cbd8d0; border-radius: 8px; background: white; padding: 8px 12px; color: #284b42; }
