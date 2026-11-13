@@ -76,7 +76,9 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
-  const instagramMediaUrl = isVideo ? mediaUrl : `${mediaUrl}&format=jpeg`;
+  const instagramMedia = new URL(mediaUrl);
+  if (!isVideo) instagramMedia.searchParams.set("format", "jpeg");
+  const instagramMediaUrl = instagramMedia.toString();
   const captions = platformCaptions(savedPost.generatedCaption);
   const warnings: string[] = [];
   let instagramId = savedPost.instagramPostId || undefined;
