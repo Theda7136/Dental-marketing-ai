@@ -35,9 +35,14 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
   useEffect(() => {
     fetch("/api/studio/me", { cache: "no-store" })
       .then(response => response.ok ? response.json() : null)
-      .then(profile => setCurrentRole(profile?.role ?? null))
+      .then(profile => {
+        setCurrentRole(profile?.role ?? null);
+        if (profile?.role === "REVIEWER" && view === "create") {
+          window.location.replace("/dashboard/pendientes");
+        }
+      })
       .catch(() => setCurrentRole(null));
-  }, []);
+  }, [view]);
 
   // Limpieza segura de parámetros de URL una sola vez al cargar la página
   useEffect(() => {
