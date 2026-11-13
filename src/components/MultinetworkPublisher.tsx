@@ -142,16 +142,15 @@ export function MultinetworkPublisher({
     }
   }
 
-  if (post.mediaKind === "text" || !post.mediaUrl) return null;
+  if (post.mediaKind === "text" || !post.mediaUrl || !hasPending) return null;
   const hasPending = availableNetworks.some((network) => statuses[network] === "PENDING");
-  const needsReview = availableNetworks.some((network) => ["UNKNOWN", "IN_PROGRESS"].includes(statuses[network]));
 
   return (
     <div className="order-first w-full basis-full">
       {!open ? (
         <button type="button" onClick={() => setOpen(true)}
           className="studio-primary-action inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#126f60] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d]">
-          <span aria-hidden="true">↗</span> {hasPending ? "Publicar en redes" : needsReview ? "Revisar publicación" : "Ver estado de publicación"}
+          <span aria-hidden="true">↗</span> Publicar en redes
         </button>
       ) : (
         <div className="rounded-xl border border-[#d9e5df] bg-[#f8faf8] p-4">
@@ -180,17 +179,6 @@ export function MultinetworkPublisher({
               </label>;
             })}
           </div>
-          {needsReview && (
-            <p className="mt-3 text-sm text-amber-800">
-              Hay envíos por verificar. Usa <strong>Resolver incidencias</strong> debajo de esta propuesta
-              para consultar el error y recuperar solo los intentos que no llegaron a publicarse.
-            </p>
-          )}
-          {!hasPending && !needsReview && (
-            <p className="mt-3 text-sm text-stone-600">
-              No hay envíos pendientes. Las publicaciones confirmadas no se duplicarán.
-            </p>
-          )}
           {selected.includes("tiktok") && (
             <div className="mt-3 space-y-3 rounded-lg border border-[#d9e5df] bg-white p-3">
               <p className="text-xs font-semibold text-[#40665a]">Preferencias requeridas por TikTok</p>
@@ -223,12 +211,12 @@ export function MultinetworkPublisher({
               </> : <p className="text-xs text-[#687e73]">Consultando opciones de privacidad…</p>}
             </div>
           )}
-          {hasPending && <button type="button" onClick={() => void publish()}
+          <button type="button" onClick={() => void publish()
             disabled={busy || !selected.length || !accounts || (selected.includes("tiktok") && !privacy)}
             className="mt-3 min-h-11 rounded-lg bg-[#126f60] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b584d] disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? "Publicando en las redes seleccionadas…" : "Publicar en redes seleccionadas"}
-          </button>}
-          {hasPending && <p className="mt-2 text-xs text-[#71837b]">Solo se enviarán las redes pendientes seleccionadas.</p>}
+          </button>
+          <p className="mt-2 text-xs text-[#71837b]">Solo se enviarán las redes pendientes seleccionadas.</p>
           {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         </div>
       )}
