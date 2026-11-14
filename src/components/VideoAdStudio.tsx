@@ -128,7 +128,7 @@ export default function VideoAdStudio() {
     const lines = [copy.introduction, copy.explanation, copy.close];
     setScenes(assets.map((asset, index) => ({
       assetId: asset.id,
-      heading: lines[Math.min(2, Math.floor(index * 3 / assets.length))],
+      heading: lines[index === 0 ? 0 : index === assets.length - 1 ? 2 : 1],
       seconds: base + (index < remainder ? 1 : 0),
     })));
     setActiveId(assets[0].id);
