@@ -168,6 +168,7 @@ export function ApprovalQueue({
   const [pendingPage, setPendingPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
+  const [previewPost, setPreviewPost] = useState<ApprovalQueuePost | null>(null);
   const focusedOnce = useRef(false);
   const pageSize = 10;
 
@@ -252,6 +253,15 @@ export function ApprovalQueue({
     });
     return () => cancelAnimationFrame(frame);
   }, [focusedPostId, pendingPage, historyPage, mode, posts]);
+
+  useEffect(() => {
+    if (!previewPost) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewPost(null);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [previewPost]);
 
   function pageNav(page: number, pages: number, setPage: (page: number) => void) {
     if (pages <= 1) return null;
@@ -342,7 +352,7 @@ export function ApprovalQueue({
                 className={`app-card studio-proposal overflow-hidden ${focusedPostId === post.id ? "ring-2 ring-[#64a58d] ring-offset-2" : ""}`}
               >
                 <article className="studio-proposal-grid grid gap-0">
-                  <div className="studio-proposal-media overflow-hidden">
+                  <div className="studio-proposal-media relative overflow-hidden">
                     {isTextIdea ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm font-semibold text-[#356e66]">
                         Idea de contenido
@@ -353,13 +363,26 @@ export function ApprovalQueue({
                         <span>{mediaError}</span>
                       </div>
                     ) : isVideo ? (
-                      <video
-                        className="studio-proposal-media-content"
-                        src={mediaSource(post)}
-                        controls
-                        preload="metadata"
-                        onError={() => setMediaErrors((previous) => ({ ...previous, [post.id]: "No se pudo cargar el video guardado." }))}
-                      />
+                      <>
+                        <video
+                          className="studio-proposal-media-content"
+                          src={mediaSource(post)}
+                          controls
+                          preload="metadata"
+                          onError={() => setMediaErrors((previous) => ({ ...previous, [post.id]: "No se pudo cargar el video guardado." }))}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPost(post)}
+                          aria-label={`Ampliar video de ${post.procedureName}`}
+                          title="Ver video ampliado"
+                          className="absolute right-2 top-2 rounded-lg bg-[#183d37]/90 p-2 text-white shadow-sm transition hover:bg-[#0c6d60] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c6d60]"
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </>
                     ) : (
                       <img
                         className="studio-proposal-media-content"
@@ -626,6 +649,33 @@ export function ApprovalQueue({
           </>
         )}
       </section>}
+      {previewPost && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#081c19]/85 p-3 sm:p-6"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewPost(null); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Vista ampliada de ${previewPost.procedureName}`}
+            className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[#dce7e0] px-4 py-3">
+              <p className="truncate text-sm font-semibold text-[#183d37]">{previewPost.procedureName} · Vista del video final</p>
+              <button type="button" autoFocus onClick={() => setPreviewPost(null)}
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-[#176c63] hover:bg-[#eef6f2]">
+                Cerrar
+              </button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-[#101918] p-3">
+              <video key={previewPost.id} src={mediaSource(previewPost)} controls autoPlay playsInline
+                className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain"
+                aria-label={`Reproducción ampliada de ${previewPost.procedureName}`} />
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
