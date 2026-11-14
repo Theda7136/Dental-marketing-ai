@@ -21,6 +21,20 @@ Dental Marketing AI sigue restringido a la clínica piloto. Este procedimiento d
 7. Ejecutar `npm run check:production` con el archivo `.env` del servidor. Es una **verificación mínima de configuración**, no comprueba el volumen, los permisos S3, los respaldos ni el acceso efectivo a Meta.
 8. Probar inicio y cierre de sesión, creación de foto y video, lectura de una imagen antigua, OAuth, publicación de prueba, revisión de resultados inciertos y recuperación desde un respaldo.
 
+## Respaldo SQLite verificado
+
+En la instalación piloto, desde la raíz del proyecto y con dependencias instaladas:
+
+```powershell
+npm run backup:db
+```
+
+El script abre `prisma/dev.db`, genera una instantánea consistente mediante `VACUUM INTO` y verifica `PRAGMA integrity_check` antes de publicarla en `backups/sqlite/`. No sobrescribe la base original y las copias quedan excluidas de Git. Puede ejecutarse con el servidor activo, pero la validación sigue siendo necesaria.
+
+**Esto no constituye por sí solo una estrategia de respaldo de producción:** un fallo del mismo disco puede destruir el original y la copia. La tarea operativa pendiente es cifrar y transferir periódicamente los respaldos a un destino privado externo, comprobar su integridad allí y **ensayar la restauración en un entorno aislado**. También se debe respaldar `storage/` si contiene medios del piloto y conservar los objetos S3/R2 necesarios para una recuperación consistente.
+
+Antes de cualquier restauración real: detener la aplicación, preservar una copia del estado actual, restaurar en una ubicación de prueba y verificar el esquema, las sesiones, las publicaciones y los archivos. No ejecutar restauraciones sobre datos de producción sin un procedimiento validado.
+
 ## Recuperación
 
 - Mantener respaldos automáticos fuera del servidor, cifrados, con retención definida y prueba periódica de restauración.
