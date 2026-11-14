@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Selecciona una publicación y su privacidad." }, { status: 400 });
   }
   try {
-    const publication = await publishToTikTok(params.postId, params.privacy, {
+    const publication = await publishToTikTok(params.postId, session.clinic.id, params.privacy, {
       disableComment: params.disableComment === true,
       disableDuet: params.disableDuet === true,
       disableStitch: params.disableStitch === true,
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Identificador inválido." }, { status: 400 });
   }
   try {
-    const status = await refreshTikTokPostStatus(postId);
+    const status = await refreshTikTokPostStatus(postId, session.clinic.id);
     return NextResponse.json({ ok: true, ...status });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo comprobar el envío." }, { status: 409 });
