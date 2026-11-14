@@ -10,7 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ffmpegStatic from "ffmpeg-static";
-import sharp from "sharp";
+import { prepareLogo } from "./logoService";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
@@ -597,9 +597,7 @@ export async function overlayVideoLogo(
 
   let logo: Buffer;
   try {
-    logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
-      .resize({ width: 310, height: 150, fit: "inside", withoutEnlargement: true })
-      .png().toBuffer();
+    logo = await prepareLogo(logoSource, 310, 150, true);
   } catch {
     throw new VideoServiceError("El logotipo configurado no se puede procesar.", "RENDER_FAILED");
   }
