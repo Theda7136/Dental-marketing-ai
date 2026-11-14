@@ -1,4 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
+import { getStudioAccess } from "@/lib/studioAccess";
+import { STUDIO_SESSION_COOKIE } from "@/lib/studioSession";
+import { isValidOAuthCallback } from "@/lib/socialOAuthState";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolvePageInstagramAccount } from "@/lib/instagramAccount";
@@ -8,13 +11,17 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state") || "";
   const storedState = request.cookies.get("meta_oauth_state")?.value || "";
-  const validState =
-    receivedState.length === storedState.length &&
-    receivedState.length > 0 &&
-    timingSafeEqual(Buffer.from(receivedState), Buffer.from(storedState));
+  const session = await getStudioAccess("connections:manage");
+  const sessionToken = (await cookies()).get(STUDIO_SESSION_COOKIE)?.value || "";
+  const validState = Boolean(session) && isValidOAuthCallback(
+    "meta", receivedState, storedState,
+    request.cookies.get("meta_oauth_binding")?.value || "",
+    sessionToken, session?.clinic.id || "", session?.user.id || "",
+  );
 
   const redirectWithError = (error: string) => {
     const response = NextResponse.redirect(new URL(`/dashboard?error=${error}`, request.url));
+    response.cookies.set("meta_oauth_binding", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     response.cookies.set("meta_oauth_state", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -112,7 +119,7 @@ export async function GET(request: NextRequest) {
       where: { provider_providerAccountId: { provider: "facebook", providerAccountId: providerAccountId } },
       select: { clinicId: true },
     });
-    if (existingAccount && existingAccount.clinicId !== "pilot") {
+    if (existingAccount && existingAccount.clinicId !== session!.clinic.id) {
       return redirectWithError("account_already_linked");
     }
 
@@ -125,7 +132,7 @@ export async function GET(request: NextRequest) {
         },
       },
       update: {
-        clinicId: "pilot",
+        clinicId: session!.clinic.id,
         accessToken: page.access_token,
         name: userData.name || "Usuario Meta",
         pageName: page.name || "Página de Facebook",
@@ -133,7 +140,7 @@ export async function GET(request: NextRequest) {
         instagramId,
       },
       create: {
-        clinicId: "pilot",
+        clinicId: session!.clinic.id,
         provider: "facebook",
         providerAccountId: providerAccountId,
         accessToken: page.access_token,
