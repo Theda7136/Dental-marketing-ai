@@ -10,6 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ffmpegStatic from "ffmpeg-static";
+import sharp from "sharp";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
@@ -578,5 +579,58 @@ export async function renderPhotoReel(image: Uint8Array, seconds = 7): Promise<U
     const bytes = await readFile(destination);
     if (!bytes.byteLength) throw new VideoServiceError("El Reel generado está vacío.", "RENDER_FAILED");
     return new Uint8Array(bytes);
+  });
+}
+
+/**
+ * Incrusta el logotipo durante todo el video sin alterar el original.
+ * Se aplica después de los subtítulos para conservar su legibilidad.
+ */
+export async function overlayVideoLogo(
+  video: Uint8Array,
+  logoDataUrl: string | null | undefined,
+): Promise<Uint8Array> {
+  if (!logoDataUrl?.startsWith("data:image/png;base64,")) return video;
+  const bytes = assertVideoBytes(video);
+  const extension = detectContainer(bytes);
+  const logoSource = Buffer.from(logoDataUrl.slice("data:image/png;base64,".length), "base64");
+
+  let logo: Buffer;
+  try {
+    logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
+      .resize({ width: 150, height: 110, fit: "inside", withoutEnlargement: true })
+      .png().toBuffer();
+  } catch {
+    throw new VideoServiceError("El logotipo configurado no se puede procesar.", "RENDER_FAILED");
+  }
+
+  return withTempDir(async (directory) => {
+    const inputPath = path.join(directory, `source.${extension}`);
+    const logoPath = path.join(directory, "watermark.png");
+    const outputPath = path.join(directory, "branded.mp4");
+    await Promise.all([writeFile(inputPath, bytes), writeFile(logoPath, logo)]);
+    await probeVideo(inputPath);
+
+    const rendered = await runFfmpeg([
+      "-y", "-hide_banner",
+      "-i", inputPath,
+      "-loop", "1", "-i", logoPath,
+      "-filter_complex", "[0:v:0][1:v:0]overlay=x=W-w-42:y=H-h-380:shortest=1[v]",
+      "-map", "[v]",
+      "-map", "0:a:0?",
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "128k",
+      "-movflags", "+faststart",
+      "-shortest", outputPath,
+    ]);
+    if (rendered.code !== 0) {
+      throw failureFromFfmpeg(rendered.stderr, "No se pudo incrustar el logotipo en el video.");
+    }
+    const finalVideo = await readFile(outputPath);
+    if (!finalVideo.length) {
+      throw new VideoServiceError("El video con marca de agua quedó vacío.", "RENDER_FAILED");
+    }
+    return new Uint8Array(finalVideo);
   });
 }
