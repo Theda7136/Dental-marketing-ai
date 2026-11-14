@@ -161,8 +161,8 @@ model ScheduledPost {
   @@index([clinicId, status, createdAt])
 }
 model BrandProfile {
-  id String @id @default("default")
-  clinicId String @default("pilot")
+  id String @id
+  clinicId String @unique @default("pilot")
   clinicName String @default("Dental Studio")
   primaryColor String @default("#116D60")
   fontFamily String @default("SANS")
