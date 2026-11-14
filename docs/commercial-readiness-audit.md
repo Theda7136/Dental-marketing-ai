@@ -105,3 +105,12 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `META_PAGE_ID` sigue funcionando como valor predeterminado **solo para el piloto**. El operador puede sobrescribirlo con la Página elegida.
 - `tests/meta-page-identity-migration.test.mjs` comprueba preservación de credenciales, páginas diferentes para clínicas distintas y rechazo de una Página duplicada.
 - **Pendiente P0:** pruebas OAuth reales con dos clínicas; la selección requiere conocer el ID numérico de la Página y no proporciona aún un listado interactivo desde Meta. Se mantiene deshabilitado el acceso multiempresa.
+
+
+## Preparación de infraestructura de producción
+
+- Se añadió `npm run check:production` (`scripts/preflight.mjs`, `scripts/production-checks.mjs`) con verificaciones de origen HTTPS, secretos, bucket privado configurado y coherencia de callbacks OAuth.
+- Se añadió `tests/production-checks.test.mjs` para validar rechazo de configuraciones incompletas sin imprimir secretos.
+- `.gitignore` ahora excluye toda la carpeta `storage/` para evitar añadir por error fotografías y videos de las clínicas al repositorio.
+- `docs/production-deployment.md` especifica volumen persistente para SQLite, S3/R2, una sola instancia escritora, respaldo restaurable, TLS y pruebas antes de trasladar el piloto.
+- **Pendiente P0:** alojamiento real, prueba de recuperación, verificación de permisos S3, pruebas de OAuth y publicación, y pruebas end-to-end con dos clínicas. El comando de preflight no certifica esos requisitos ni habilita el multiempresa.
