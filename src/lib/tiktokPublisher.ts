@@ -29,7 +29,7 @@ export async function publishToTikTok(postId: string, clinicId: string, privacy:
   if (!creator.privacy_level_options.includes(privacy)) {
     throw new Error("La privacidad seleccionada no está permitida en esta cuenta de TikTok.");
   }
-  const mediaUrl = createSignedMediaUrl(post.id, publicMediaBase());
+  const mediaUrl = createSignedMediaUrl(clinicId, post.id, publicMediaBase());
   const disableComment = Boolean(creator.comment_disabled) || requested.disableComment;
   const disableDuet = Boolean(creator.duet_disabled) || requested.disableDuet;
   const disableStitch = Boolean(creator.stitch_disabled) || requested.disableStitch;
