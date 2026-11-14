@@ -123,33 +123,36 @@ export async function GET(request: NextRequest) {
       return redirectWithError("account_already_linked");
     }
 
-    // 3. Guardar o actualizar de forma segura usando el índice único de Prisma
-    await prisma.account.upsert({
-      where: {
-        provider_providerAccountId: {
-          provider: "facebook",
-          providerAccountId: providerAccountId,
-        },
-      },
-      update: {
-        clinicId: session!.clinic.id,
-        accessToken: page.access_token,
-        name: userData.name || "Usuario Meta",
-        pageName: page.name || "Página de Facebook",
-        pageId: page.id,
-        instagramId,
-      },
-      create: {
-        clinicId: session!.clinic.id,
-        provider: "facebook",
-        providerAccountId: providerAccountId,
-        accessToken: page.access_token,
-        name: userData.name || "Usuario Meta",
-        pageName: page.name || "Página de Facebook",
-        pageId: page.id,
-        instagramId,
-      },
-    });
+    const accountFields = {
+      accessToken: page.access_token,
+      name: userData.name || "Usuario Meta",
+      pageName: page.name || "Página de Facebook",
+      pageId: page.id,
+      instagramId,
+    };
+    if (existingAccount) {
+      const updated = await prisma.account.updateMany({
+        where: { provider: "facebook", providerAccountId, clinicId: session!.clinic.id },
+        data: accountFields,
+      });
+      if (updated.count !== 1) return redirectWithError("account_already_linked");
+    } else {
+      try {
+        await prisma.account.create({
+          data: {
+            provider: "facebook",
+            providerAccountId,
+            clinicId: session!.clinic.id,
+            ...accountFields,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "P2002") {
+          return redirectWithError("account_already_linked");
+        }
+        throw error;
+      }
+    }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url));
     response.cookies.set("meta_oauth_state", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
