@@ -117,7 +117,7 @@ test("a clinic logo is embedded in the bottom-right corner without a footer", as
 
   const metadata = await sharp(branded).metadata();
   const logoPixel = await sharp(branded)
-    .extract({ left: 1000, top: 1200, width: 1, height: 1 }).raw().toBuffer();
+    .extract({ left: 1000, top: 1250, width: 1, height: 1 }).raw().toBuffer();
   const photoPixel = await sharp(branded)
     .extract({ left: 540, top: 1300, width: 1, height: 1 }).raw().toBuffer();
 
@@ -141,7 +141,7 @@ test("story watermark stays above the bottom controls", async () => {
     },
   });
   const logoPixel = await sharp(branded)
-    .extract({ left: 1000, top: 1580, width: 1, height: 1 }).raw().toBuffer();
+    .extract({ left: 1000, top: 1650, width: 1, height: 1 }).raw().toBuffer();
   const footerPixel = await sharp(branded)
     .extract({ left: 1000, top: 1850, width: 1, height: 1 }).raw().toBuffer();
 
