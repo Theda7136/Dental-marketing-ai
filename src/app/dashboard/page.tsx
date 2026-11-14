@@ -11,6 +11,7 @@ import { AccountConnector } from "../../components/AccountConnector";
 import { EditorialCalendar } from "../../components/EditorialCalendar";
 import { PublicationPerformance } from "../../components/PublicationPerformance";
 import { ClinicTeam } from "../../components/ClinicTeam";
+import VideoAdStudio from "../../components/VideoAdStudio";
 import { createTextProposal, recordDeliveryReview, retryPendingNetwork, updatePendingCaption, verifyMetaObject, chooseCopyStyle, authorizeManualRetry, reopenRejectedInstagramStory, publishSelectedNetworks, confirmClinicalReview, rejectPost, type PublishNetwork } from "./actions";
 
 type ContentFormat = "photo" | "video" | "text";
@@ -30,7 +31,7 @@ function mediaFormat(file: File): "photo" | "video" | null {
   return null;
 }
 
-type StudioView = "create" | "pending" | "history" | "calendar" | "performance" | "connections" | "team";
+type StudioView = "create" | "video-ads" | "pending" | "history" | "calendar" | "performance" | "connections" | "team";
 
 export default function DashboardPage({ view = "create" }: { view?: StudioView }) {
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       .then(response => response.ok ? response.json() : null)
       .then(profile => {
         setCurrentRole(profile?.role ?? null);
-        if (profile?.role === "REVIEWER" && view === "create") {
+        if (profile?.role === "REVIEWER" && (view === "create" || view === "video-ads")) {
           window.location.replace("/dashboard/pendientes");
         }
       })
@@ -452,6 +453,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
         <nav className="studio-nav" aria-label="Secciones">
           {([
              { id: "create", href: "/dashboard/crear", label: "Crear contenido" },
+             { id: "video-ads", href: "/dashboard/video-ads", label: "Videos publicitarios" },
              { id: "pending", href: "/dashboard/pendientes", label: "Pendientes" },
              { id: "history", href: "/dashboard/historial", label: "Historial" },
              { id: "calendar", href: "/dashboard/calendario", label: "Calendario" },
@@ -459,7 +461,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
              { id: "connections", href: "/dashboard/conexiones", label: "Conexiones" },
              { id: "team", href: "/dashboard/equipo", label: "Equipo" },
            ] as const).filter(destination => {
-             if (destination.id === "create") return currentRole !== "REVIEWER";
+             if (destination.id === "create" || destination.id === "video-ads") return currentRole !== "REVIEWER";
              if (destination.id === "connections" || destination.id === "team") return currentRole === "OWNER" || currentRole === "ADMIN";
              return true;
            }).map((destination) => (
@@ -469,6 +471,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                aria-current={view === destination.id ? "page" : undefined}>
                <svg viewBox="0 0 24 24" aria-hidden="true" className="studio-nav-icon" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                  {destination.id === "create" ? <><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10M7 12h10"/></>
+                   : destination.id === "video-ads" ? <><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3V9Z"/></>
                    : destination.id === "pending" ? <><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 10h4"/></>
                    : destination.id === "history" ? <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>
                    : <><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="white"/><circle cx="15" cy="12" r="2" fill="white"/><circle cx="10" cy="17" r="2" fill="white"/></>}
@@ -494,11 +497,13 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
       <div className="studio-main" id="studio-main">
         <header className="studio-topbar">
           <div>
-            <p className="eyebrow">{view === "create" ? "ESTUDIO CREATIVO" : view === "pending" ? "FLUJO DE REVISIÓN" : "DENTAL STUDIO"}</p>
-            <h1>{view === "create" ? "Crear contenido" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : view === "calendar" ? "Calendario editorial" : view === "performance" ? "Rendimiento de publicaciones" : view === "team" ? "Equipo y permisos" : "Conexiones"}</h1>
+            <p className="eyebrow">{view === "create" ? "ESTUDIO CREATIVO" : view === "video-ads" ? "VIDEO AD STUDIO" : view === "pending" ? "FLUJO DE REVISIÓN" : "DENTAL STUDIO"}</p>
+            <h1>{view === "create" ? "Crear contenido" : view === "video-ads" ? "Videos publicitarios" : view === "pending" ? "Pendientes de revisión" : view === "history" ? "Historial de publicaciones" : view === "calendar" ? "Calendario editorial" : view === "performance" ? "Rendimiento de publicaciones" : view === "team" ? "Equipo y permisos" : "Conexiones"}</h1>
             <p>{view === "create"
               ? "Prepara fotografías, videos e ideas listas para revisar."
-              : view === "pending"
+              : view === "video-ads"
+                ? "Prepara el guion y organiza las escenas de tus próximos anuncios."
+                : view === "pending"
                 ? "Revisa el material antes de publicarlo."
                 : view === "history"
                   ? "Consulta las publicaciones y sus estados por red."
@@ -511,6 +516,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
           <div className="studio-topbar-actions">{view === "create" ? <a href="/dashboard/pendientes" className="studio-topbar-link">Ver pendientes <span aria-hidden="true">↗</span></a> : <a href="/dashboard/crear" className="studio-topbar-link"><span aria-hidden="true">＋</span> Nueva propuesta</a>}</div>
         </header>
         <div className="studio-content">
+          {view === "video-ads" && <VideoAdStudio />}
           {view === "calendar" && <EditorialCalendar posts={posts} onReload={reloadPosts} />}
           {view === "performance" && <PublicationPerformance posts={posts} />}
           {view === "team" && <ClinicTeam />}
