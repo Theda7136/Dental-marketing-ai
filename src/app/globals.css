@@ -1318,3 +1318,10 @@ body { background: var(--canvas); color: var(--ink); }
 .ad-studio-download { margin-top: 15px; border: 1px solid #a7ccba; border-radius: 9px; padding: 10px 12px; font-size: .82rem; color: #106859; font-weight: 720; }
 @media (max-width: 920px) { .ad-studio-layout { grid-template-columns: minmax(0, 1fr); } .ad-studio-stage { height: 360px; } }
 @media (max-width: 560px) { .ad-studio-header { flex-direction: column; } .ad-studio-workspace, .ad-studio-settings { padding: 15px; } .ad-studio-stage { height: 320px; } }
+
+/* MP4 rendering preview */
+.ad-studio-rendered { display: grid; gap: 12px; margin-top: 20px; padding: 18px; border: 1px solid #cce2d5; border-radius: 12px; background: #f7fbf8; }
+.ad-studio-rendered video { width: min(100%, 290px); max-height: 430px; aspect-ratio: 9/16; object-fit: contain; background: #17241f; border-radius: 10px; margin-inline: auto; }
+.ad-studio-render-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 15px; }
+.ad-studio-render-actions > * { flex: 1 1 140px; text-align: center; }
+.ad-studio-rendered > a { text-align: center; display: inline-block; width: fit-content; justify-self: center; }
