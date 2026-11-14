@@ -44,3 +44,12 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - La generación de videos ahora exige `clinicId` explícito en vez de usar `"pilot"` por defecto.
 - Estas pruebas usan dependencias simuladas: falta ejecutar validación con SQLite real y dos clínicas de prueba antes de retirar el bloqueo global.
 - **Pendiente P0:** publicar y consultar estados de Meta/TikTok solo mediante una sesión o contexto de clínica fiable, y eliminar `clinicId: "pilot"` de los publicadores tras incorporar pruebas de integración. **No retirar todavía el bloqueo de `src/proxy.ts` ni `src/lib/studioAccess.ts`.**
+
+## Aislamiento inicial de publicación social
+
+- `publishToMeta(post, clinicId, network?)` exige un contexto de clínica proporcionado por la acción autenticada del servidor y filtra cuenta, post y actualizaciones por ese identificador.
+- `publishToTikTok(postId, clinicId, ...)` y `refreshTikTokPostStatus(postId, clinicId)` filtran la publicación y sus cambios por clínica.
+- La obtención, renovación y consulta de capacidades de TikTok usa la clínica de la sesión; el token no se selecciona globalmente.
+- Se añadieron casos de prueba con clínicas distintas y cuentas sociales ajenas en `tests/meta-publishing-integration.test.mjs`, `tests/tiktok-publishing.test.mjs` y `tests/tiktok-account-isolation.test.mjs`.
+- **Pendiente P0:** revisar los callbacks OAuth, que aún tienen referencias fijas a `pilot`; también el acceso y el almacenamiento de medios. No quitar el bloqueo multiempresa.
+- Las pruebas de integración usan dobles simulados para redes; verificar con dos clínicas reales antes de abrir el producto.
