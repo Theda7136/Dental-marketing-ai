@@ -94,3 +94,14 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `tests/brand-clinic-migration.test.mjs` comprueba con SQLite la preservación del piloto, la independencia de marca y el rechazo de duplicados; se incorporó a `npm test`.
 - La migración requiere copia de seguridad y `prisma generate` **antes** de ejecutar TypeScript. Ver las instrucciones de actualización en README.
 - No se habilitó el acceso multiempresa. Pendiente: selección de Páginas Meta por clínica, validación end-to-end y despliegue persistente.
+
+
+## Selección de Página Meta por clínica
+
+- Se añadió entrada opcional para ID de Página de Facebook en `AccountConnector`.
+- El ID seleccionado viaja asociado al `state` OAuth y la sesión de clínica (cookie HttpOnly y HMAC); el callback solo admite la Página si la API Meta la devuelve entre las autorizadas.
+- La cuenta Meta usa `providerAccountId = page.id` y conserva el token de Página e Instagram. La migración `20261113110000_meta_page_identity` actualiza el ID interno de las conexiones anteriores del piloto sin reemplazar los tokens.
+- Tras conectar una Página, se descartan las otras cuentas Facebook de esa misma clínica. El índice único `Account(provider, providerAccountId)` impide que una Página pertenezca a dos clínicas, pero permite que un administrador conecte Páginas diferentes.
+- `META_PAGE_ID` sigue funcionando como valor predeterminado **solo para el piloto**. El operador puede sobrescribirlo con la Página elegida.
+- `tests/meta-page-identity-migration.test.mjs` comprueba preservación de credenciales, páginas diferentes para clínicas distintas y rechazo de una Página duplicada.
+- **Pendiente P0:** pruebas OAuth reales con dos clínicas; la selección requiere conocer el ID numérico de la Página y no proporciona aún un listado interactivo desde Meta. Se mantiene deshabilitado el acceso multiempresa.
