@@ -60,3 +60,18 @@ Antes de cualquier restauración real: detener la aplicación, preservar una cop
 ## Bloqueos para comercializar varias clínicas
 
 Falta una prueba de integración de extremo a extremo con dos clínicas, una estrategia de base de datos compartida de mayor escala (o instancias aisladas), restauración demostrada, monitoreo y controles de privacidad clínica. No eliminar los bloqueos `pilot` de `src/proxy.ts` y `src/lib/studioAccess.ts` todavía.
+
+
+## Dimensionamiento del piloto y pruebas de humo
+
+Configuración de partida a comparar: Linux, **2 vCPU y 4 GB RAM**, instancia de Node persistente y **una sola instancia SQLite**. El procesamiento de video (FFmpeg y modelos locales) puede requerir aumentar recursos tras las pruebas; esto no constituye una garantía de rendimiento.
+
+Proveedores para cotizar antes de contratar: Hetzner, Vultr o DigitalOcean. Contrastar región, precio final, disponibilidad, disco persistente, copias automáticas y latencia desde Colombia. Reservar un dominio propio con TLS en Caddy y un bucket privado S3/R2 para multimedia. Ningún proveedor ha sido contratado ni configurado automáticamente.
+
+Después de iniciar el servicio y establecer el DNS, comprobar de forma anónima:
+
+```bash
+npm run smoke:production -- https://tu-dominio.com
+```
+
+El comando verifica **solo** que `/api/health` devuelva el estado mínimo correcto y que `/dashboard` redirija al inicio de sesión cuando no hay una cookie de sesión. No prueba permisos internos, funcionamiento de SQLite, OAuth, publicaciones ni almacenamiento. Usar pruebas separadas para esas rutas y nunca exponer datos clínicos en una verificación pública.
