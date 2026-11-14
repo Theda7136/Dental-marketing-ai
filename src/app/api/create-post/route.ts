@@ -627,7 +627,7 @@ export async function POST(request: Request) {
 
     const id = crypto.randomUUID();
     const mediaUrl = `/api/media/${id}`;
-    await storePostMedia(id, finalKind, finalMedia);
+    await storePostMedia(session.clinic.id, id, finalKind, finalMedia);
     storedMedia = { id, kind: finalKind };
 
     const post = await prisma.scheduledPost.create({
@@ -670,7 +670,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (storedMedia && !createdId) {
-      await deletePostMedia(storedMedia.id, storedMedia.kind).catch(() => undefined);
+      await deletePostMedia(session.clinic.id, storedMedia.id, storedMedia.kind).catch(() => undefined);
     }
 
     return toErrorResponse(error);
