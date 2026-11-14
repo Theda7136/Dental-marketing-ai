@@ -13,6 +13,8 @@ const MAX_TOTAL_BYTES = 120 * 1024 * 1024;
 const MAX_SECONDS = 45;
 const FRAME_RATE = 24;
 
+export type VideoAdStyle = "premium" | "dinamico" | "educativo";
+
 export type AdScene = {
   filename: string;
   bytes: Buffer;
@@ -122,59 +124,125 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
   });
 }
 
-function sceneFilter(kind: AdScene["kind"], seconds: number, index: number): string {
-  const fade = Math.min(0.25, seconds / 4);
-  const visual = kind === "image"
-    ? photoMotionFilter(index)
-    : `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${FRAME_RATE}`;
+function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle): string {
+  const fade = style === "dinamico" ? 0.15 : 0.35;
+  const duration = Math.min(fade, seconds / 4);
+  const source = kind === "image"
+    ? `[0:v]${photoMotionFilter(index, style)},format=yuv420p[background];`
+    : `[0:v]split=2[back][front];` +
+      `[back]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},boxblur=24:2,eq=brightness=-0.10[blur];` +
+      `[front]scale=968:1460:force_original_aspect_ratio=decrease,setsar=1[subject];` +
+      `[blur][subject]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=${FRAME_RATE},format=yuv420p[background];`;
 
-  return `[0:v]${visual},format=yuv420p[background];` +
+  return source +
     `[background][1:v]overlay=0:0:shortest=1,format=yuv420p,` +
-    `fade=t=in:st=0:d=${fade},fade=t=out:st=${Math.max(0, seconds - fade)}:d=${fade}[out]`;
+    `fade=t=in:st=0:d=${duration},fade=t=out:st=${Math.max(0, seconds - duration)}:d=${duration}[out]`;
 }
 
-export function photoMotionFilter(index: number): string {
-  // Las fotografías se acomodan con margen de seguridad para que el movimiento no recorte la imagen clínica.
-  const canvasWidth = 1160;
-  const canvasHeight = 2064;
-  const direction = index % 2 === 0 ? 1 : -1;
-  const zoom = direction === 1
-    ? "min(zoom+0.0007,1.045)"
-    : "if(eq(on,0),1.045,max(zoom-0.0007,1.0))";
-  return `scale=1000:1780:force_original_aspect_ratio=decrease,` +
-    `pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black,` +
-    `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':` +
+export function photoMotionFilter(index: number, style: VideoAdStyle = "premium"): string {
+  const speed = style === "dinamico" ? 0.0008 : style === "educativo" ? 0.00025 : 0.00045;
+  const magnitude = style === "dinamico" ? 1.065 : style === "educativo" ? 1.022 : 1.04;
+  const approach = index % 2 === 0;
+  const zoom = approach
+    ? `min(zoom+${speed},${magnitude})`
+    : `if(eq(on,0),${magnitude},max(zoom-${speed},1.0))`;
+  return `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':` +
     `d=1:s=${WIDTH}x${HEIGHT}:fps=${FRAME_RATE},setsar=1`;
 }
 
-async function captionOverlay(heading: string, brand: AdBrand): Promise<Buffer> {
-  const label = escapeXml(brand.clinicName.slice(0, 60));
-  const lines = linesFor(heading);
-  const centerY = 1460 - ((lines.length - 1) * 57);
-  const caption = lines.map((line, index) => `<text x="84" y="${centerY + index * 114}" fill="white" font-family="Arial, sans-serif" font-size="72" font-weight="bold">${escapeXml(line)}</text>`).join("");
+function wrapCaption(text: string, limit = 24): string[] {
+  const words = text.replace(/\\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > limit && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, 4);
+}
+
+async function captionOverlay(
+  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number,
+): Promise<Buffer> {
+  const isOpening = index === 0;
+  const isClosing = index === total - 1 && total > 1;
+  const accent = safeColor(brand.primaryColor);
+  const title = escapeXml(brand.clinicName.slice(0, 36));
+  const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
+    isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
+  const lines = wrapCaption(heading, isClosing ? 23 : 26);
+  const fontSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
+  const lineHeight = fontSize + 25;
+  const textTop = isOpening ? 1280 : isClosing ? 1260 : 1310;
+  const textNodes = lines.map((line, number) =>
+    `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
+  ).join("");
+  const callToAction = isClosing
+    ? `<rect x="92" y="1668" rx="21" width="608" height="106" fill="${accent}"/>
+       <text x="124" y="1736" fill="#fff" font-size="43" font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>`
+    : "";
+  const infoCard = style === "educativo"
+    ? `<rect x="74" y="1192" width="932" height="438" rx="25" fill="#082923" fill-opacity=".72"/>`
+    : "";
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
-    <defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#000" stop-opacity=".12"/><stop offset="50%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".82"/></linearGradient></defs>
-    <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#shade)"/>
-    <rect x="74" y="117" width="12" height="77" rx="6" fill="${safeColor(brand.primaryColor)}"/>
-    <text x="112" y="172" fill="white" font-size="47" font-family="Arial, sans-serif" font-weight="bold">${label}</text>
-    ${caption}
-    <rect x="84" y="1760" width="176" height="8" rx="4" fill="${safeColor(brand.primaryColor)}"/>
+    <defs>
+      <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#061916" stop-opacity=".63"/>
+        <stop offset="28%" stop-color="#061916" stop-opacity="0"/>
+        <stop offset="64%" stop-color="#061916" stop-opacity=".18"/>
+        <stop offset="100%" stop-color="#061916" stop-opacity=".94"/>
+      </linearGradient>
+    </defs>
+    <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
+    <rect x="70" y="90" rx="28" width="940" height="125" fill="#061916" fill-opacity=".55"/>
+    <rect x="88" y="107" rx="6" width="10" height="90" fill="${accent}"/>
+    <text x="120" y="163" fill="white" font-size="51" font-weight="700" font-family="Arial, sans-serif">${title}</text>
+    <rect x="91" y="1160" width="128" height="9" rx="4" fill="${accent}"/>
+    ${infoCard}
+    <text x="95" y="1242" fill="#E2FFF6" font-size="33" font-weight="700" font-family="Arial, sans-serif" letter-spacing="2">${category}</text>
+    ${textNodes}
+    ${callToAction}
+    <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
+    <text x="92" y="1878" fill="#fff" font-size="28" font-family="Arial, sans-serif" fill-opacity=".8">Contenido informativo · Valoración profesional</text>
   </svg>`);
 
   const layers: sharp.OverlayOptions[] = [{ input: svg }];
   if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
-    if (logoBytes.length > 0 && logoBytes.length <= 500_000) {
+    if (logoBytes.length && logoBytes.length <= 500_000) {
       const logo = await sharp(logoBytes, { limitInputPixels: 8_000_000 })
-        .resize({ width: 240, height: 140, fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, top: 220, left: 86 });
+        .resize({ width: 210, height: 125, fit: "inside" }).png().toBuffer();
+      layers.push({ input: logo, top: 240, left: 90 });
     }
   }
   return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#00000000" } })
     .composite(layers).png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand): Promise<Buffer> {
+async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
+  const background = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
+    .rotate().resize(WIDTH, HEIGHT, { fit: "cover" })
+    .blur(38).modulate({ brightness: 0.66 }).png().toBuffer();
+
+  const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
+    .rotate().resize(958, 1340, { fit: "inside", withoutEnlargement: false })
+    .png().toBuffer();
+  const dimensions = await sharp(foreground).metadata();
+  const x = Math.round((WIDTH - (dimensions.width ?? 0)) / 2);
+  const y = Math.round(720 - (dimensions.height ?? 0) / 2);
+
+  return sharp(background)
+    .composite([{ input: foreground, left: x, top: Math.max(230, y) }])
+    .png().toBuffer();
+}
+
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium"): Promise<Buffer> {
   validateAdScenes(scenes);
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -187,14 +255,14 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand): Promise<
         throw new Error("El contenido del archivo no coincide con un formato multimedia admitido.");
       }
 
-      const source = path.join(directory, `source-${index}.${extension}`);
+      const source = path.join(directory, `source-${index}.${scene.kind === "image" ? "png" : extension}`);
       const overlay = path.join(directory, `overlay-${index}.png`);
       const output = path.join(directory, `scene-${index}.mp4`);
-      await writeFile(source, scene.bytes);
-      await writeFile(overlay, await captionOverlay(scene.heading, brand));
+      await writeFile(source, scene.kind === "image" ? await preparePhotoScene(scene.bytes) : scene.bytes);
+      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, scenes.length));
 
       const duration = String(scene.seconds);
-      const videoFilter = sceneFilter(scene.kind, scene.seconds, index);
+      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style);
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
