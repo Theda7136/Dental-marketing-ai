@@ -53,3 +53,13 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - Se añadieron casos de prueba con clínicas distintas y cuentas sociales ajenas en `tests/meta-publishing-integration.test.mjs`, `tests/tiktok-publishing.test.mjs` y `tests/tiktok-account-isolation.test.mjs`.
 - **Pendiente P0:** revisar los callbacks OAuth, que aún tienen referencias fijas a `pilot`; también el acceso y el almacenamiento de medios. No quitar el bloqueo multiempresa.
 - Las pruebas de integración usan dobles simulados para redes; verificar con dos clínicas reales antes de abrir el producto.
+
+
+## OAuth social por clínica (primera implementación)
+
+- Los endpoints de inicio de Meta y TikTok verifican `connections:manage`, obtienen la clínica y el usuario de la sesión del servidor, generan un `state` aleatorio y guardan una firma HMAC ligada a esa sesión en una cookie temporal HttpOnly.
+- Los callbacks exigen la misma sesión, usuario, clínica, proveedor y `state` antes de canjear el código OAuth; se rechaza cualquier discrepancia.
+- La asociación de cuentas usa `clinicId` de sesión, actualizaciones condicionadas y creación que rechaza colisiones de unicidad para no reasignar cuentas sociales durante autorizaciones simultáneas.
+- `tests/social-oauth-state.test.mjs` cubre estados legítimos, intercambios de sesión, usuario, clínica y proveedor, así como cookies inválidas.
+- **Pendiente:** pruebas end-to-end OAuth con dos clínicas y revisión de configuración `META_PAGE_ID` global. La unicidad `Account(provider, providerAccountId)` impide enlazar el mismo usuario de Meta en dos clínicas, incluso para Páginas diferentes; requiere un diseño por Página/activo antes de soportar ese escenario comercial.
+- **Pendiente P0:** almacenamiento y entrega de medios por clínica, así como la eliminación segura de la autenticación heredada. No levantar el bloqueo multiempresa.
