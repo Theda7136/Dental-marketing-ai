@@ -80,8 +80,8 @@ test("Story composition preserves both edges of the original in 1080x1920", asyn
   assert.deepEqual([metadata.width, metadata.height, metadata.format], [1080, 1920, "png"]);
   assert.ok(top[2] > top[0], "the original top edge must be preserved");
   assert.ok(bottom[1] > bottom[0], "the original bottom edge must be preserved");
-  assert.ok(footer[0] > 240 && footer[1] > 240, "branding stays in its own area");
-  assert.ok(margin[0] > 240 && margin[1] > 240 && margin[2] > 240, "Story margins remain clean and neutral");
+  assert.ok(footer[1] > footer[0], "the clinical photo reaches the bottom of the story");
+  assert.ok(margin[0] > 100 && margin[0] < 220, "the original image fills the story without a footer");
 });
 
 
