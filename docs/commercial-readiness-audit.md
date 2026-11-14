@@ -63,3 +63,14 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `tests/social-oauth-state.test.mjs` cubre estados legítimos, intercambios de sesión, usuario, clínica y proveedor, así como cookies inválidas.
 - **Pendiente:** pruebas end-to-end OAuth con dos clínicas y revisión de configuración `META_PAGE_ID` global. La unicidad `Account(provider, providerAccountId)` impide enlazar el mismo usuario de Meta en dos clínicas, incluso para Páginas diferentes; requiere un diseño por Página/activo antes de soportar ese escenario comercial.
 - **Pendiente P0:** almacenamiento y entrega de medios por clínica, así como la eliminación segura de la autenticación heredada. No levantar el bloqueo multiempresa.
+
+
+## Aislamiento de multimedia por clínica
+
+- Los nuevos archivos se guardan bajo `storage/clinics/<clinicId>/posts/<postId>.<ext>` o `clinics/<clinicId>/posts/<postId>.<ext>` en S3/R2.
+- El lector permite recuperar archivos antiguos en `storage/posts` o `posts/` **solo** si la clínica es `pilot` y el nuevo archivo no existe. No se realizó una migración destructiva.
+- Las URL de publicación incluyen `clinic`, `expires` y `signature`; el HMAC firma conjuntamente clínica, post y vencimiento. Los enlaces anteriores sin parámetro de clínica dejan de ser válidos. Los nuevos enlaces siguen caducando a las 12 horas.
+- `/api/media/[id]` obtiene el contexto desde una sesión autorizada o una firma de entrega válida y verifica que el post pertenezca a esa clínica **antes** de leer el archivo.
+- Las operaciones de escritura, lectura y borrado reciben `clinicId` explícito; se rechazan componentes de ruta no válidos.
+- Pruebas: `tests/media-signature-isolation.test.mjs` y `tests/media-storage-isolation.test.mjs` comprueban firmas cruzadas, aislamiento en disco y compatibilidad solo para `pilot`.
+- **Pendiente P0:** ejecutar pruebas reales con S3/R2, verificar descargas de Meta y TikTok y ensayar restauración con datos existentes. No activar acceso multiempresa. Las URL firmadas conceden acceso temporal al fichero al portador del enlace; no son enlaces públicos permanentes ni sustituye eso la autorización del paciente.
