@@ -34,3 +34,12 @@ test("rendered MP4 is previewed and downloaded without automatic publishing", ()
   assert.match(source, /no se guarda ni publica automáticamente/);
   assert.doesNotMatch(source, /publishSelectedNetworks|create-post/);
 });
+
+test("AI drafts are editable and rendering remains a separate explicit action", () => {
+  assert.match(source, /\/api\/video-ads\/scripts/);
+  assert.match(source, /Generar 3 guiones con IA/);
+  assert.match(source, /setCopy\(\{ introduction: variant\.opening/);
+  assert.match(source, /setScenes\(assets\.map/);
+  assert.match(source, /\/api\/video-ads\/render/);
+  assert.doesNotMatch(source, /publishSelectedNetworks|create-post/);
+});
