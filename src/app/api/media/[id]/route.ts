@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { prisma } from "../../../../lib/prisma";
-import { isClinicAuthorized } from "../../../../lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { isValidMediaSignature } from "../../../../lib/mediaSignature";
 import { readPostMedia } from "../../../../services/mediaStorage";
 
@@ -29,17 +29,19 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const url = new URL(request.url);
-  const authorized = isClinicAuthorized(request.headers.get("authorization")) ||
-    isValidMediaSignature(id, url.searchParams.get("expires"), url.searchParams.get("signature"));
-  if (!authorized) return new Response("Autenticación requerida.", { status: 401 });
+  const signedClinicId = url.searchParams.get("clinic");
+  const signed = isValidMediaSignature(
+    signedClinicId, id, url.searchParams.get("expires"), url.searchParams.get("signature"),
+  );
+  const session = signed ? null : await getStudioAccess("content:read");
+  if (!signed && !session) return new Response("Autenticación requerida.", { status: 401 });
 
-  if (!POST_ID.test(id)) {
-    return notFound();
-  }
+  if (!POST_ID.test(id)) return notFound();
 
+  const clinicId = signed ? signedClinicId! : session!.clinic.id;
   try {
     const post = await prisma.scheduledPost.findUnique({
-      where: { id, clinicId: "pilot" },
+      where: { id, clinicId },
       select: { id: true, mediaType: true },
     });
 
@@ -50,7 +52,7 @@ export async function GET(
     const kind = post.mediaType === "VIDEO" ? "video" : "image";
     const jpeg = kind === "image" && url.searchParams.get("format") === "jpeg";
     const contentType = kind === "video" ? "video/mp4" : jpeg ? "image/jpeg" : "image/png";
-    const original = await readPostMedia(id, kind);
+    const original = await readPostMedia(clinicId, id, kind);
     const bytes = jpeg
       ? await sharp(Buffer.from(original)).flatten({ background: "#ffffff" }).jpeg({ quality: 90, mozjpeg: true }).toBuffer()
       : original;
