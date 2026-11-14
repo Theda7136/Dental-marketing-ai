@@ -10,6 +10,7 @@ export const maxDuration = 180;
 
 const MAX_BODY_BYTES = 125 * 1024 * 1024;
 const MAX_SCENES = 12;
+let renderInProgress = false;
 
 export async function POST(request: Request) {
   const access = await getStudioAccess("content:write");
@@ -62,9 +63,19 @@ export async function POST(request: Request) {
       where: { clinicId: access.clinic.id },
       select: { clinicName: true, primaryColor: true, logoDataUrl: true },
     });
-    const video = await renderVideoAd(records, brand ?? {
-      clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
-    });
+    if (renderInProgress) {
+      return NextResponse.json({ error: "Ya hay un video procesándose. Intenta nuevamente cuando termine." }, { status: 429 });
+    }
+
+    renderInProgress = true;
+    let video: Buffer;
+    try {
+      video = await renderVideoAd(records, brand ?? {
+        clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
+      });
+    } finally {
+      renderInProgress = false;
+    }
 
     return new NextResponse(new Uint8Array(video), {
       headers: {
