@@ -93,6 +93,23 @@ La plantilla completa está en [`.env.example`](./.env.example). Configura los v
 
 Sin configuración S3/R2, los medios se guardan en `storage/posts`. En un servidor con disco efímero, usa almacenamiento persistente antes de depender del sistema.
 
+## Actualizar base de datos del piloto
+
+Antes de ejecutar nuevas migraciones sobre una clínica existente, detén el servidor y haz una copia de `prisma/dev.db` (y del almacenamiento `storage/` si lo usas).
+
+Desde la raíz del proyecto:
+
+```powershell
+Copy-Item .\prisma\dev.db .\prisma\dev.db.backup -ErrorAction Stop
+npx prisma migrate deploy --schema .\prisma\schema.prisma
+npx prisma generate --schema .\prisma\schema.prisma
+npx tsc --noEmit
+npm test
+npm run build
+```
+
+La migración `20261113100000_brand_per_clinic` conserva el nombre, los colores, la tipografía y el logo del piloto, cambia el identificador antiguo de la marca de `default` a `pilot` y garantiza una única identidad de marca por clínica. No se borran publicaciones ni multimedia. No ejecutes la migración si no puedes recuperar la copia de seguridad. Si tu base está en otra ruta, respalda ese archivo en lugar de `prisma/dev.db`.
+
 ## Configurar Meta
 
 1. Configura una aplicación de Meta y agrega el callback OAuth, normalmente `http://localhost:3000/api/auth/meta/callback` para desarrollo local.
