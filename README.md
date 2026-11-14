@@ -99,6 +99,10 @@ La guía de infraestructura, seguridad del almacenamiento, respaldo y restauraci
 
 Tras configurar el archivo `.env` del servidor, ejecuta `npm run check:production` para comprobar HTTPS, secretos, S3/R2 y callbacks OAuth. Es una validación de configuración, no un reemplazo de pruebas reales o de respaldos restaurables. La base SQLite continúa usando `prisma/dev.db` y requiere un volumen persistente; el acceso multiempresa permanece bloqueado.
 
+## Plantilla para desplegar el piloto en un VPS
+
+Incluimos `deploy/dental-marketing-ai.service.example` y `deploy/Caddyfile.example` para ejecutar Next.js como servicio y ponerlo detrás de HTTPS. También existe `GET /api/health`, que devuelve únicamente un estado HTTP sin consultar datos clínicos. Sigue la [guía de despliegue](docs/production-deployment.md) antes de trasladar el piloto; aún **no** se ha desplegado un servidor ni habilitado el multiempresa.
+
 ## Respaldo verificado de SQLite
 
 Ejecuta `npm run backup:db` para crear una instantánea local en `backups/sqlite/` y comprobar su integridad. Para proteger los datos frente a un fallo del servidor, debes almacenar una copia cifrada fuera de él y ensayar la restauración. Consulta [la guía de despliegue](docs/production-deployment.md).
