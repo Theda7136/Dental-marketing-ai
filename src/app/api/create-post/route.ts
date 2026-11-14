@@ -477,10 +477,10 @@ async function prepareVideo(
   procedureName: string,
   media: Uint8Array,
   transcript: TranscriptWord[] | undefined,
+  clinicId: string,
   notes?: string,
   muteAudio = false,
   isStory = false,
-  clinicId: string,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
   const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
@@ -614,10 +614,10 @@ export async function POST(request: Request) {
             procedureName,
             input.media,
             input.transcript,
+            session.clinic.id,
             input.notes,
             input.muteAudio,
             input.deliveryFormat === "STORY",
-            session.clinic.id,
           );
 
     const photoReel = kind === "image" && input.deliveryFormat === "REEL";
