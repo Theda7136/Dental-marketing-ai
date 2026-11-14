@@ -192,7 +192,7 @@ export async function overlayOnClinicTemplate(input: {
 
   const logoSource = Buffer.from(logoDataUrl.slice("data:image/png;base64,".length), "base64");
   const logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
-    .resize({ width: 150, height: 110, fit: "inside", withoutEnlargement: true })
+    .resize({ width: 310, height: 150, fit: "inside", withoutEnlargement: true })
     .png().toBuffer();
   const { width = 0, height = 0 } = await sharp(logo).metadata();
   if (!width || !height) throw new ImageServiceError("El logotipo configurado no es válido.", "TEMPLATE_FAILED");
