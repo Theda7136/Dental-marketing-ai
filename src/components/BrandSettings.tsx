@@ -153,7 +153,7 @@ export default function BrandSettings() {
     <section className="studio-brand-settings" aria-labelledby="brand-settings-title">
       <div className="studio-brand-intro">
         <h2 id="brand-settings-title">Identidad de marca</h2>
-        <p>Configura el aspecto de la clínica. No modifica publicaciones anteriores ni altera fotografías clínicas.</p>
+        <p>Sube el logotipo para colocarlo automáticamente en las nuevas fotografías e historias. Las publicaciones anteriores no cambian.</p>
       </div>
       {error && <p className="studio-brand-error" role="alert">{error}</p>}
       {feedback && <p className="studio-brand-success" role="status">{feedback}</p>}
@@ -244,7 +244,7 @@ export default function BrandSettings() {
               <span style={{ color: brand.primaryColor }}>Cuidamos cada sonrisa</span>
             </div>
           )}
-          <small className="studio-brand-preview-note">La fotografía de ejemplo no se guarda ni se publica. Los cambios de marca se aplican al guardar.</small>
+          <small className="studio-brand-preview-note">Vista previa del logotipo incrustado. Guarda la identidad antes de crear nuevas publicaciones.</small>
         </div>
       </div>
     </section>
