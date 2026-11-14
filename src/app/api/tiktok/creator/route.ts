@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { isClinicAuthorized, unauthorizedResponse } from "@/lib/clinicAuth";
+import { getStudioAccess } from "@/lib/studioAccess";
 import { getTikTokCreator } from "@/lib/tiktok";
 
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
-  if (!isClinicAuthorized(request.headers.get("authorization"))) return unauthorizedResponse(true);
+export async function GET() {
+  const session = await getStudioAccess("connections:manage");
+  if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
   try {
-    const { creator } = await getTikTokCreator();
+    const { creator } = await getTikTokCreator(session.clinic.id);
     return NextResponse.json({
       username: creator.creator_username,
       nickname: creator.creator_nickname,
