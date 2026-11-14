@@ -27,6 +27,7 @@ function harness({
   reviewed = true,
   archived = false,
   clinicId = "pilot",
+  accountClinicId = clinicId,
   respond,
   publicMediaUrl = "https://demo.example.test",
   mediaContentType = "image/png",
@@ -45,7 +46,7 @@ function harness({
     archivedAt: archived ? new Date() : null,
   };
   const requests = [];
-  const account = { clinicId, provider: "facebook", accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
+  const account = { clinicId: accountClinicId, provider: "facebook", accessToken: "test-token", pageId: "123", instagramId: instagram ? "456" : null };
 
   const prisma = {
     account: { findFirst: async ({ where }) => Object.entries(where).every(([field, expected]) => account[field] === expected) ? account : null },
@@ -364,4 +365,14 @@ test("Meta permits a clinic-specific account and post without using pilot", asyn
   const published = await publishToMeta(draft, "clinic-beta", "facebook");
   assert.equal(published.facebookId, "123_999");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
+});
+
+test("Meta refuses publishing when the only linked Page belongs to a different clinic", async () => {
+  const { publishToMeta, saved, requests } = harness({
+    clinicId: "clinic-alpha",
+    accountClinicId: "clinic-beta",
+  });
+  await assert.rejects(publishToMeta(draft, "clinic-alpha", "facebook"), /Vuelve a conectar/);
+  assert.equal(saved.facebookStatus, "PENDING");
+  assert.equal(requests.length, 0);
 });
