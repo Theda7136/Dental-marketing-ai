@@ -27,6 +27,7 @@ import {
   muteClinicalVideo,
   renderVerticalClinicalVideo,
   renderPhotoReel,
+  overlayVideoLogo,
   type TranscriptWord,
 } from "../../../services/videoService";
 
@@ -479,10 +480,13 @@ async function prepareVideo(
   notes?: string,
   muteAudio = false,
   isStory = false,
+  clinicId = "pilot",
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
   const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
-  const rendered = muteAudio ? await muteClinicalVideo(captioned) : captioned;
+  const processed = muteAudio ? await muteClinicalVideo(captioned) : captioned;
+  const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId } });
+  const rendered = await overlayVideoLogo(processed, brand?.logoDataUrl);
   if (isStory) {
     return {
       media: rendered, generatedCaption: "", educationalCaption: null,
@@ -613,6 +617,7 @@ export async function POST(request: Request) {
             input.notes,
             input.muteAudio,
             input.deliveryFormat === "STORY",
+            session.clinic.id,
           );
 
     const photoReel = kind === "image" && input.deliveryFormat === "REEL";
