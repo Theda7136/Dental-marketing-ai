@@ -480,7 +480,7 @@ async function prepareVideo(
   notes?: string,
   muteAudio = false,
   isStory = false,
-  clinicId = "pilot",
+  clinicId: string,
 ) {
   const vertical = await renderVerticalClinicalVideo(media);
   const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
