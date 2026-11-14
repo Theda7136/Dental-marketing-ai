@@ -597,7 +597,7 @@ export async function overlayVideoLogo(
 
   let logo: Buffer;
   try {
-    logo = await prepareLogo(logoSource, 310, 150, true);
+    logo = await prepareLogo(logoSource, 600, 240, true);
   } catch {
     throw new VideoServiceError("El logotipo configurado no se puede procesar.", "RENDER_FAILED");
   }
