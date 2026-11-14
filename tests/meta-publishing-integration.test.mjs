@@ -116,8 +116,8 @@ function graphResponse(body, status = 200) {
 
 test("confirmed Facebook photo is not sent twice", async () => {
   const { publishToMeta, saved, requests } = harness();
-  const first = await publishToMeta(draft);
-  const second = await publishToMeta(draft);
+  const first = await publishToMeta(draft, "pilot");
+  const second = await publishToMeta(draft, "pilot");
 
   assert.equal(first.facebookId, "123_999");
   assert.equal(second.facebookId, "123_999");
@@ -131,9 +131,9 @@ test("an ambiguous Facebook response blocks future sends", async () => {
     respond: async () => { throw new Error("Connection lost after Meta accepted request"); },
   });
 
-  await assert.rejects(publishToMeta(draft), /No se confirmó/);
+  await assert.rejects(publishToMeta(draft, "pilot"), /No se confirmó/);
   assert.equal(saved.facebookStatus, "UNKNOWN");
-  await assert.rejects(publishToMeta(draft), /No se confirmó/);
+  await assert.rejects(publishToMeta(draft, "pilot"), /No se confirmó/);
   assert.equal(requests.length, 1);
 });
 
@@ -147,8 +147,8 @@ test("Instagram failure still permits Facebook, then blocks repeating Instagram"
     },
   });
 
-  const first = await publishToMeta(draft);
-  const second = await publishToMeta(draft);
+  const first = await publishToMeta(draft, "pilot");
+  const second = await publishToMeta(draft, "pilot");
   assert.equal(first.facebookId, "123_999");
   assert.equal(second.facebookId, "123_999");
   assert.equal(saved.instagramStatus, "UNKNOWN");
@@ -163,7 +163,7 @@ test("selective Instagram send leaves a previously successful Facebook untouched
     facebookPostId: "123_999",
   });
 
-  const completed = await publishToMeta(draft, "instagram");
+  const completed = await publishToMeta(draft, "pilot", "instagram");
   assert.equal(completed.instagramId, "789");
   assert.equal(saved.facebookPostId, "123_999");
   assert.equal(saved.instagramStatus, "SUCCEEDED");
@@ -187,9 +187,9 @@ test("concurrent requests can claim a pending Facebook publication only once", a
     },
   });
 
-  const primary = publishToMeta(draft);
+  const primary = publishToMeta(draft, "pilot");
   await called;
-  const duplicate = publishToMeta(draft);
+  const duplicate = publishToMeta(draft, "pilot");
   const duplicateResult = await Promise.allSettled([duplicate]);
   release();
   const primaryResult = await primary;
@@ -203,7 +203,7 @@ test("concurrent requests can claim a pending Facebook publication only once", a
 test("localhost media URL fails before claiming a network or calling Meta", async () => {
   const { publishToMeta, saved, requests } = harness({ publicMediaUrl: "http://localhost:3000" });
 
-  await assert.rejects(publishToMeta(draft), /URL HTTPS pública/);
+  await assert.rejects(publishToMeta(draft, "pilot"), /URL HTTPS pública/);
   assert.equal(saved.facebookStatus, "PENDING");
   assert.equal(saved.instagramStatus, "PENDING");
   assert.equal(requests.length, 0);
@@ -211,7 +211,7 @@ test("localhost media URL fails before claiming a network or calling Meta", asyn
 
 test("unavailable public media does not claim delivery or contact Meta", async () => {
   const { publishToMeta, saved, requests } = harness({ mediaStatus: 503 });
-  await assert.rejects(publishToMeta(draft, "facebook"), /archivo público no está disponible/i);
+  await assert.rejects(publishToMeta(draft, "pilot", "facebook"), /archivo público no está disponible/i);
   assert.equal(saved.facebookStatus, "PENDING");
   assert.equal(saved.instagramStatus, "PENDING");
   assert.equal(requests.length, 0);
@@ -219,7 +219,7 @@ test("unavailable public media does not claim delivery or contact Meta", async (
 
 test("a public HTTPS media URL is accepted without changing the OAuth callback", async () => {
   const { publishToMeta, saved, requests } = harness({ publicMediaUrl: "https://sample.trycloudflare.com" });
-  const outcome = await publishToMeta(draft, "facebook");
+  const outcome = await publishToMeta(draft, "pilot", "facebook");
 
   assert.equal(outcome.facebookId, "123_999");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
@@ -228,7 +228,7 @@ test("a public HTTPS media URL is accepted without changing the OAuth callback",
 
 test("unreviewed clinical media never reaches Meta", async () => {
   const { publishToMeta, requests } = harness({ reviewed: false });
-  await assert.rejects(publishToMeta(draft), /correspondencia clínica/i);
+  await assert.rejects(publishToMeta(draft, "pilot"), /correspondencia clínica/i);
   assert.equal(requests.length, 0);
 });
 
@@ -244,7 +244,7 @@ test("network-specific captions have distinct calls to action and hashtag limits
 
 test("Meta receives a different caption for each supported network", async () => {
   const { publishToMeta, requests } = harness({ instagram: true });
-  await publishToMeta(draft);
+  await publishToMeta(draft, "pilot");
   const ig = requests.find((request) => request.path.endsWith("/456/media"));
   const fb = requests.find((request) => request.path.endsWith("/123/photos"));
   assert.ok(ig);
@@ -262,13 +262,13 @@ test("Meta receives a different caption for each supported network", async () =>
 
 test("archived proposals are rejected before contacting Meta", async () => {
   const { publishToMeta, requests } = harness({ archived: true });
-  await assert.rejects(publishToMeta(draft), /archivada/i);
+  await assert.rejects(publishToMeta(draft, "pilot"), /archivada/i);
   assert.equal(requests.length, 0);
 });
 
 test("Instagram image Story uses STORIES instead of a feed container", async () => {
   const { publishToMeta, saved, requests } = harness({ instagram: true, deliveryFormat: "STORY" });
-  await publishToMeta(draft, "instagram");
+  await publishToMeta(draft, "pilot", "instagram");
 
   const container = requests.find((request) => request.path.endsWith("/456/media"));
   assert.ok(container);
@@ -287,7 +287,7 @@ test("Instagram image Story uses STORIES instead of a feed container", async () 
 
 test("Facebook photo Story uploads unpublished media, then publishes a Story", async () => {
   const { publishToMeta, saved, requests } = harness({ deliveryFormat: "STORY" });
-  const published = await publishToMeta(draft, "facebook");
+  const published = await publishToMeta(draft, "pilot", "facebook");
 
   assert.equal(published.facebookId, "123_777");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
@@ -319,7 +319,7 @@ test("Facebook video Story uses the video_stories upload flow", async () => {
     },
   });
 
-  const published = await publishToMeta({ ...draft, mediaKind: "video" }, "facebook");
+  const published = await publishToMeta({ ...draft, mediaKind: "video" }, "pilot", "facebook");
   assert.equal(published.facebookId, "123_888");
   assert.equal(saved.facebookStatus, "SUCCEEDED");
   assert.deepEqual(requests.map((request) => request.path), [
@@ -340,7 +340,7 @@ test("Facebook Stories do not fall back to feed when the story endpoint fails", 
       throw new Error(`Unexpected call: ${path}`);
     },
   });
-  await assert.rejects(publishToMeta(draft, "facebook"), /no confirmó/i);
+  await assert.rejects(publishToMeta(draft, "pilot", "facebook"), /no confirmó/i);
   assert.equal(saved.facebookStatus, "UNKNOWN");
   assert.equal(requests.filter((request) => request.path.endsWith("/photos")).length, 1);
   assert.equal(requests.filter((request) => request.path.endsWith("/feed")).length, 0);
@@ -348,6 +348,20 @@ test("Facebook Stories do not fall back to feed when the story endpoint fails", 
 
 test("Meta never publishes a post owned by another clinic", async () => {
   const { publishToMeta, requests } = harness({ clinicId: "another-clinic" });
-  await assert.rejects(publishToMeta(draft), /Vuelve a conectar|ya no existe/);
+  await assert.rejects(publishToMeta(draft, "pilot"), /Vuelve a conectar|ya no existe/);
   assert.equal(requests.length, 0);
+});
+
+test("Meta refuses a post owned by another clinic before contacting the API", async () => {
+  const { publishToMeta, saved, requests } = harness({ clinicId: "clinic-beta" });
+  await assert.rejects(publishToMeta(draft, "pilot"), /Vuelve a conectar|ya no existe/);
+  assert.equal(saved.facebookStatus, "PENDING");
+  assert.equal(requests.length, 0);
+});
+
+test("Meta permits a clinic-specific account and post without using pilot", async () => {
+  const { publishToMeta, saved } = harness({ clinicId: "clinic-beta" });
+  const published = await publishToMeta(draft, "clinic-beta", "facebook");
+  assert.equal(published.facebookId, "123_999");
+  assert.equal(saved.facebookStatus, "SUCCEEDED");
 });
