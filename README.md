@@ -18,6 +18,12 @@
 
 La aplicación no programa publicaciones futuras. La aprobación inicia la publicación inmediata en las redes conectadas.
 
+## Video Ad Studio — fase 1
+
+La sección **Videos publicitarios** (`/dashboard/video-ads`) permite organizar material real para un anuncio vertical sin recargar el formulario de creación convencional. Incluye selección de hasta doce fotografías o clips locales, orden de escenas, vista previa, tratamiento, objetivo, estilo, duración, textos editables, confirmación de autorización y exportación del **guion de producción en texto**. Solo aparece para roles con permisos de creación de contenido.
+
+**Alcance actual:** el material permanece en el navegador durante la sesión, sin guardarse en la base de datos ni enviarse al servidor. No genera un MP4, no consulta IA y no publica anuncios. La siguiente fase será generar y validar el storyboard en el servidor, preparar el render con FFmpeg y enlazar el resultado con la cola de revisión clínica antes de cualquier publicación o campaña paga.
+
 ## Reels e Historias
 
 - **Feed:** fotografías 4:5 para Facebook e Instagram, como antes.
