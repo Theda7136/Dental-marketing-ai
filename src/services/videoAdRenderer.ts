@@ -35,23 +35,6 @@ function escapeXml(value: string): string {
   })[character] ?? character);
 }
 
-function linesFor(text: string): string[] {
-  const words = text.replace(/\s+/g, " ").trim().split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > 27 && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.slice(0, 4);
-}
-
 function safeColor(value: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#116D60";
 }
@@ -151,7 +134,7 @@ export function photoMotionFilter(index: number, style: VideoAdStyle = "premium"
 }
 
 function wrapCaption(text: string, limit = 24): string[] {
-  const words = text.replace(/\\s+/g, " ").trim().split(" ");
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -171,9 +154,9 @@ async function captionOverlay(
   heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number,
 ): Promise<Buffer> {
   const isOpening = index === 0;
-  const isClosing = index === total - 1 && total > 1;
+  const isClosing = index === total - 1;
   const accent = safeColor(brand.primaryColor);
-  const title = escapeXml(brand.clinicName.slice(0, 36));
+  const title = escapeXml(brand.clinicName.slice(0, 29));
   const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
     isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
   const lines = wrapCaption(heading, isClosing ? 23 : 26);
