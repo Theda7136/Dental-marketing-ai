@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
+import { prepareLogo } from "@/services/logoService";
 import { prisma } from "@/lib/prisma";
 import { getStudioAccess } from "@/lib/studioAccess";
 import { ImageServiceError, parsePhotoOptions, overlayOnClinicTemplate, removeClinicalBackground, renderStoryPhoto } from "@/services/imageService";
@@ -55,8 +56,7 @@ export async function POST(request: Request) {
         if (!metadata.width || !metadata.height || metadata.width < 32 || metadata.height < 32) {
           return NextResponse.json({ error: "El logotipo debe tener al menos 32 × 32 px." }, { status: 400 });
         }
-        const compressed = await sharp(rawLogo).rotate().resize(320, 320, { fit: "inside", withoutEnlargement: true })
-          .png({ compressionLevel: 9 }).toBuffer();
+        const compressed = await prepareLogo(rawLogo);
         if (compressed.length > 400_000) {
           return NextResponse.json({ error: "El logotipo es demasiado grande." }, { status: 400 });
         }
