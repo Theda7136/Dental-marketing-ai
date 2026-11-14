@@ -12,10 +12,25 @@ const compiled = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
 ).outputText;
 
+const logoCompiled = ts.transpileModule(
+  readFileSync(new URL("../src/services/logoService.ts", import.meta.url), "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+).outputText;
+const logoModule = { exports: {} };
+runInNewContext(`(function(require, module, exports) { ${logoCompiled} })`, { Buffer, Uint8Array })(
+  (name) => {
+    if (name === "sharp") return { __esModule: true, default: sharp };
+    throw new Error(`Unexpected logo dependency: ${name}`);
+  },
+  logoModule,
+  logoModule.exports,
+);
+
 const module = { exports: {} };
 runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer, Uint8Array })(
   (name) => {
     if (name === "sharp") return { __esModule: true, default: sharp };
+    if (name === "./logoService") return logoModule.exports;
     if (name === "../config/clinicalGuardrails") {
       return { clinicalGuardrails: { allowedDentalTerms: ["Ortodoncia"] } };
     }
