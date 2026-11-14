@@ -430,7 +430,7 @@ async function prepareImage(
   const composition = (async () => {
     const [cleanImage, brand] = await Promise.all([
       removeClinicalBackground(media),
-      prisma.brandProfile.findUnique({ where: { id: "default", clinicId } }),
+      prisma.brandProfile.findUnique({ where: { clinicId } }),
     ]);
     return isStory
       ? renderStoryPhoto({ cleanImage, procedureName, options: photoOptions, brand })
@@ -485,7 +485,7 @@ async function prepareVideo(
   const vertical = await renderVerticalClinicalVideo(media);
   const captioned = transcript ? await overlayKaraokeSubtitles(vertical, transcript) : vertical;
   const processed = muteAudio ? await muteClinicalVideo(captioned) : captioned;
-  const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId } });
+  const brand = await prisma.brandProfile.findUnique({ where: { clinicId } });
   const rendered = await overlayVideoLogo(processed, brand?.logoDataUrl);
   if (isStory) {
     return {
