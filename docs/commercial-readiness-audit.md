@@ -136,3 +136,13 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `scripts/smoke-production.mjs` valida por HTTPS un `GET /api/health` sin información clínica y verifica que `/dashboard` sin sesión no sea público. Disponible como `npm run smoke:production -- https://tu-dominio.com`.
 - `tests/smoke-production.test.mjs` añade comprobaciones automatizadas de respuestas correctas y denegación de acceso anónimo.
 - Pendiente: elegir y contratar proveedor, dominio y almacenamiento, medir capacidad real de renderizado, montar un volumen persistente, validar copias externas y verificar OAuth/publicación en el VPS. No se ha hecho un despliegue real.
+
+
+## Video Ad Studio — primera exportación MP4
+
+- `src/services/videoAdRenderer.ts` compone imágenes y clips reales con FFmpeg a MP4 vertical 1080×1920, 24 fps, títulos, fades y marca de la clínica consultada por `clinicId`.
+- `POST /api/video-ads/render` exige sesión `content:write`, confirmación de uso autorizado, guardrails de texto y límites de hasta 12 escenas, 45 segundos y 120 MB de entrada. No llama a Meta ni a TikTok.
+- El MP4 se envía como respuesta privada sin caché; los archivos temporales se eliminan. El contenido no se guarda en SQLite ni en S3.
+- `VideoAdStudio` permite reproducir y descargar el MP4 localmente tras renderizar.
+- `tests/video-ad-render.test.mjs` comprueba límites y protección del endpoint; `npm run test:video-render` ejecuta una prueba opcional real de FFmpeg con una imagen sintética, sin material clínico.
+- **Pendiente:** ejecutar la prueba real en Windows y VPS, medir CPU/RAM y duración, confirmar compatibilidad de codecs y fuentes, registrar los MP4 aprobados en Pendientes, validar consentimiento legal y conectar generación de guiones con Gemini. Las piezas no se publican ni se anuncian automáticamente.
