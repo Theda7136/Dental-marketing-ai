@@ -11,6 +11,7 @@ WorkingDirectory=/opt/dental-marketing-ai
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
+Environment=HOME=/opt/dental-marketing-ai
 EnvironmentFile=/etc/dental-marketing-ai/production.env
 ExecStart=/usr/bin/npm run start
 Restart=on-failure
@@ -18,9 +19,7 @@ RestartSec=5
 TimeoutStopSec=30
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/dental-marketing-ai/prisma /opt/dental-marketing-ai/storage /opt/dental-marketing-ai/backups
+ProtectSystem=full
 UMask=0077
 
 [Install]
