@@ -85,3 +85,12 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - **Hallazgo P0:** `BrandProfile.id` es global con valor `default`. La ruta `/api/brand` usa el mismo identificador con un filtro secundario de clínica; no es compatible con una identidad visual por empresa sin migración de clave.
 - **Hallazgo P1:** `META_PAGE_ID` es configuración global y `Account(provider, providerAccountId)` es único entre clínicas; definir selección de Página por clínica antes de soportar diferentes empresas conectadas por un mismo usuario de Meta.
 - **Estado:** pruebas creadas y registradas; falta ejecutarlas y validar con SQLite real, almacenamiento S3/R2 y conexiones de Meta/TikTok. Se mantiene el bloqueo de la clínica piloto.
+
+
+## Identidad de marca por clínica
+
+- Migración `20261113100000_brand_per_clinic`: transforma el registro heredado `BrandProfile(id="default", clinicId="pilot")` en `BrandProfile(id="pilot", clinicId="pilot")` **sin eliminar el logo ni los demás valores**.
+- `BrandProfile.clinicId` ahora es único; `GET/POST /api/brand` y los generadores de foto y video buscan por `clinicId`. Los registros nuevos usan un `id` explícito igual al de su clínica.
+- `tests/brand-clinic-migration.test.mjs` comprueba con SQLite la preservación del piloto, la independencia de marca y el rechazo de duplicados; se incorporó a `npm test`.
+- La migración requiere copia de seguridad y `prisma generate` **antes** de ejecutar TypeScript. Ver las instrucciones de actualización en README.
+- No se habilitó el acceso multiempresa. Pendiente: selección de Páginas Meta por clínica, validación end-to-end y despliegue persistente.
