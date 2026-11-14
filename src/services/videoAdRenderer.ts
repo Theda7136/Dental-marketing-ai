@@ -156,7 +156,7 @@ async function captionOverlay(
   const isOpening = index === 0;
   const isClosing = index === total - 1;
   const accent = safeColor(brand.primaryColor);
-  const title = escapeXml(brand.clinicName.slice(0, 29));
+  const title = escapeXml(brand.clinicName.slice(0, brand.logoDataUrl ? 22 : 29));
   const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
     isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
   const lines = wrapCaption(heading, isClosing ? 23 : 26);
@@ -185,6 +185,7 @@ async function captionOverlay(
     <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
     <rect x="70" y="90" rx="28" width="940" height="125" fill="#061916" fill-opacity=".55"/>
     <rect x="88" y="107" rx="6" width="10" height="90" fill="${accent}"/>
+    ${brand.logoDataUrl ? '<rect x="810" y="101" rx="18" width="189" height="107" fill="white"/>' : ""}
     <text x="120" y="163" fill="white" font-size="51" font-weight="700" font-family="Arial, sans-serif">${title}</text>
     <rect x="91" y="1160" width="128" height="9" rx="4" fill="${accent}"/>
     ${infoCard}
@@ -200,8 +201,8 @@ async function captionOverlay(
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
     if (logoBytes.length && logoBytes.length <= 500_000) {
       const logo = await sharp(logoBytes, { limitInputPixels: 8_000_000 })
-        .resize({ width: 210, height: 125, fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, top: 240, left: 90 });
+        .resize({ width: 160, height: 88, fit: "inside" }).png().toBuffer();
+      layers.push({ input: logo, top: 112, left: 825 });
     }
   }
   return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#00000000" } })
