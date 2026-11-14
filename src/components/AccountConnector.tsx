@@ -17,8 +17,8 @@ type TikTokAccount = {
 
 const META_ERRORS: Record<string, string> = {
   no_page: "Meta no encontró una Página administrada por tu cuenta.",
-  multiple_pages: "Administra varias Páginas. Configura META_PAGE_ID para seleccionar la de la clínica.",
-  page_not_found: "No se encontró la Página indicada en META_PAGE_ID.",
+  multiple_pages: "Tu cuenta administra varias Páginas. Escribe el ID de la Página de tu clínica y vuelve a conectar Meta.",
+  page_not_found: "La Página seleccionada no está disponible para esta cuenta de Meta.",
   pages_failed: "No pudimos consultar tus Páginas. Revisa los permisos concedidos.",
   token_failed: "Meta no completó la autorización.",
   token_exchange_failed: "Meta no pudo renovar la autorización.",
@@ -79,6 +79,8 @@ export function AccountConnector() {
   const [meta, setMeta] = useState<MetaAccount | null>(null);
   const [tiktok, setTikTok] = useState<TikTokAccount | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pageId, setPageId] = useState("");
+  const metaLink = pageId.trim() ? `/api/auth/meta?pageId=${encodeURIComponent(pageId.trim())}` : "/api/auth/meta";
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
@@ -120,13 +122,28 @@ export function AccountConnector() {
         </span>
       </div>
       {message && <p role="status" className="rounded-xl border border-[#cde4d6] bg-[#f0f8f2] px-4 py-3 text-sm text-[#245e4a]">{message}</p>}
+      <div className="rounded-xl border border-[#e0e9e3] bg-[#f8faf9] px-4 py-3">
+        <label htmlFor="meta-page-id" className="text-sm font-semibold text-[#183d37]">Página de Facebook de la clínica</label>
+        <p className="mt-1 text-xs text-[#657b70]">Si administras varias páginas, escribe su ID numérico antes de conectar Meta. Si solo administras una, deja el campo vacío.</p>
+        <input
+          id="meta-page-id"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={32}
+          value={pageId}
+          onChange={(event) => setPageId(event.target.value.replace(/\\D/g, ""))}
+          placeholder="ID de Página (opcional)"
+          className="mt-2 w-full max-w-sm rounded-lg border border-[#cdded4] bg-white px-3 py-2 text-sm text-[#183d37] outline-none focus:border-[#106a5b]"
+        />
+      </div>
       <div className="space-y-3">
         <ConnectionCard
           name="Facebook"
           connected={Boolean(meta?.connected)}
           description={meta?.connected ? `Página: ${meta.pageName || "Página principal"}` : "Publica fotografías y videos en la Página de la clínica."}
           detail="Facebook e Instagram se autorizan mediante Meta."
-          href="/api/auth/meta"
+          href={metaLink}
           action={meta?.connected ? "Reconectar Meta" : "Conectar Meta"}
         />
         <ConnectionCard
