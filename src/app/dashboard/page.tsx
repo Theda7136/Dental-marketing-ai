@@ -546,7 +546,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
             <p>Prepara el contenido para revisión y publicación.</p>
           </div>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
+          <form ref={formRef} onSubmit={handleSubmit} className="studio-rail-form flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[#49645b]">{format === "text" ? "Modo guion" : "Archivo de contenido"}</p>
               <button type="button" onClick={toggleScriptMode} disabled={isPending}
@@ -716,7 +716,7 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
               Notas de la consulta o idea del video
               <textarea
                 name="notes"
-                rows={4}
+                rows={2}
                 maxLength={800}
                 disabled={isPending}
                 value={notes}

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   color-scheme: light;
@@ -112,7 +112,7 @@ textarea:focus-visible {
 
 
 
-/* Dental Studio — compact creative workbench */
+/* Dental Studio â€” compact creative workbench */
 :root {
   --ink: #203c38;
   --ink-soft: #63756e;
@@ -566,8 +566,8 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-file-thumb video { width:100%; height:100%; object-fit:cover; pointer-events:none; }
 
 .studio-header-logo { display: block; width: 100%; height: 100%; padding: 3px; border-radius: inherit; object-fit: contain; }
-.studio-preview-canvas[aria-label="Arrastra para ajustar la posición de la fotografía"] { touch-action: none; cursor: grab; }
-.studio-preview-canvas[aria-label="Arrastra para ajustar la posición de la fotografía"]:active { cursor: grabbing; }
+.studio-preview-canvas[aria-label="Arrastra para ajustar la posiciÃ³n de la fotografÃ­a"] { touch-action: none; cursor: grab; }
+.studio-preview-canvas[aria-label="Arrastra para ajustar la posiciÃ³n de la fotografÃ­a"]:active { cursor: grabbing; }
 .studio-brand-color-control input:focus-visible,
 .studio-file-replace:focus-visible,
 .studio-upload-button:focus-visible { outline: 3px solid #82b5a4; outline-offset: 3px; }
@@ -886,7 +886,6 @@ body { background: var(--canvas); color: var(--ink); }
   .studio-nav-link.is-current {
     background: #eaf4ef;
     color: #0b6154;
-    box-shadow: inset 3px 0 #137565;
   }
   .studio-sidebar-footer {
     display: block;
@@ -1325,3 +1324,54 @@ body { background: var(--canvas); color: var(--ink); }
 .ad-studio-render-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 15px; }
 .ad-studio-render-actions > * { flex: 1 1 140px; text-align: center; }
 .ad-studio-rendered > a { text-align: center; display: inline-block; width: fit-content; justify-self: center; }
+
+/* The proposal rail stays inside the first screen. The action sits at its foot. */
+.studio-editor-grid .studio-section-kicker { display: none; }
+.studio-editor-grid .studio-form-intro { margin-bottom: 8px; padding-bottom: 8px; }
+.studio-editor-grid .studio-form-intro p { margin-top: 2px; }
+.studio-editor-grid .studio-rail-form { gap: 12px; min-height: 0; }
+.studio-editor-grid .studio-progressive-content { gap: 6px; padding-top: 0; border-top: 0; }
+.studio-editor-grid .studio-form-panel textarea[name="notes"] { min-height: 52px; }
+.studio-editor-grid .studio-form-panel fieldset button[aria-pressed] { min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+.studio-editor-grid .studio-upload-button { min-height: 64px; padding: 10px 12px; }
+.studio-editor-grid .studio-file-thumb { display: none; }
+.studio-editor-grid .studio-generate,
+.studio-editor-grid .studio-generate-sticky {
+  position: static;
+  min-height: 44px;
+  margin-top: 0;
+  box-shadow: none;
+}
+@media (min-width: 960px) {
+  .studio-editor-grid {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 20px;
+    align-items: start;
+  }
+  .studio-editor-grid .studio-preview-panel { order: 1; }
+  .studio-editor-grid .studio-form-panel {
+    order: 2;
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 168px);
+    overflow: hidden;
+    padding: 16px 16px 12px !important;
+  }
+  .studio-editor-grid .studio-form-intro { flex: none; }
+  .studio-editor-grid .studio-rail-form {
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+  .studio-editor-grid .studio-rail-form > .studio-generate {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: auto;
+    background: #116d60;
+  }
+}
+
+.studio-nav-link.is-current { box-shadow: none; }
+
