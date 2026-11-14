@@ -78,52 +78,71 @@ async function fetchMeta(
 async function findPagePosts(
   pageId: string,
   token: string,
+  photoIds: readonly string[],
 ): Promise<{ photoToPost: Map<string, string>; failure?: Failure; detail?: string }> {
   const photoToPost = new Map<string, string>();
-  const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/posts`);
-  url.searchParams.set("fields", "id,attachments{target{id}}");
-  url.searchParams.set("limit", "100");
+  const expected = new Set(photoIds);
+  let firstFailure: { failure: Failure; detail: string } | null = null;
 
-  try {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(12000),
-    });
-    const rawPayload: unknown = await response.json();
-    if (!rawPayload || typeof rawPayload !== "object") {
-      return { photoToPost, failure: "unavailable", detail: "invalid_response" };
-    }
-    const payload = rawPayload as {
-      data?: { id?: string; attachments?: { data?: { target?: { id?: string } }[] } }[];
-      error?: { code?: number; error_subcode?: number };
-    };
-    if (!response.ok || payload.error) {
-      const code = payload.error?.code;
-      const subcode = payload.error?.error_subcode;
-      const detail = `meta_error_${typeof code === "number" ? code : response.status}`
-        + (typeof subcode === "number" ? `_sub_${subcode}` : "");
-      return { photoToPost, failure: classifyFailure(code), detail };
-    }
-    if (!Array.isArray(payload.data)) {
-      return { photoToPost, failure: "incomplete", detail: "posts_missing" };
-    }
-    for (const post of payload.data) {
-      if (!/^\d+_\d+$/.test(post.id ?? "")) continue;
-      for (const attachment of post.attachments?.data ?? []) {
-        const photoId = attachment.target?.id;
-        if (photoId && /^\d+$/.test(photoId)) {
-          photoToPost.set(photoId, post.id!);
+  for (const edge of ["published_posts", "posts"] as const) {
+    let after: string | undefined;
+
+    for (let page = 0; page < 4; page++) {
+      const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/${edge}`);
+      url.searchParams.set("fields", "id,attachments{target{id}}");
+      url.searchParams.set("limit", "100");
+      if (after) url.searchParams.set("after", after);
+
+      try {
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(12000),
+        });
+        const payload = await response.json() as {
+          data?: { id?: string; attachments?: { data?: { target?: { id?: string } }[] } }[];
+          paging?: { cursors?: { after?: string } };
+          error?: { code?: number; error_subcode?: number };
+        };
+        if (!response.ok || payload.error) {
+          const code = payload.error?.code;
+          const subcode = payload.error?.error_subcode;
+          const detail = `${edge}_meta_error_${typeof code === "number" ? code : response.status}`
+            + (typeof subcode === "number" ? `_sub_${subcode}` : "");
+          firstFailure ??= { failure: classifyFailure(code), detail };
+          break;
         }
+        if (!Array.isArray(payload.data)) {
+          firstFailure ??= { failure: "incomplete", detail: `${edge}_missing_posts` };
+          break;
+        }
+
+        for (const post of payload.data) {
+          if (!/^\d+_\d+$/.test(post.id ?? "")) continue;
+          for (const attachment of post.attachments?.data ?? []) {
+            const photoId = attachment.target?.id;
+            if (photoId && expected.has(photoId)) photoToPost.set(photoId, post.id!);
+          }
+        }
+        if (photoToPost.size === expected.size) return { photoToPost };
+
+        const next = payload.paging?.cursors?.after;
+        if (!next || next === after || payload.data.length === 0) break;
+        after = next;
+      } catch (error) {
+        const detail = error instanceof DOMException && error.name === "TimeoutError"
+          ? `${edge}_timeout`
+          : error instanceof SyntaxError ? `${edge}_invalid_json` : `${edge}_request_failed`;
+        firstFailure ??= { failure: "unavailable", detail };
+        break;
       }
     }
-    return { photoToPost };
-  } catch (error) {
-    const detail = error instanceof DOMException && error.name === "TimeoutError"
-      ? "request_timeout"
-      : error instanceof SyntaxError ? "invalid_json" : "request_failed";
-    return { photoToPost, failure: "unavailable", detail };
   }
+
+  if (photoToPost.size > 0) return { photoToPost };
+  return firstFailure
+    ? { photoToPost, ...firstFailure }
+    : { photoToPost, detail: "no_matching_attachments_in_800_posts" };
 }
 
 function count(value: unknown): number | null {
@@ -210,7 +229,7 @@ export async function GET() {
     // A photo returned by /photos may not be accessible as a Photo node
     // with the current Page token. Resolve its Page Post via object_id.
     if (!photo.value && pagePosts === null) {
-      pagePosts = await findPagePosts(account.pageId, account.accessToken);
+      pagePosts = await findPagePosts(account.pageId, account.accessToken, posts.map((entry) => entry.facebookPostId).filter((id): id is string => Boolean(id)));
     }
 
     const storyLookup = photo.value
