@@ -121,3 +121,11 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `npm run backup:db` genera una instantánea local dentro de `backups/sqlite/`; esta carpeta está excluida de Git.
 - `tests/sqlite-backup.test.mjs` comprueba la separación entre original y copia y rechaza bases inexistentes.
 - **Pendiente P0:** respaldos externos cifrados, recuperación ensayada, respaldo de media local y objetos S3/R2, automatización supervisada y métricas de restauración.
+
+## Plantillas de VPS y endpoint de salud
+
+- `deploy/dental-marketing-ai.service.example`: servicio `systemd` para Node.js sin permisos root, con una única instancia SQLite y directorio de trabajo persistente.
+- `deploy/Caddyfile.example`: proxy HTTPS a `127.0.0.1:3000`; no exponer directamente el servidor Node.
+- `GET /api/health` entrega solo `{"status":"ok"}`, sin sesión ni detalles clínicos; `tests/health-route.test.mjs` valida el contrato.
+- **Pendiente P0:** conseguir VPS y dominio, configurar DNS, S3/R2, copia externa y restauración ensayada, validar procesamiento FFmpeg y publicaciones reales, y comprobar la seguridad operativa.
+- No se activó multiempresa ni se cambió la base SQLite.
