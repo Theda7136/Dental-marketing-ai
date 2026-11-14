@@ -19,3 +19,6 @@ prisma/*.sqlite3.*
 
 # Generated TypeScript build metadata
 *.tsbuildinfo
+
+# Database snapshots must never be committed
+backups/
