@@ -42,6 +42,14 @@ test("video rendering rejects oversized and excessively long storyboards", () =>
   assert.throws(() => module.exports.validateAdScenes([{ ...scene, heading: "a".repeat(181) }]), /demasiado largo/);
 });
 
+test("photo camera movement uses zoompan without cropping the source image", () => {
+  assert.match(rendererSource, /function photoMotionFilter\(index: number\)/);
+  assert.match(rendererSource, /force_original_aspect_ratio=decrease/);
+  assert.match(rendererSource, /zoompan=z=/);
+  assert.match(rendererSource, /if\(eq\(on,0\),1\.045/);
+  assert.match(rendererSource, /sceneFilter\(scene\.kind, scene\.seconds, index\)/);
+});
+
 test("rendering endpoint requires clinic write access and never publishes", () => {
   assert.match(proxySource, /pathname === "\/api\/video-ads\/render"/);
   assert.match(routeSource, /getStudioAccess\("content:write"\)/);
