@@ -19,8 +19,9 @@ function credentials() {
   return { key, secret };
 }
 
-export async function getTikTokAccess() {
-  const account = await prisma.account.findFirst({ where: { provider: "tiktok", clinicId: "pilot" } });
+export async function getTikTokAccess(clinicId: string) {
+  if (!clinicId) throw new Error("Falta el contexto de clínica para TikTok.");
+  const account = await prisma.account.findFirst({ where: { provider: "tiktok", clinicId } });
   if (!account) throw new Error("Conecta tu cuenta de TikTok en Conexiones.");
   if (!(account.grantedScopes || "").split(",").includes("video.publish")) {
     throw new Error("Reconecta TikTok autorizando el permiso video.publish.");
@@ -48,7 +49,7 @@ export async function getTikTokAccess() {
     throw new Error("No se pudo renovar la autorización de TikTok. Reconecta la cuenta.");
   }
   await prisma.account.update({
-    where: { id: account.id, clinicId: "pilot" },
+    where: { id: account.id, clinicId },
     data: {
       accessToken: refreshed.access_token,
       refreshToken: refreshed.refresh_token,
@@ -87,8 +88,8 @@ export type CreatorInfo = {
   max_video_post_duration_sec?: number;
 };
 
-export async function getTikTokCreator() {
-  const { token } = await getTikTokAccess();
+export async function getTikTokCreator(clinicId: string) {
+  const { token } = await getTikTokAccess(clinicId);
   const creator = await tikTokRequest<CreatorInfo>("/v2/post/publish/creator_info/query/", token, {});
   return { creator, token };
 }
