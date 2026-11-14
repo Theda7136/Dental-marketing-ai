@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = process.env.META_REDIRECT_URI || new URL("/api/auth/meta/callback", baseUrl).toString();
   const state = randomBytes(32).toString("hex");
   const selectedPageId = request.nextUrl.searchParams.get("pageId")?.trim() || "";
-  if (selectedPageId && !/^\\d{4,32}$/.test(selectedPageId)) {
+  if (selectedPageId && !/^\d{4,32}$/.test(selectedPageId)) {
     return NextResponse.json({ error: "El ID de Página debe contener solo números." }, { status: 400 });
   }
 
