@@ -61,25 +61,35 @@ export async function GET(request: NextRequest) {
       return redirect("account_already_linked");
     }
 
-    await prisma.account.upsert({
-      where: { provider_providerAccountId: { provider: "tiktok", providerAccountId: tokens.open_id } },
-      update: {
-        clinicId: session!.clinic.id,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 7200) * 1000),
-        grantedScopes: scopes,
-      },
-      create: {
-        clinicId: session!.clinic.id,
-        provider: "tiktok",
-        providerAccountId: tokens.open_id,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 7200) * 1000),
-        grantedScopes: scopes,
-      },
-    });
+    const accountFields = {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 7200) * 1000),
+      grantedScopes: scopes,
+    };
+    if (existingAccount) {
+      const updated = await prisma.account.updateMany({
+        where: { provider: "tiktok", providerAccountId: tokens.open_id, clinicId: session!.clinic.id },
+        data: accountFields,
+      });
+      if (updated.count !== 1) return redirect("account_already_linked");
+    } else {
+      try {
+        await prisma.account.create({
+          data: {
+            provider: "tiktok",
+            providerAccountId: tokens.open_id,
+            clinicId: session!.clinic.id,
+            ...accountFields,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "P2002") {
+          return redirect("account_already_linked");
+        }
+        throw error;
+      }
+    }
     await prisma.account.deleteMany({
       where: { provider: "tiktok", clinicId: session!.clinic.id, providerAccountId: { not: tokens.open_id } },
     });
