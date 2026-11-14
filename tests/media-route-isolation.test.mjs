@@ -80,7 +80,7 @@ test("clinic alpha session reads only alpha media", async () => {
   const route = harness({ clinicId: "clinic-alpha" });
   const response = await route.getMedia();
   assert.equal(response.status, 200);
-  assert.deepEqual(route.lookedUp, [{ id: postId, clinicId: "clinic-alpha" }]);
+  assert.deepEqual(route.lookedUp.map(({ id, clinicId }) => `${id}:${clinicId}`), [`${postId}:clinic-alpha`]);
   assert.deepEqual(route.mediaReads, [{ mediaClinic: "clinic-alpha", id: postId, kind: "video" }]);
   assert.deepEqual(route.permissions, ["content:read"]);
 });
@@ -90,7 +90,7 @@ test("clinic beta session cannot read alpha media even when the post ID is known
   const response = await route.getMedia();
   assert.equal(response.status, 404);
   assert.equal(route.mediaReads.length, 0);
-  assert.deepEqual(route.lookedUp, [{ id: postId, clinicId: "clinic-beta" }]);
+  assert.deepEqual(route.lookedUp.map(({ id, clinicId }) => `${id}:${clinicId}`), [`${postId}:clinic-beta`]);
 });
 
 test("unauthenticated requests cannot reach the database or storage", async () => {
@@ -105,7 +105,7 @@ test("signed media resolves ownership from signed clinic, not an unrelated brows
   const route = harness({ clinicId: "clinic-beta", signedClinic: "clinic-alpha" });
   const response = await route.getMedia("?clinic=clinic-alpha&expires=9999999999&signature=test");
   assert.equal(response.status, 200);
-  assert.deepEqual(route.lookedUp, [{ id: postId, clinicId: "clinic-alpha" }]);
+  assert.deepEqual(route.lookedUp.map(({ id, clinicId }) => `${id}:${clinicId}`), [`${postId}:clinic-alpha`]);
   assert.deepEqual(route.mediaReads, [{ mediaClinic: "clinic-alpha", id: postId, kind: "video" }]);
   assert.equal(route.permissions.length, 0);
 });
