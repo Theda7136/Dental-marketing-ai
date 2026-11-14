@@ -363,26 +363,30 @@ export function ApprovalQueue({
                         <span>{mediaError}</span>
                       </div>
                     ) : isVideo ? (
-                      <>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPost(post)}
+                        aria-label={`Reproducir video de ${post.procedureName} en vista ampliada`}
+                        title="Reproducir video ampliado"
+                        className="studio-proposal-video-thumb group relative block overflow-hidden rounded-xl bg-[#101918] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c6d60]"
+                      >
                         <video
-                          className="studio-proposal-media-content"
+                          className="pointer-events-none h-full w-full object-contain"
                           src={mediaSource(post)}
-                          controls
+                          muted
+                          playsInline
                           preload="metadata"
+                          aria-hidden="true"
                           onError={() => setMediaErrors((previous) => ({ ...previous, [post.id]: "No se pudo cargar el video guardado." }))}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setPreviewPost(post)}
-                          aria-label={`Ampliar video de ${post.procedureName}`}
-                          title="Ver video ampliado"
-                          className="absolute right-2 top-2 rounded-lg bg-[#183d37]/90 p-2 text-white shadow-sm transition hover:bg-[#0c6d60] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c6d60]"
-                        >
-                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </>
+                        <span aria-hidden="true" className="absolute inset-0 grid place-items-center bg-black/10 transition group-hover:bg-black/20">
+                          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#123e36]/85 text-white shadow-lg">
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 translate-x-px">
+                              <path d="m8 5 12 7-12 7V5Z" />
+                            </svg>
+                          </span>
+                        </span>
+                      </button>
                     ) : (
                       <img
                         className="studio-proposal-media-content"
