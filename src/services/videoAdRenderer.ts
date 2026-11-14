@@ -91,29 +91,63 @@ function mediaExtension(bytes: Buffer): "jpg" | "png" | "webp" | "mp4" | "mov" |
   return null;
 }
 
-async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
-  if (!ffmpegStatic) throw new Error("FFmpeg no está disponible en el servidor.");
+
+async function runFfmpeg(
+  args: string[],
+  timeoutMs = 180_000,
+): Promise<void> {
+  const binary = ffmpegStatic;
+
+  if (!binary) {
+    throw new Error("FFmpeg no está disponible en el servidor.");
+  }
+
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(ffmpegStatic, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", ...args], {
-      windowsHide: true,
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    let log = "";
-    const timer = setTimeout(() => process.kill(), timeoutMs);
-    process.stderr.on("data", (chunk: Buffer) => {
-      log = (log + chunk.toString("utf8")).slice(-3000);
-    });
-    process.on("error", (error) => {
+    const child = spawn(
+      binary,
+      ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", ...args],
+      {
+        windowsHide: true,
+        stdio: ["ignore", "ignore", "pipe"] as const,
+      },
+    );
+
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(new Error("FFmpeg excedió el tiempo de procesamiento."));
+    }, timeoutMs);
+
+    function finish(error?: Error) {
+      if (settled) return;
+
+      settled = true;
       clearTimeout(timer);
-      reject(error);
+
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    }
+
+    child.on("error", (error) => {
+      finish(error);
     });
-    process.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve();
-      else reject(new Error(code === null ? "FFmpeg excedió el tiempo de procesamiento." : "Falló el procesamiento de una escena."));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        finish();
+        return;
+      }
+
+      finish(new Error("Falló el procesamiento de una escena."));
     });
   });
 }
+
 
 async function captionOverlay(heading: string, brand: AdBrand): Promise<Buffer> {
   const label = escapeXml(brand.clinicName.slice(0, 60));
