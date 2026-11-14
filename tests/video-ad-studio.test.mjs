@@ -27,9 +27,10 @@ test("video ads have separate navigation and are covered by write permissions", 
   assert.match(dashboard, /destination\.id === "video-ads".*currentRole !== "REVIEWER"/);
 });
 
-test("storyboard stays local and makes no false video export claims", () => {
+test("rendered MP4 is previewed and downloaded without automatic publishing", () => {
+  assert.match(source, /\/api\/video-ads\/render/);
+  assert.match(source, /Descargar video MP4/);
   assert.match(source, /URL\.createObjectURL/);
-  assert.match(source, /Descargar guion de producción/);
-  assert.match(source, /no se suben archivos ni se genera MP4/);
-  assert.doesNotMatch(source, /fetch\(|publishSelectedNetworks|create-post/);
+  assert.match(source, /no se guarda ni se publica/);
+  assert.doesNotMatch(source, /publishSelectedNetworks|create-post/);
 });
