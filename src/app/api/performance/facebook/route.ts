@@ -248,8 +248,8 @@ export async function GET() {
     const storyLookup = photo.value
       ? await fetchMeta(photoId, "id,page_story_id", account.accessToken)
       : null;
-    const storyId = storyLookup?.value?.page_story_id
-      ?? pagePosts?.photoToPost.get(photoId);
+    const storyId = /^\d+_\d+$/.test(photoId) ? photoId
+      : storyLookup?.value?.page_story_id ?? pagePosts?.photoToPost.get(photoId);
     const validStoryId = storyId && /^\d+_\d+$/.test(storyId) ? storyId : null;
 
     if (!photo.value && !validStoryId) {
