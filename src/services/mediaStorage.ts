@@ -45,10 +45,10 @@ function legacyKey(id: string, kind: MediaKind): string {
 }
 
 function missingObject(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const code = (error as Error & { Code?: string; code?: string }).Code ||
-    (error as Error & { code?: string }).code;
-  return error.name === "NoSuchKey" || error.name === "NotFound" ||
+  if (!error || typeof error !== "object") return false;
+  const failure = error as { name?: string; Code?: string; code?: string };
+  const code = failure.Code || failure.code;
+  return failure.name === "NoSuchKey" || failure.name === "NotFound" ||
     code === "NoSuchKey" || code === "NotFound" || code === "ENOENT";
 }
 
