@@ -132,7 +132,7 @@ export function AccountConnector() {
           pattern="[0-9]*"
           maxLength={32}
           value={pageId}
-          onChange={(event) => setPageId(event.target.value.replace(/\\D/g, ""))}
+          onChange={(event) => setPageId(event.target.value.replace(/\D/g, ""))}
           placeholder="ID de Página (opcional)"
           className="mt-2 w-full max-w-sm rounded-lg border border-[#cdded4] bg-white px-3 py-2 text-sm text-[#183d37] outline-none focus:border-[#106a5b]"
         />
