@@ -92,27 +92,59 @@ function mediaExtension(bytes: Buffer): "jpg" | "png" | "webp" | "mp4" | "mov" |
 }
 
 async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
-  if (!ffmpegStatic) throw new Error("FFmpeg no está disponible en el servidor.");
+  const binary = ffmpegStatic;
+  if (!binary) throw new Error("FFmpeg no está disponible en el servidor.");
+
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(ffmpegStatic, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", ...args], {
+    const child = spawn(binary, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", ...args], {
       windowsHide: true,
-      stdio: ["ignore", "ignore", "pipe"],
+      stdio: ["ignore", "ignore", "pipe"] as const,
     });
-    let log = "";
-    const timer = setTimeout(() => process.kill(), timeoutMs);
-    process.stderr.on("data", (chunk: Buffer) => {
-      log = (log + chunk.toString("utf8")).slice(-3000);
-    });
-    process.on("error", (error) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(new Error("FFmpeg excedió el tiempo de procesamiento."));
+    }, timeoutMs);
+
+    function finish(error?: Error) {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      reject(error);
-    });
-    process.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve();
-      else reject(new Error(code === null ? "FFmpeg excedió el tiempo de procesamiento." : "Falló el procesamiento de una escena."));
+      if (error) reject(error);
+      else resolve();
+    }
+
+    child.on("error", error => finish(error));
+    child.on("close", code => {
+      if (code === 0) finish();
+      else finish(new Error("Falló el procesamiento de una escena."));
     });
   });
+}
+
+function sceneFilter(kind: AdScene["kind"], seconds: number, index: number): string {
+  const fade = Math.min(0.25, seconds / 4);
+  const visual = kind === "image"
+    ? photoMotionFilter(index)
+    : `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${FRAME_RATE}`;
+
+  return `[0:v]${visual},format=yuv420p[background];` +
+    `[background][1:v]overlay=0:0:shortest=1,format=yuv420p,` +
+    `fade=t=in:st=0:d=${fade},fade=t=out:st=${Math.max(0, seconds - fade)}:d=${fade}[out]`;
+}
+
+export function photoMotionFilter(index: number): string {
+  // Las fotografías se acomodan con margen de seguridad para que el movimiento no recorte la imagen clínica.
+  const canvasWidth = 1160;
+  const canvasHeight = 2064;
+  const direction = index % 2 === 0 ? 1 : -1;
+  const zoom = direction === 1
+    ? "min(zoom+0.0007,1.045)"
+    : "max(zoom-0.0007,1.0)";
+  return `scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,` +
+    `pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black,` +
+    `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':` +
+    `d=1:s=${WIDTH}x${HEIGHT}:fps=${FRAME_RATE},setsar=1`;
 }
 
 async function captionOverlay(heading: string, brand: AdBrand): Promise<Buffer> {
@@ -162,7 +194,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand): Promise<
       await writeFile(overlay, await captionOverlay(scene.heading, brand));
 
       const duration = String(scene.seconds);
-      const videoFilter = `[0:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${FRAME_RATE},format=yuv420p[background];[background][1:v]overlay=0:0:shortest=1,format=yuv420p,fade=t=in:st=0:d=0.25,fade=t=out:st=${Math.max(0, scene.seconds - 0.25)}:d=0.25[out]`;
+      const videoFilter = sceneFilter(scene.kind, scene.seconds, index);
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
