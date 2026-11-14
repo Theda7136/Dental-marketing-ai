@@ -42,6 +42,15 @@ runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer
 
 const { renderSocialPhoto, renderStoryPhoto, overlayOnClinicTemplate, parsePhotoOptions } = module.exports;
 
+async function logoCenterPixel(rendered, logo, canvasHeight) {
+  const processed = await logoModule.exports.prepareLogo(logo, 600, 240, true);
+  const { width, height } = await sharp(processed).metadata();
+  const left = 1080 - width - 42 + Math.floor(width / 2);
+  const bottomInset = canvasHeight === 1920 ? 225 : 52;
+  const top = canvasHeight - height - bottomInset + Math.floor(height / 2);
+  return sharp(rendered).extract({ left, top, width: 1, height: 1 }).raw().toBuffer();
+}
+
 async function fixture(width, height) {
   return sharp({
     create: { width, height, channels: 3, background: "#b75a43" },
@@ -131,8 +140,7 @@ test("a clinic logo is embedded in the bottom-right corner without a footer", as
   });
 
   const metadata = await sharp(branded).metadata();
-  const logoPixel = await sharp(branded)
-    .extract({ left: 600, top: 1100, width: 1, height: 1 }).raw().toBuffer();
+  const logoPixel = await logoCenterPixel(branded, logo, 1350);
   const photoPixel = await sharp(branded)
     .extract({ left: 540, top: 1300, width: 1, height: 1 }).raw().toBuffer();
 
@@ -155,8 +163,7 @@ test("story watermark stays above the bottom controls", async () => {
       logoDataUrl: `data:image/png;base64,${logo.toString("base64")}`,
     },
   });
-  const logoPixel = await sharp(branded)
-    .extract({ left: 600, top: 1500, width: 1, height: 1 }).raw().toBuffer();
+  const logoPixel = await logoCenterPixel(branded, logo, 1920);
   const footerPixel = await sharp(branded)
     .extract({ left: 1000, top: 1850, width: 1, height: 1 }).raw().toBuffer();
 
