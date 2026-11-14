@@ -10,6 +10,21 @@ Dental Marketing AI sigue restringido a la clínica piloto. Este procedimiento d
 - El acceso público de Meta y TikTok a archivos específicos se hace por enlaces firmados temporales.
 - Secretos configurados en el entorno del servidor, no incluidos en imágenes Docker, repositorio o registros.
 
+## Plantilla de VPS (sin despliegue automático)
+
+Se añadieron dos ejemplos: `deploy/dental-marketing-ai.service.example` para `systemd` y `deploy/Caddyfile.example` para servir la aplicación bajo HTTPS. Están pensados para un VPS Linux con Node.js, npm y Caddy instalados. Los ejemplos **no** crean usuarios, DNS, buckets ni instalan dependencias.
+
+1. Reservar un dominio real para el piloto y apuntar sus registros DNS al VPS. Abrir los puertos 80 y 443 solo para Caddy; **no exponer el puerto 3000**.
+2. Crear una cuenta de sistema `dental` sin permisos administrativos y situar una copia privada del código en `/opt/dental-marketing-ai`; asegurar que `prisma/`, `storage/`, `backups/` y las cachés que utilice Next.js/modelos sean accesibles por esa cuenta. No subir el archivo `.env` al repositorio.
+3. Configurar los secretos en `/etc/dental-marketing-ai/production.env`, con permisos restrictivos, y revisar los identificadores y redirecciones OAuth registrados ante Meta y TikTok. La aplicación también requiere `DENTAL_APP_PASSWORD`, `DENTAL_MEDIA_SIGNING_SECRET`, credenciales Gemini y S3/R2.
+4. Crear y **montar previamente** el volumen persistente que contiene `/opt/dental-marketing-ai/prisma/dev.db`; hacer una restauración de ensayo antes de usar una copia del piloto. En este primer despliegue solo se permite **una instancia que escriba en SQLite**.
+5. Instalar dependencias usando `npm ci`, ejecutar `npx prisma migrate deploy`, `npx prisma generate`, `npm test` y `npm run build`. Ejecutar `npm run check:production` con la configuración de producción cargada antes de iniciar el servicio.
+6. Adaptar y copiar la plantilla de `systemd` a `/etc/systemd/system/dental-marketing-ai.service`. Comprobar dónde está `npm` mediante `command -v npm` y ajustar `ExecStart` si la ruta real no es `/usr/bin/npm`. Habilitar y arrancar con `systemctl daemon-reload`, `systemctl enable --now dental-marketing-ai` y verificar `systemctl status dental-marketing-ai`.
+7. Sustituir `dental.example.com` en la plantilla de Caddy, instalarla en el Caddyfile de tu servidor, validar su configuración y reiniciar Caddy. Comprobar `https://tu-dominio/api/health`, que debe devolver únicamente `{"status":"ok"}`. Este endpoint prueba disponibilidad HTTP, **no comprueba base de datos, almacenamiento ni Meta/TikTok**.
+8. Verificar manualmente sesión, imágenes y videos, carga de una imagen antigua, páginas conectadas, publicación de prueba y estados inciertos **antes** de trasladar material clínico real.
+
+La plantilla usa `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full` y `UMask=0077`; aun así, la cuenta de servicio debe ser propietaria exclusivamente de los directorios necesarios. No usar el usuario root para ejecutar Node.js.
+
 ## Antes de mover el piloto
 
 1. Detener la aplicación actual y **respaldar** `prisma/dev.db`, incluyendo sus archivos asociados si existen, y toda la carpeta `storage/`. Con SQLite activo, preferir la API de backup de SQLite o `VACUUM INTO` frente a copiar solo `.db`. Comprobar que el respaldo puede restaurarse.
