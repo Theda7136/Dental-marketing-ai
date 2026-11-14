@@ -129,3 +129,10 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `GET /api/health` entrega solo `{"status":"ok"}`, sin sesión ni detalles clínicos; `tests/health-route.test.mjs` valida el contrato.
 - **Pendiente P0:** conseguir VPS y dominio, configurar DNS, S3/R2, copia externa y restauración ensayada, validar procesamiento FFmpeg y publicaciones reales, y comprobar la seguridad operativa.
 - No se activó multiempresa ni se cambió la base SQLite.
+
+## Selección de VPS y prueba posterior al despliegue
+
+- Dimensionamiento inicial para evaluar en proveedores: VPS Linux de 2 vCPU y 4 GB RAM, sujeto a pruebas de renderizado con FFmpeg.
+- `scripts/smoke-production.mjs` valida por HTTPS un `GET /api/health` sin información clínica y verifica que `/dashboard` sin sesión no sea público. Disponible como `npm run smoke:production -- https://tu-dominio.com`.
+- `tests/smoke-production.test.mjs` añade comprobaciones automatizadas de respuestas correctas y denegación de acceso anónimo.
+- Pendiente: elegir y contratar proveedor, dominio y almacenamiento, medir capacidad real de renderizado, montar un volumen persistente, validar copias externas y verificar OAuth/publicación en el VPS. No se ha hecho un despliegue real.
