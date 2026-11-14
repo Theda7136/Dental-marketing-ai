@@ -166,7 +166,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand): Promise<
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
-        : ["-i", source];
+        : ["-stream_loop", "-1", "-i", source];
       await runFfmpeg([
         ...inputs, "-loop", "1", "-framerate", String(FRAME_RATE), "-i", overlay,
         "-filter_complex", videoFilter, "-map", "[out]", "-an",
