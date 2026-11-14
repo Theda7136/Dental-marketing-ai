@@ -153,7 +153,7 @@ export default function BrandSettings() {
     <section className="studio-brand-settings" aria-labelledby="brand-settings-title">
       <div className="studio-brand-intro">
         <h2 id="brand-settings-title">Identidad de marca</h2>
-        <p>Sube el logotipo para colocarlo automáticamente en las nuevas fotografías e historias. Las publicaciones anteriores no cambian.</p>
+        <p>Sube el logotipo para aplicarlo automáticamente a fotografías, Reels e historias nuevas. Las publicaciones anteriores no cambian.</p>
       </div>
       {error && <p className="studio-brand-error" role="alert">{error}</p>}
       {feedback && <p className="studio-brand-success" role="status">{feedback}</p>}
