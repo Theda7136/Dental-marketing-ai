@@ -9,7 +9,7 @@ function permissionFor(pathname: string, method: string): ClinicPermission | nul
   if (pathname === "/api/studio/me" || pathname === "/dashboard" || pathname === "/dashboard/pendientes" ||
       pathname === "/dashboard/historial" || pathname === "/dashboard/calendario" ||
       pathname === "/dashboard/rendimiento" || pathname === "/") return "content:read";
-  if (pathname === "/dashboard/crear" || pathname === "/dashboard/video-ads" || pathname === "/api/create-post" || pathname === "/api/preview-image") return "content:write";
+  if (pathname === "/dashboard/crear" || pathname === "/dashboard/video-ads" || pathname === "/api/create-post" || pathname === "/api/video-ads/render" || pathname === "/api/preview-image") return "content:write";
   if (pathname === "/dashboard/conexiones" || pathname.startsWith("/api/auth/") ||
       pathname.startsWith("/api/social/") || pathname === "/api/tiktok/creator") return "connections:manage";
   if (pathname === "/api/brand") return method === "GET" ? "content:read" : "brand:manage";
