@@ -24,7 +24,7 @@ function permissionFor(pathname: string, method: string): ClinicPermission | nul
 }
 
 function isPublicPath(pathname: string) {
-  return pathname === "/login" || pathname === "/api/studio/login" ||
+  return pathname === "/api/health" || pathname === "/login" || pathname === "/api/studio/login" ||
     pathname === "/invitacion" || pathname === "/api/studio/invitations/accept";
 }
 
