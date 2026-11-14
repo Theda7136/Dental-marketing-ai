@@ -18,7 +18,7 @@ export async function GET() {
   const session = await getStudioAccess("content:read");
   if (!session) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
-  const brand = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: session.clinic.id } });
+  const brand = await prisma.brandProfile.findUnique({ where: { clinicId: session.clinic.id } });
   return NextResponse.json({ brand: brand ?? DEFAULT_BRAND }, {
     headers: { "Cache-Control": "no-store, private" },
   });
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Revisa el nombre, color o tipografía." }, { status: 400 });
     }
 
-    const current = await prisma.brandProfile.findUnique({ where: { id: "default", clinicId: session.clinic.id } });
+    const current = await prisma.brandProfile.findUnique({ where: { clinicId: session.clinic.id } });
     const logo = form.get("logo");
     let logoDataUrl = current?.logoDataUrl ?? null;
     if (form.get("removeLogo") === "true") {
@@ -63,8 +63,8 @@ export async function POST(request: Request) {
     }
 
     const brand = await prisma.brandProfile.upsert({
-      where: { id: "default", clinicId: session.clinic.id },
-      create: { id: "default", clinicId: session.clinic.id, clinicName, primaryColor, fontFamily, logoDataUrl },
+      where: { clinicId: session.clinic.id },
+      create: { id: session.clinic.id, clinicId: session.clinic.id, clinicName, primaryColor, fontFamily, logoDataUrl },
       update: { clinicName, primaryColor, fontFamily, logoDataUrl },
     });
     return NextResponse.json({ brand });
