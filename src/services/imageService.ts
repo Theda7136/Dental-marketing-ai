@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { prepareLogo } from "./logoService";
+import { prepareWatermarkLogo } from "./logoService";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const WIDTH = 1080;
@@ -192,13 +192,13 @@ export async function overlayOnClinicTemplate(input: {
   if (!logoDataUrl?.startsWith("data:image/png;base64,")) return new Uint8Array(photo);
 
   const logoSource = Buffer.from(logoDataUrl.slice("data:image/png;base64,".length), "base64");
-  const logo = await prepareLogo(logoSource, 600, 240, true);
+  const logo = await prepareWatermarkLogo(logoSource);
   const { width = 0, height = 0 } = await sharp(logo).metadata();
   if (!width || !height) throw new ImageServiceError("El logotipo configurado no es válido.", "TEMPLATE_FAILED");
 
   // Keep the logo clear of bottom navigation overlays on vertical stories.
   const margin = 42;
-  const bottomInset = canvasHeight === 1920 ? 225 : 52;
+  const bottomInset = canvasHeight === 1920 ? 300 : 52;
   return new Uint8Array(await sharp(photo).composite([{
     input: logo,
     left: WIDTH - width - margin,
