@@ -56,17 +56,18 @@ async function checkPublicMedia(url: string, kind: "image" | "video"): Promise<v
   }
 }
 
-export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" | "instagram") {
+export async function publishToMeta(post: PublishPost, clinicId: string, onlyNetwork?: "facebook" | "instagram") {
+  if (!clinicId) throw new Error("Falta el contexto de clínica para publicar.");
   if (post.mediaKind !== "image" && post.mediaKind !== "video") {
     throw new Error("El tipo de archivo no se puede publicar en Meta.");
   }
 
-  const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId: "pilot" } });
+  const account = await prisma.account.findFirst({ where: { provider: "facebook", clinicId } });
   if (!account?.accessToken || !account.pageId) {
     throw new Error("Vuelve a conectar la Página de Meta desde el panel.");
   }
 
-  const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId: "pilot" } });
+  const savedPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId } });
   if (!savedPost) throw new Error("La propuesta ya no existe.");
   const deliveryFormat = savedPost.deliveryFormat || "FEED";
   const isVideo = post.mediaKind === "video";
@@ -125,7 +126,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   // since Meta could have accepted a post even when our server lost its response.
   if (onlyNetwork !== "facebook" && account.instagramId && canSendToNetwork(savedPost.instagramStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
-      where: { id: post.id, clinicId: "pilot", instagramStatus: "PENDING" },
+      where: { id: post.id, clinicId, instagramStatus: "PENDING" },
       data: { instagramStatus: "IN_PROGRESS", instagramError: null },
     });
     if (claim.count === 1) {
@@ -146,13 +147,13 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
         if (!published.id) throw new Error("Meta no confirmó la publicación en Instagram.");
         instagramId = String(published.id);
         await prisma.scheduledPost.update({
-          where: { id: post.id, clinicId: "pilot" },
+          where: { id: post.id, clinicId },
           data: { instagramStatus: "SUCCEEDED", instagramPostId: instagramId },
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo confirmar Instagram.";
         await prisma.scheduledPost.update({
-          where: { id: post.id, clinicId: "pilot" },
+          where: { id: post.id, clinicId },
           data: { instagramStatus: "UNKNOWN", instagramError: message.slice(0, 500) },
         });
         warnings.push("No se confirmó el resultado de Instagram. Comprueba la cuenta antes de otro intento.");
@@ -164,7 +165,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
 
   if (onlyNetwork !== "instagram" && canSendToNetwork(savedPost.facebookStatus)) {
     const claim = await prisma.scheduledPost.updateMany({
-      where: { id: post.id, clinicId: "pilot", facebookStatus: "PENDING" },
+      where: { id: post.id, clinicId, facebookStatus: "PENDING" },
       data: { facebookStatus: "IN_PROGRESS", facebookError: null },
     });
     if (claim.count === 1) {
@@ -185,7 +186,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           }
           facebookId = String(story.post_id);
           await prisma.scheduledPost.update({
-            where: { id: post.id, clinicId: "pilot" },
+            where: { id: post.id, clinicId },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
         } else if (isVideo) {
@@ -219,7 +220,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           }
           facebookId = String(deliveryFormat === "STORY" ? finished.post_id : started.video_id);
           await prisma.scheduledPost.update({
-            where: { id: post.id, clinicId: "pilot" },
+            where: { id: post.id, clinicId },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
           try {
@@ -241,14 +242,14 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
           facebookId = typeof published.post_id === "string" && /^\d+_\d+$/.test(published.post_id)
             ? published.post_id : String(published.id);
           await prisma.scheduledPost.update({
-            where: { id: post.id, clinicId: "pilot" },
+            where: { id: post.id, clinicId },
             data: { facebookStatus: "SUCCEEDED", facebookPostId: facebookId },
           });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo confirmar Facebook.";
         await prisma.scheduledPost.update({
-          where: { id: post.id, clinicId: "pilot" },
+          where: { id: post.id, clinicId },
           data: { facebookStatus: "UNKNOWN", facebookError: message.slice(0, 500) },
         });
         warnings.push("No se confirmó el resultado de Facebook. Comprueba la Página antes de otro intento.");
@@ -264,7 +265,7 @@ export async function publishToMeta(post: PublishPost, onlyNetwork?: "facebook" 
   }
 
   if (!instagramId && !facebookId) {
-    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId: "pilot" } });
+    const currentPost = await prisma.scheduledPost.findUnique({ where: { id: post.id, clinicId } });
     const unconfirmed = currentPost && [currentPost.facebookStatus, currentPost.instagramStatus]
       .some((status) => status === "UNKNOWN" || status === "IN_PROGRESS");
 
