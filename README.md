@@ -93,6 +93,12 @@ La plantilla completa está en [`.env.example`](./.env.example). Configura los v
 
 Sin configuración S3/R2, los medios se guardan en `storage/posts`. En un servidor con disco efímero, usa almacenamiento persistente antes de depender del sistema.
 
+## Preparación para producción
+
+La guía de infraestructura, seguridad del almacenamiento, respaldo y restauración está en [docs/production-deployment.md](docs/production-deployment.md).
+
+Tras configurar el archivo `.env` del servidor, ejecuta `npm run check:production` para comprobar HTTPS, secretos, S3/R2 y callbacks OAuth. Es una validación de configuración, no un reemplazo de pruebas reales o de respaldos restaurables. La base SQLite continúa usando `prisma/dev.db` y requiere un volumen persistente; el acceso multiempresa permanece bloqueado.
+
 ## Actualizar base de datos del piloto
 
 Antes de ejecutar nuevas migraciones sobre una clínica existente, detén el servidor y haz una copia de `prisma/dev.db` (y del almacenamiento `storage/` si lo usas).
