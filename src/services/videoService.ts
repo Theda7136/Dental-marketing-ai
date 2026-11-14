@@ -10,7 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ffmpegStatic from "ffmpeg-static";
-import { prepareLogo } from "./logoService";
+import { prepareWatermarkLogo } from "./logoService";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
@@ -597,7 +597,7 @@ export async function overlayVideoLogo(
 
   let logo: Buffer;
   try {
-    logo = await prepareLogo(logoSource, 600, 240, true);
+    logo = await prepareWatermarkLogo(logoSource);
   } catch {
     throw new VideoServiceError("El logotipo configurado no se puede procesar.", "RENDER_FAILED");
   }
@@ -613,7 +613,7 @@ export async function overlayVideoLogo(
       "-y", "-hide_banner",
       "-i", inputPath,
       "-loop", "1", "-i", logoPath,
-      "-filter_complex", "[0:v:0][1:v:0]overlay=x=W-w-42:y=H-h-420:shortest=1[v]",
+      "-filter_complex", "[0:v:0][1:v:0]overlay=x=W-w-42:y=H-h-500:shortest=1[v]",
       "-map", "[v]",
       "-map", "0:a:0?",
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
