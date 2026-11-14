@@ -598,7 +598,7 @@ export async function overlayVideoLogo(
   let logo: Buffer;
   try {
     logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
-      .resize({ width: 150, height: 110, fit: "inside", withoutEnlargement: true })
+      .resize({ width: 310, height: 150, fit: "inside", withoutEnlargement: true })
       .png().toBuffer();
   } catch {
     throw new VideoServiceError("El logotipo configurado no se puede procesar.", "RENDER_FAILED");
@@ -615,7 +615,7 @@ export async function overlayVideoLogo(
       "-y", "-hide_banner",
       "-i", inputPath,
       "-loop", "1", "-i", logoPath,
-      "-filter_complex", "[0:v:0][1:v:0]overlay=x=W-w-42:y=H-h-380:shortest=1[v]",
+      "-filter_complex", "[0:v:0][1:v:0]overlay=x=W-w-42:y=H-h-420:shortest=1[v]",
       "-map", "[v]",
       "-map", "0:a:0?",
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
