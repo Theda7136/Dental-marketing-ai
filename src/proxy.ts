@@ -32,6 +32,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const mediaMatch = /^\/api\/media\/([0-9a-f-]+)$/i.exec(pathname);
   const signedMedia = mediaMatch !== null && isValidMediaSignature(
+    request.nextUrl.searchParams.get("clinic"),
     mediaMatch[1],
     request.nextUrl.searchParams.get("expires"),
     request.nextUrl.searchParams.get("signature"),
