@@ -114,3 +114,10 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - `.gitignore` ahora excluye toda la carpeta `storage/` para evitar añadir por error fotografías y videos de las clínicas al repositorio.
 - `docs/production-deployment.md` especifica volumen persistente para SQLite, S3/R2, una sola instancia escritora, respaldo restaurable, TLS y pruebas antes de trasladar el piloto.
 - **Pendiente P0:** alojamiento real, prueba de recuperación, verificación de permisos S3, pruebas de OAuth y publicación, y pruebas end-to-end con dos clínicas. El comando de preflight no certifica esos requisitos ni habilita el multiempresa.
+
+## Copias verificadas de SQLite
+
+- `scripts/sqlite-backup.mjs` utiliza `VACUUM INTO` para una copia consistente y valida la integridad SQLite antes de renombrarla.
+- `npm run backup:db` genera una instantánea local dentro de `backups/sqlite/`; esta carpeta está excluida de Git.
+- `tests/sqlite-backup.test.mjs` comprueba la separación entre original y copia y rechaza bases inexistentes.
+- **Pendiente P0:** respaldos externos cifrados, recuperación ensayada, respaldo de media local y objetos S3/R2, automatización supervisada y métricas de restauración.
