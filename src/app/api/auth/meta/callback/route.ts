@@ -11,16 +11,18 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state") || "";
   const storedState = request.cookies.get("meta_oauth_state")?.value || "";
+  const selectedPageId = request.cookies.get("meta_oauth_page")?.value || "";
   const session = await getStudioAccess("connections:manage");
   const sessionToken = (await cookies()).get(STUDIO_SESSION_COOKIE)?.value || "";
   const validState = Boolean(session) && isValidOAuthCallback(
     "meta", receivedState, storedState,
     request.cookies.get("meta_oauth_binding")?.value || "",
-    sessionToken, session?.clinic.id || "", session?.user.id || "",
+    sessionToken, session?.clinic.id || "", `${session?.user.id || ""}:${selectedPageId}`,
   );
 
   const redirectWithError = (error: string) => {
     const response = NextResponse.redirect(new URL(`/dashboard?error=${error}`, request.url));
+    response.cookies.set("meta_oauth_page", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     response.cookies.set("meta_oauth_binding", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     response.cookies.set("meta_oauth_state", "", {
       httpOnly: true,
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
     }
 
     const pages = Array.isArray(pagesData.data) ? pagesData.data : [];
-    const configuredPageId = process.env.META_PAGE_ID?.trim();
+    const configuredPageId = selectedPageId || (session!.clinic.id === "pilot" ? process.env.META_PAGE_ID?.trim() : undefined);
     if (pages.length > 1 && !configuredPageId) {
       return redirectWithError("multiple_pages");
     }
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
     if (!page?.id || !page?.access_token) {
       return redirectWithError(configuredPageId ? "page_not_found" : "no_page");
     }
-    const providerAccountId = userData.id;
+    const providerAccountId = String(page.id);
     let instagramId: string | null = page.instagram_business_account?.id || null;
     try {
       instagramId = await resolvePageInstagramAccount(page.id, page.access_token);
@@ -154,7 +156,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const response = NextResponse.redirect(new URL("/dashboard", request.url));
+    const response = NextResponse.redirect(new URL("/dashboard/conexiones", request.url));
+    response.cookies.set("meta_oauth_page", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
+    response.cookies.set("meta_oauth_binding", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     response.cookies.set("meta_oauth_state", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     return response;
   } catch (error: any) {
