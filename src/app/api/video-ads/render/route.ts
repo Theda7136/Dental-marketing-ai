@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
-import { renderVideoAd, type AdScene } from "@/services/videoAdRenderer";
+import { renderVideoAd, type AdScene, type VideoAdStyle } from "@/services/videoAdRenderer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +29,10 @@ export async function POST(request: Request) {
     }
 
     const parsed: unknown = JSON.parse(manifestText);
+    const style = form.get("style");
+    if (style !== "premium" && style !== "dinamico" && style !== "educativo") {
+      return NextResponse.json({ error: "Elige un estilo audiovisual válido." }, { status: 400 });
+    }
     if (!Array.isArray(parsed) || !parsed.length || parsed.length > MAX_SCENES ||
         form.get("authorized") !== "true") {
       return NextResponse.json({ error: "Confirma la autorización y añade entre 1 y 12 escenas." }, { status: 400 });
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
     try {
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
-      });
+      }, style as VideoAdStyle);
     } finally {
       renderInProgress = false;
     }

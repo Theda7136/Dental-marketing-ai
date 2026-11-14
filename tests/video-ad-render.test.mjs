@@ -42,12 +42,22 @@ test("video rendering rejects oversized and excessively long storyboards", () =>
   assert.throws(() => module.exports.validateAdScenes([{ ...scene, heading: "a".repeat(181) }]), /demasiado largo/);
 });
 
-test("photo camera movement uses zoompan without cropping the source image", () => {
-  assert.match(rendererSource, /function photoMotionFilter\(index: number\)/);
-  assert.match(rendererSource, /force_original_aspect_ratio=decrease/);
+test("photo composition uses a full-frame blurred backdrop and safe foreground", () => {
+  assert.match(rendererSource, /function photoMotionFilter\(index: number, style: VideoAdStyle/);
   assert.match(rendererSource, /zoompan=z=/);
-  assert.match(rendererSource, /if\(eq\(on,0\),1\.045/);
-  assert.match(rendererSource, /sceneFilter\(scene\.kind, scene\.seconds, index\)/);
+  assert.match(rendererSource, /preparePhotoScene\(scene\.bytes\)/);
+  assert.match(rendererSource, /\.blur\(38\)/);
+  assert.match(rendererSource, /fit: "inside"/);
+  assert.match(rendererSource, /sceneFilter\(scene\.kind, scene\.seconds, index, style\)/);
+});
+
+test("advertising narrative includes a branded opening and closing CTA", () => {
+  assert.match(rendererSource, /TU SONRISA, NUESTRA PRIORIDAD/);
+  assert.match(rendererSource, /SIGUIENTE PASO/);
+  assert.match(rendererSource, /Solicita tu valoración/);
+  assert.match(routeSource, /style !== "premium"/);
+  assert.match(routeSource, /style !== "dinamico"/);
+  assert.match(routeSource, /style !== "educativo"/);
 });
 
 test("rendering endpoint requires clinic write access and never publishes", () => {
