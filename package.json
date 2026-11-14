@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "test": "node --test tests/meta-delivery-policy.test.mjs tests/meta-publishing-integration.test.mjs tests/meta-sqlite-persistence.test.mjs tests/image-layout.test.mjs tests/tiktok-publishing.test.mjs tests/tiktok-account-isolation.test.mjs tests/social-oauth-state.test.mjs tests/media-signature-isolation.test.mjs tests/media-storage-isolation.test.mjs tests/media-route-isolation.test.mjs tests/brand-clinic-migration.test.mjs tests/meta-page-identity-migration.test.mjs tests/instagram-page-link.test.mjs tests/clinic-permissions.test.mjs tests/clinic-session-isolation.test.mjs"
+    "test": "node --test tests/meta-delivery-policy.test.mjs tests/meta-publishing-integration.test.mjs tests/meta-sqlite-persistence.test.mjs tests/image-layout.test.mjs tests/tiktok-publishing.test.mjs tests/tiktok-account-isolation.test.mjs tests/social-oauth-state.test.mjs tests/media-signature-isolation.test.mjs tests/media-storage-isolation.test.mjs tests/media-route-isolation.test.mjs tests/brand-clinic-migration.test.mjs tests/meta-page-identity-migration.test.mjs tests/instagram-page-link.test.mjs tests/clinic-permissions.test.mjs tests/clinic-session-isolation.test.mjs tests/production-checks.test.mjs",
+    "check:production": "node --env-file=.env scripts/preflight.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1163.0",
