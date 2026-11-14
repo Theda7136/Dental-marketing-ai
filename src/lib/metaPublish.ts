@@ -97,7 +97,7 @@ export async function publishToMeta(post: PublishPost, clinicId: string, onlyNet
     );
   }
 
-  const mediaUrl = createSignedMediaUrl(post.id, publicBaseUrl);
+  const mediaUrl = createSignedMediaUrl(clinicId, post.id, publicBaseUrl);
   const instagramMedia = new URL(mediaUrl);
   if (!isVideo) instagramMedia.searchParams.set("format", "jpeg");
   const instagramMediaUrl = instagramMedia.toString();
