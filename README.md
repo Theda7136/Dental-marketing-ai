@@ -115,10 +115,13 @@ La migración `20261113100000_brand_per_clinic` conserva el nombre, los colores,
 1. Configura una aplicación de Meta y agrega el callback OAuth, normalmente `http://localhost:3000/api/auth/meta/callback` para desarrollo local.
 2. Añade el ID y secreto de la aplicación a `.env`.
 3. Desde el panel, conecta la Página. Si administras varias, define `META_PAGE_ID` para seleccionar la Página de la clínica.
-4. Para publicar también en Instagram, vincula una cuenta profesional de Instagram a esa Página y concede los permisos solicitados por Meta.
-5. Reinicia el servidor después de cambiar `.env`.
+4. Si administras varias Páginas, indica el **ID numérico de la Página** en Conexiones antes de conectar Meta. El callback comprueba que Meta realmente te ha autorizado esa Página. Para el piloto, `META_PAGE_ID` sigue sirviendo como valor predeterminado cuando no se indica uno.
+5. Para publicar también en Instagram, vincula una cuenta profesional de Instagram a esa Página y concede los permisos solicitados por Meta.
+6. Reinicia el servidor después de cambiar `.env`.
 
 Meta debe descargar las fotos y videos por HTTPS para procesarlos. localhost solo es visible desde tu equipo; para una prueba local de publicación hace falta un túnel HTTPS temporal o un despliegue accesible públicamente. Los enlaces firmados de medios vencen después de 12 horas. No publiques esos enlaces ni los guardes en lugares públicos.
+
+La migración `20261113110000_meta_page_identity` cambia el identificador interno de la cuenta Meta desde el administrador hacia el ID de su Página, conservando el token y la vinculación de Instagram del piloto. Respalda `prisma/dev.db` antes de aplicar migraciones.
 
 La revisión de Meta y el modo de la aplicación pueden limitar qué cuentas pueden autorizar o publicar. Revisa también el acceso de la persona autorizante a la Página.
 
