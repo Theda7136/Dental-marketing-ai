@@ -394,7 +394,7 @@ export async function checkPublicMediaAccess(postId: string): Promise<{ ok: bool
   }
 
   try {
-    const response = await fetch(createSignedMediaUrl(postId, origin.origin), {
+    const response = await fetch(createSignedMediaUrl(access.clinic.id, postId, origin.origin), {
       redirect: "manual",
       cache: "no-store",
       signal: AbortSignal.timeout(12000),
