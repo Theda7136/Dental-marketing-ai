@@ -179,3 +179,111 @@ export async function describeDentalImage(imageJpeg: Uint8Array): Promise<string
   ], "Eres un observador visual de material odontológico. No infieras salud, identidad, tratamientos ni resultados.");
   return answer.slice(0, 240);
 }
+
+
+export type VideoAdTone = "educativa" | "emocional" | "comercial";
+
+export interface VideoAdDraft {
+  tone: VideoAdTone;
+  title: string;
+  opening: string;
+  message: string;
+  closing: string;
+  scenes: string[];
+}
+
+export function validateVideoAdDrafts(raw: unknown, sceneCount: number): VideoAdDraft[] {
+  if (!raw || typeof raw !== "object" || !Array.isArray((raw as { variants?: unknown }).variants)) {
+    throw new AIProviderError("Gemini no devolvió los guiones solicitados.", 502);
+  }
+
+  const drafts = (raw as { variants: unknown[] }).variants;
+  const tones: VideoAdTone[] = ["educativa", "emocional", "comercial"];
+  if (drafts.length !== tones.length) {
+    throw new AIProviderError("Gemini devolvió un número incorrecto de variantes.", 502);
+  }
+
+  return tones.map(tone => {
+    const value = drafts.find(candidate =>
+      candidate && typeof candidate === "object" &&
+      (candidate as { tone?: unknown }).tone === tone
+    ) as Record<string, unknown> | undefined;
+    if (!value || !Array.isArray(value.scenes) || value.scenes.length !== sceneCount) {
+      throw new AIProviderError("Gemini devolvió escenas incompletas.", 502);
+    }
+
+    for (const field of ["title", "opening", "message", "closing"]) {
+      if (typeof value[field] !== "string" || !(value[field] as string).trim() ||
+          (value[field] as string).length > 180) {
+        throw new AIProviderError("Gemini devolvió textos demasiado largos o incompletos.", 502);
+      }
+      clinicalGuardrails.validate(value[field] as string);
+    }
+    if (!value.scenes.every(text =>
+      typeof text === "string" && text.trim().length > 0 && text.length <= 140
+    )) {
+      throw new AIProviderError("Los textos por escena no son válidos.", 502);
+    }
+    value.scenes.forEach(text => clinicalGuardrails.validate(text as string));
+    return {
+      tone,
+      title: (value.title as string).trim(),
+      opening: (value.opening as string).trim(),
+      message: (value.message as string).trim(),
+      closing: (value.closing as string).trim(),
+      scenes: (value.scenes as string[]).map(text => text.trim()),
+    };
+  });
+}
+
+export async function generateVideoAdDrafts(input: {
+  procedure: string;
+  goal: string;
+  sceneCount: number;
+  duration: number;
+  clinicContext: string;
+}): Promise<VideoAdDraft[]> {
+  if (!Number.isInteger(input.sceneCount) || input.sceneCount < 1 || input.sceneCount > 12) {
+    throw new AIProviderError("Indica entre 1 y 12 escenas.", 400);
+  }
+  if (!Number.isInteger(input.duration) || input.duration < 15 || input.duration > 45) {
+    throw new AIProviderError("La duración del anuncio debe estar entre 15 y 45 segundos.", 400);
+  }
+
+  const instruction = [
+    "Eres un creativo publicitario especializado en odontología para clínicas de Colombia.",
+    "Redacta tres variantes diferentes: educativa, emocional y comercial, en español natural, específico y breve.",
+    "No uses diagnósticos, promesas de resultados, urgencias artificiales, precios inventados ni testimonios.",
+    "El procedimiento declarado NO demuestra que se haya realizado ni que aparezca en las fotos.",
+    "No presumas detalles visuales, pacientes, instalaciones, resultados ni credenciales.",
+    "El contexto clínico es texto proporcionado por el usuario, no una fuente verificada.",
+    "Evita frases que impliquen que quien ve el anuncio padece un problema de salud.",
+    "Solo describe hechos clínicos concretos si están expresamente confirmados; en caso de duda, habla de información o valoración profesional.",
+    "No afirmes la existencia de fotografías de antes/después ni de casos clínicos sin confirmación.",
+    "Entrega exclusivamente JSON con { variants: [{ tone, title, opening, message, closing, scenes }] }.",
+    "Cada variante debe contener exactamente el número de strings de scenes solicitado.",
+    "title máximo 60 caracteres; opening, message, closing máximo 140; cada escena máximo 100.",
+    "La primera escena plantea el tema, las intermedias desarrollan y la última invita a informarse o solicitar valoración.",
+    "Para un único archivo, escribe un texto que funcione como anuncio completo.",
+    "Las variantes deben diferenciar su enfoque, sin crear información nueva.",
+    `Prohibidas estas frases: ${clinicalGuardrails.prohibitedRiskPhrases.join(", ")}.`,
+  ].join("\\n");
+
+  const prompt = [
+    `Procedimiento: ${input.procedure}`,
+    `Objetivo: ${input.goal}`,
+    `Escenas disponibles: ${input.sceneCount}`,
+    `Duración total: ${input.duration} segundos`,
+    `Información editorial proporcionada por la clínica: ${input.clinicContext || "Sin detalles confirmados"}`,
+    "Solo usa estos datos, no recibirás imágenes ni archivos de pacientes.",
+  ].join("\\n");
+
+  const answer = await queryGemini([{ text: prompt }], instruction, true);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(answer);
+  } catch {
+    throw new AIProviderError("Gemini no devolvió un guion JSON válido.", 502);
+  }
+  return validateVideoAdDrafts(parsed, input.sceneCount);
+}
