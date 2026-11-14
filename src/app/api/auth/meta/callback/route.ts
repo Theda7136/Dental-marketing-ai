@@ -156,6 +156,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    await prisma.account.deleteMany({
+      where: {
+        provider: "facebook",
+        clinicId: session!.clinic.id,
+        providerAccountId: { not: providerAccountId },
+      },
+    });
+
     const response = NextResponse.redirect(new URL("/dashboard/conexiones", request.url));
     response.cookies.set("meta_oauth_page", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
     response.cookies.set("meta_oauth_binding", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/meta/callback", maxAge: 0 });
