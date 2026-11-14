@@ -18,11 +18,18 @@
 
 La aplicación no programa publicaciones futuras. La aprobación inicia la publicación inmediata en las redes conectadas.
 
-## Video Ad Studio — fase 1
+## Video Ad Studio — fase 2: render MP4
 
-La sección **Videos publicitarios** (`/dashboard/video-ads`) permite organizar material real para un anuncio vertical sin recargar el formulario de creación convencional. Incluye selección de hasta doce fotografías o clips locales, orden de escenas, vista previa, tratamiento, objetivo, estilo, duración, textos editables, confirmación de autorización y exportación del **guion de producción en texto**. Solo aparece para roles con permisos de creación de contenido.
+En **Videos publicitarios** (`/dashboard/video-ads`) se organizan hasta doce fotografías o clips de la clínica en escenas, se edita el guion, se ajusta la duración y se confirma la autorización para utilizar el material.
 
-**Alcance actual:** el material permanece en el navegador durante la sesión, sin guardarse en la base de datos ni enviarse al servidor. No genera un MP4, no consulta IA y no publica anuncios. La siguiente fase será generar y validar el storyboard en el servidor, preparar el render con FFmpeg y enlazar el resultado con la cola de revisión clínica antes de cualquier publicación o campaña paga.
+El botón **Generar video MP4** envía las escenas seleccionadas al endpoint protegido `POST /api/video-ads/render`. El servidor usa **FFmpeg + Sharp** para producir un video vertical **1080×1920** a 24 fps con transiciones de fundido, títulos, color corporativo y el logo guardado de la clínica. El resultado aparece en el panel para reproducirlo y descargarlo. El audio se silencia deliberadamente en esta primera versión; todavía no hay locución ni música.
+
+- Máximo 45 segundos de video, 12 archivos y 120 MB combinados. Las imágenes originales no se retocan clínicamente; se adaptan al formato vertical sin recortar su contenido.
+- La composición se realiza en archivos temporales del servidor y estos se eliminan al finalizar. El MP4 no se guarda en la base de datos ni se publica automáticamente en ninguna red.
+- La propuesta sigue requiriendo revisión clínica y consentimiento antes de reutilizar el MP4 en cualquier flujo de publicación o campaña paga.
+- Los textos del storyboard son **editoriales y editables**, todavía no generados por IA. La integración de Gemini y el registro del video en Pendientes son etapas posteriores.
+
+Para probar: carga dos fotografías autorizadas, elige 15 segundos, pulsa **Preparar storyboard**, después **Generar video MP4** y reproduce o descarga el resultado. Comprueba también un clip corto. En producción, el VPS necesita recursos suficientes para FFmpeg, almacenamiento temporal y un tiempo máximo de ejecución compatible.
 
 ## Reels e Historias
 
