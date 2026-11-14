@@ -1,4 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
+import { getStudioAccess } from "@/lib/studioAccess";
+import { STUDIO_SESSION_COOKIE } from "@/lib/studioSession";
+import { isValidOAuthCallback } from "@/lib/socialOAuthState";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -13,11 +16,17 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const supplied = url.searchParams.get("state") || "";
   const stored = request.cookies.get("tiktok_oauth_state")?.value || "";
-  const valid = supplied.length === 64 && supplied.length === stored.length &&
-    timingSafeEqual(Buffer.from(supplied), Buffer.from(stored));
+  const session = await getStudioAccess("connections:manage");
+  const sessionToken = (await cookies()).get(STUDIO_SESSION_COOKIE)?.value || "";
+  const valid = Boolean(session) && isValidOAuthCallback(
+    "tiktok", supplied, stored,
+    request.cookies.get("tiktok_oauth_binding")?.value || "",
+    sessionToken, session?.clinic.id || "", session?.user.id || "",
+  );
   const redirect = (status: string) => {
     const response = NextResponse.redirect(new URL(`/dashboard/conexiones?tiktok=${status}`, request.url));
-    response.cookies.set("tiktok_oauth_state", "", { path: "/api/auth/tiktok/callback", maxAge: 0 });
+    response.cookies.set("tiktok_oauth_binding", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/api/auth/tiktok/callback", maxAge: 0 });
+    response.cookies.set("tiktok_oauth_state", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/api/auth/tiktok/callback", maxAge: 0 });
     return response;
   };
   if (!valid) return redirect("invalid_state");
@@ -48,21 +57,21 @@ export async function GET(request: NextRequest) {
       where: { provider_providerAccountId: { provider: "tiktok", providerAccountId: tokens.open_id } },
       select: { clinicId: true },
     });
-    if (existingAccount && existingAccount.clinicId !== "pilot") {
+    if (existingAccount && existingAccount.clinicId !== session!.clinic.id) {
       return redirect("account_already_linked");
     }
 
     await prisma.account.upsert({
       where: { provider_providerAccountId: { provider: "tiktok", providerAccountId: tokens.open_id } },
       update: {
-        clinicId: "pilot",
+        clinicId: session!.clinic.id,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 7200) * 1000),
         grantedScopes: scopes,
       },
       create: {
-        clinicId: "pilot",
+        clinicId: session!.clinic.id,
         provider: "tiktok",
         providerAccountId: tokens.open_id,
         accessToken: tokens.access_token,
@@ -72,7 +81,7 @@ export async function GET(request: NextRequest) {
       },
     });
     await prisma.account.deleteMany({
-      where: { provider: "tiktok", clinicId: "pilot", providerAccountId: { not: tokens.open_id } },
+      where: { provider: "tiktok", clinicId: session!.clinic.id, providerAccountId: { not: tokens.open_id } },
     });
     return redirect(scopes.split(",").includes("video.publish") ? "connected" : "scope_missing");
   } catch (error) {
