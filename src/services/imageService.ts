@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { prepareLogo } from "./logoService";
 import { clinicalGuardrails } from "../config/clinicalGuardrails";
 
 const WIDTH = 1080;
@@ -191,9 +192,7 @@ export async function overlayOnClinicTemplate(input: {
   if (!logoDataUrl?.startsWith("data:image/png;base64,")) return new Uint8Array(photo);
 
   const logoSource = Buffer.from(logoDataUrl.slice("data:image/png;base64,".length), "base64");
-  const logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
-    .resize({ width: 310, height: 150, fit: "inside", withoutEnlargement: true })
-    .png().toBuffer();
+  const logo = await prepareLogo(logoSource, 310, 150, true);
   const { width = 0, height = 0 } = await sharp(logo).metadata();
   if (!width || !height) throw new ImageServiceError("El logotipo configurado no es válido.", "TEMPLATE_FAILED");
 
