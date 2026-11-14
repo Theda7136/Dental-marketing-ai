@@ -73,7 +73,7 @@ test("Story composition preserves both edges of the original in 1080x1920", asyn
   });
   const metadata = await sharp(story).metadata();
   const top = await sharp(story).extract({ left: 540, top: 10, width: 1, height: 1 }).raw().toBuffer();
-  const bottom = await sharp(story).extract({ left: 540, top: 1790, width: 1, height: 1 }).raw().toBuffer();
+  const bottom = await sharp(story).extract({ left: 540, top: 1890, width: 1, height: 1 }).raw().toBuffer();
   const footer = await sharp(story).extract({ left: 540, top: 1900, width: 1, height: 1 }).raw().toBuffer();
   const margin = await sharp(story).extract({ left: 5, top: 900, width: 1, height: 1 }).raw().toBuffer();
 
