@@ -74,3 +74,14 @@ Esta auditoría es una revisión inicial por lectura de código, no una prueba d
 - Las operaciones de escritura, lectura y borrado reciben `clinicId` explícito; se rechazan componentes de ruta no válidos.
 - Pruebas: `tests/media-signature-isolation.test.mjs` y `tests/media-storage-isolation.test.mjs` comprueban firmas cruzadas, aislamiento en disco y compatibilidad solo para `pilot`.
 - **Pendiente P0:** ejecutar pruebas reales con S3/R2, verificar descargas de Meta y TikTok y ensayar restauración con datos existentes. No activar acceso multiempresa. Las URL firmadas conceden acceso temporal al fichero al portador del enlace; no son enlaces públicos permanentes ni sustituye eso la autorización del paciente.
+
+
+## Pruebas integrales de la ruta de medios
+
+- Se incorporó `tests/media-route-isolation.test.mjs` a `npm test`.
+- La prueba ejecuta la lógica real de `GET /api/media/[id]` con dobles controlados de sesión, Prisma y almacenamiento: sesión de clínica propia, sesión de clínica ajena, acceso anónimo, enlace firmado por clínica, enlace firmado de otra clínica y post inexistente.
+- Se verifica que ninguna petición ajena o inexistente llegue a `readPostMedia`.
+- El HMAC real se prueba por separado en `tests/media-signature-isolation.test.mjs`; esta prueba de ruta simula la validación de firma.
+- **Hallazgo P0:** `BrandProfile.id` es global con valor `default`. La ruta `/api/brand` usa el mismo identificador con un filtro secundario de clínica; no es compatible con una identidad visual por empresa sin migración de clave.
+- **Hallazgo P1:** `META_PAGE_ID` es configuración global y `Account(provider, providerAccountId)` es único entre clínicas; definir selección de Página por clínica antes de soportar diferentes empresas conectadas por un mismo usuario de Meta.
+- **Estado:** pruebas creadas y registradas; falta ejecutarlas y validar con SQLite real, almacenamiento S3/R2 y conexiones de Meta/TikTok. Se mantiene el bloqueo de la clínica piloto.
