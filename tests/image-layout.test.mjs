@@ -100,31 +100,15 @@ test("automatic framing preserves the top and bottom of a clinical portrait", as
   assert.ok(bottom[1] > bottom[0], "the lower clinical edge must be visible");
 });
 
-test("clinic branding reserves a footer without cropping the photo", async () => {
-  const branded = await overlayOnClinicTemplate({
-    cleanImage: await fixture(760, 1000),
-    procedureName: "Ortodoncia",
-    brand: { clinicName: "Consultorio Dental", primaryColor: "#116D60", fontFamily: "SANS", logoDataUrl: null },
-  });
-  const metadata = await sharp(branded).metadata();
-  const photoPixel = await sharp(branded).extract({ left: 540, top: 20, width: 1, height: 1 }).raw().toBuffer();
-  const footerPixel = await sharp(branded).extract({ left: 540, top: 1300, width: 1, height: 1 }).raw().toBuffer();
-
-  assert.deepEqual([metadata.width, metadata.height], [1080, 1350]);
-  assert.ok(photoPixel[0] < 220, "the photo fills its reserved composition area");
-  assert.ok(footerPixel[0] > 240 && footerPixel[1] > 240, "the footer has its own unclipped space");
-});
-
-
-test("clinic logo and long brand name remain within the reserved footer", async () => {
+test("a clinic logo is embedded in the bottom-right corner without a footer", async () => {
   const logo = await sharp({
     create: { width: 80, height: 80, channels: 4, background: "#ff0000" },
   }).png().toBuffer();
   const branded = await overlayOnClinicTemplate({
-    cleanImage: await fixture(760, 1000),
+    cleanImage: await fixture(1080, 1350),
     procedureName: "Ortodoncia",
     brand: {
-      clinicName: "Centro Integral de Odontología Estética y Rehabilitación Oral",
+      clinicName: "Consultorio Dental",
       primaryColor: "#116D60",
       fontFamily: "SANS",
       logoDataUrl: `data:image/png;base64,${logo.toString("base64")}`,
@@ -133,11 +117,34 @@ test("clinic logo and long brand name remain within the reserved footer", async 
 
   const metadata = await sharp(branded).metadata();
   const logoPixel = await sharp(branded)
-    .extract({ left: 68, top: 1290, width: 1, height: 1 }).raw().toBuffer();
-  const imagePixel = await sharp(branded)
-    .extract({ left: 540, top: 20, width: 1, height: 1 }).raw().toBuffer();
+    .extract({ left: 1000, top: 1200, width: 1, height: 1 }).raw().toBuffer();
+  const photoPixel = await sharp(branded)
+    .extract({ left: 540, top: 1300, width: 1, height: 1 }).raw().toBuffer();
 
   assert.deepEqual([metadata.width, metadata.height], [1080, 1350]);
-  assert.ok(logoPixel[0] > 200 && logoPixel[1] < 50, "clinic logo appears in the footer");
-  assert.ok(imagePixel[0] < 220, "clinical photo remains in its own area");
+  assert.ok(logoPixel[0] > 200 && logoPixel[1] < 50, "logo is visible inside the photo");
+  assert.ok(photoPixel[0] < 220, "no footer replaces the clinical image");
+});
+
+test("story watermark stays above the bottom controls", async () => {
+  const logo = await sharp({
+    create: { width: 80, height: 80, channels: 4, background: "#ff0000" },
+  }).png().toBuffer();
+  const branded = await renderStoryPhoto({
+    cleanImage: await fixture(1080, 1920),
+    procedureName: "Ortodoncia",
+    brand: {
+      clinicName: "Consultorio Dental",
+      primaryColor: "#116D60",
+      fontFamily: "SANS",
+      logoDataUrl: `data:image/png;base64,${logo.toString("base64")}`,
+    },
+  });
+  const logoPixel = await sharp(branded)
+    .extract({ left: 1000, top: 1580, width: 1, height: 1 }).raw().toBuffer();
+  const footerPixel = await sharp(branded)
+    .extract({ left: 1000, top: 1850, width: 1, height: 1 }).raw().toBuffer();
+
+  assert.ok(logoPixel[0] > 200 && logoPixel[1] < 50, "story logo stays clear of UI");
+  assert.ok(footerPixel[1] > 50, "the original story reaches the bottom");
 });
