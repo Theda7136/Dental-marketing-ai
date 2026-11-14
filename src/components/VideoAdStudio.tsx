@@ -12,8 +12,11 @@ const maxFiles = 12;
 const maxBytes = 80 * 1024 * 1024;
 
 function classifyFile(file: File): "image" | "video" | null {
-  if (["image/jpeg", "image/png", "image/webp"].includes(file.type)) return "image";
-  if (["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) return "video";
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+      ["jpg", "jpeg", "png", "webp"].includes(extension ?? "")) return "image";
+  if (["video/mp4", "video/quicktime", "video/webm"].includes(file.type) ||
+      ["mp4", "mov", "webm"].includes(extension ?? "")) return "video";
   return null;
 }
 
@@ -211,7 +214,7 @@ export default function VideoAdStudio() {
                     <strong>{assets.find(asset => asset.id === scene.assetId)?.file.name}</strong>
                     <textarea aria-label={`Texto de escena ${index + 1}`} rows={2} value={scene.heading} onChange={event => setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, heading: event.target.value } : entry))} />
                   </div>
-                  <label className="ad-studio-scene-duration">{index + 1 === scenes.length ? "Seg." : "Seg."}<input type="number" min={1} max={60} value={scene.seconds} onChange={event => setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, seconds: Math.max(1, Math.min(60, Number(event.target.value) || 1)) } : entry))} /></label>
+                  <label className="ad-studio-scene-duration">{"Seg."}<input type="number" min={1} max={60} value={scene.seconds} onChange={event => setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, seconds: Math.max(1, Math.min(60, Number(event.target.value) || 1)) } : entry))} /></label>
                 </div>
               ))}
               {assignedSeconds !== duration && <p className="ad-studio-hint">La duración actual es de {assignedSeconds} s; seleccionaste {duration} s.</p>}
