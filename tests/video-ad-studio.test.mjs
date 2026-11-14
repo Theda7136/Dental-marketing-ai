@@ -31,6 +31,6 @@ test("rendered MP4 is previewed and downloaded without automatic publishing", ()
   assert.match(source, /\/api\/video-ads\/render/);
   assert.match(source, /Descargar video MP4/);
   assert.match(source, /URL\.createObjectURL/);
-  assert.match(source, /no se guarda ni se publica/);
+  assert.match(source, /no se guarda ni publica automáticamente/);
   assert.doesNotMatch(source, /publishSelectedNetworks|create-post/);
 });
