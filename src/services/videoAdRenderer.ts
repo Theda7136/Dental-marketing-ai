@@ -140,7 +140,7 @@ export function photoMotionFilter(index: number): string {
   const direction = index % 2 === 0 ? 1 : -1;
   const zoom = direction === 1
     ? "min(zoom+0.0007,1.045)"
-    : "max(zoom-0.0007,1.0)";
+    : "if(eq(on,0),1.045,max(zoom-0.0007,1.0))";
   return `scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,` +
     `pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black,` +
     `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':` +
