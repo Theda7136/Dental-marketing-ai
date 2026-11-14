@@ -79,13 +79,20 @@ async function findPagePosts(
   pageId: string,
   token: string,
   photoIds: readonly string[],
-): Promise<{ photoToPost: Map<string, string>; failure?: Failure; detail?: string }> {
+): Promise<{
+  photoToPost: Map<string, string>;
+  failure?: Failure;
+  detail?: string;
+  inspected: Record<string, { pages: number; posts: number; attachments: number; withTarget: number }>;
+}> {
   const photoToPost = new Map<string, string>();
   const expected = new Set(photoIds);
   let firstFailure: { failure: Failure; detail: string } | null = null;
+  const inspected: Record<string, { pages: number; posts: number; attachments: number; withTarget: number }> = {};
 
   for (const edge of ["published_posts", "posts"] as const) {
     let after: string | undefined;
+    inspected[edge] = { pages: 0, posts: 0, attachments: 0, withTarget: 0 };
 
     for (let page = 0; page < 4; page++) {
       const url = new URL(`https://graph.facebook.com/v26.0/${encodeURIComponent(pageId)}/${edge}`);
@@ -117,14 +124,18 @@ async function findPagePosts(
           break;
         }
 
+        inspected[edge].pages++;
+        inspected[edge].posts += payload.data.length;
         for (const post of payload.data) {
           if (!/^\d+_\d+$/.test(post.id ?? "")) continue;
           for (const attachment of post.attachments?.data ?? []) {
+            inspected[edge].attachments++;
             const photoId = attachment.target?.id;
+            if (photoId) inspected[edge].withTarget++;
             if (photoId && expected.has(photoId)) photoToPost.set(photoId, post.id!);
           }
         }
-        if (photoToPost.size === expected.size) return { photoToPost };
+        if (photoToPost.size === expected.size) return { photoToPost, inspected };
 
         const next = payload.paging?.cursors?.after;
         if (!next || next === after || payload.data.length === 0) break;
@@ -139,10 +150,10 @@ async function findPagePosts(
     }
   }
 
-  if (photoToPost.size > 0) return { photoToPost };
+  if (photoToPost.size > 0) return { photoToPost, inspected };
   return firstFailure
-    ? { photoToPost, ...firstFailure }
-    : { photoToPost, detail: "no_matching_attachments_in_800_posts" };
+    ? { photoToPost, inspected, ...firstFailure }
+    : { photoToPost, inspected, detail: "no_matching_attachments" };
 }
 
 function count(value: unknown): number | null {
@@ -299,6 +310,11 @@ export async function GET() {
     ).length,
     failures,
     diagnostics,
+    lookup: pagePosts ? {
+      inspected: pagePosts.inspected,
+      matches: pagePosts.photoToPost.size,
+      reason: pagePosts.detail ?? null,
+    } : null,
     scope: "Últimas 10 fotografías confirmadas del Feed de Facebook",
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
