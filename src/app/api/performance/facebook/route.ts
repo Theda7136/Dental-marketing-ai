@@ -128,6 +128,8 @@ async function findPagePosts(
         inspected[edge].posts += payload.data.length;
         for (const post of payload.data) {
           if (!/^\d+_\d+$/.test(post.id ?? "")) continue;
+          // Publishing can return either a Page Post ID or a Photo ID.
+          if (expected.has(post.id!)) photoToPost.set(post.id!, post.id!);
           for (const attachment of post.attachments?.data ?? []) {
             inspected[edge].attachments++;
             const photoId = attachment.target?.id;
