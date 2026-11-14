@@ -27,7 +27,7 @@ El botón **Generar video MP4** envía las escenas seleccionadas al endpoint pro
 - Máximo 45 segundos de video, 12 archivos y 120 MB combinados. Las imágenes originales no se retocan clínicamente; se adaptan al formato vertical sin recortar su contenido.
 - La composición se realiza en archivos temporales del servidor y estos se eliminan al finalizar. El MP4 no se guarda en la base de datos ni se publica automáticamente en ninguna red.
 - La propuesta sigue requiriendo revisión clínica y consentimiento antes de reutilizar el MP4 en cualquier flujo de publicación o campaña paga.
-- Los textos del storyboard son **editoriales y editables**, todavía no generados por IA. La integración de Gemini y el registro del video en Pendientes son etapas posteriores.
+- **Guiones Gemini:** `POST /api/video-ads/scripts` genera tres variantes (educativa, emocional, comercial), con apertura, desarrollo, CTA y textos por escena. Solo se envían datos editoriales y cantidad de escenas; las fotos y videos no se envían a Gemini. El editor puede elegir, modificar y revisar cada texto antes de crear el MP4. Requiere `GEMINI_API_KEY` configurada; si la IA falla, se mantiene el flujo manual. Los borradores se validan con los guardrails existentes, pero la revisión humana sigue siendo obligatoria. Guardar el MP4 en Pendientes es una etapa posterior.
 
 Para probar: carga dos fotografías autorizadas, elige 15 segundos, pulsa **Preparar storyboard**, después **Generar video MP4** y reproduce o descarga el resultado. Comprueba también un clip corto. En producción, el VPS necesita recursos suficientes para FFmpeg, almacenamiento temporal y un tiempo máximo de ejecución compatible.
 
