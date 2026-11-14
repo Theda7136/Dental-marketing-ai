@@ -35,3 +35,12 @@ Estado: piloto de una sola clínica. **No habilitar nuevas clínicas todavía.**
 - No activar cobros o altas autoservicio hasta completar los controles P0 y las pruebas end-to-end.
 
 Esta auditoría es una revisión inicial por lectura de código, no una prueba de penetración ni una certificación de cumplimiento.
+
+
+## Avance de implementación
+
+- Se añadieron pruebas de aislamiento de sesiones con dos clínicas distintas en `tests/clinic-session-isolation.test.mjs` y se incorporaron a `npm test`.
+- Se comprueban membresías por clínica, ausencia de membresía en la clínica de la sesión, estado de usuario y clínica, sesiones vencidas o revocadas y rechazo de altas de sesiones con membresía ajena.
+- La generación de videos ahora exige `clinicId` explícito en vez de usar `"pilot"` por defecto.
+- Estas pruebas usan dependencias simuladas: falta ejecutar validación con SQLite real y dos clínicas de prueba antes de retirar el bloqueo global.
+- **Pendiente P0:** publicar y consultar estados de Meta/TikTok solo mediante una sesión o contexto de clínica fiable, y eliminar `clinicId: "pilot"` de los publicadores tras incorporar pruebas de integración. **No retirar todavía el bloqueo de `src/proxy.ts` ni `src/lib/studioAccess.ts`.**
