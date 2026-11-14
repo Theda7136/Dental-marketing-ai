@@ -1,6 +1,8 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+type MediaKind = "image" | "video";
 
 function config() {
   const bucket = process.env.AWS_S3_BUCKET_NAME;
@@ -18,20 +20,83 @@ function config() {
     credentials: { accessKeyId, secretAccessKey },
   }) };
 }
-function key(id: string, kind: "image" | "video"): string { return `posts/${id}.${kind === "video" ? "mp4" : "png"}`; }
-function localPath(id: string, kind: "image" | "video"): string { return path.join(process.cwd(), "storage", "posts", `${id}.${kind === "video" ? "mp4" : "png"}`); }
-export async function storePostMedia(id: string, kind: "image" | "video", bytes: Uint8Array): Promise<void> {
-  const cfg = config();
-  if (cfg) { await cfg.client.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key(id, kind), Body: bytes, ContentType: kind === "video" ? "video/mp4" : "image/png" })); return; }
-  const file = localPath(id, kind); await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, bytes);
+
+function safeSegment(segment: string): string {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(segment)) {
+    throw new Error("Identificador de clínica o publicación no válido.");
+  }
+  return segment;
 }
-export async function readPostMedia(id: string, kind: "image" | "video"): Promise<Uint8Array> {
-  const cfg = config();
-  if (cfg) { const result = await cfg.client.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key(id, kind) })); if (!result.Body) throw new Error("Archivo multimedia ausente."); return new Uint8Array(await result.Body.transformToByteArray()); }
-  return new Uint8Array(await readFile(localPath(id, kind)));
+
+function mediaName(id: string, kind: MediaKind): string {
+  return `${safeSegment(id)}.${kind === "video" ? "mp4" : "png"}`;
 }
-export async function deletePostMedia(id: string, kind: "image" | "video"): Promise<void> {
+
+function storageKey(clinicId: string, id: string, kind: MediaKind): string {
+  return `clinics/${safeSegment(clinicId)}/posts/${mediaName(id, kind)}`;
+}
+
+function localPath(clinicId: string, id: string, kind: MediaKind): string {
+  return path.join(process.cwd(), "storage", storageKey(clinicId, id, kind));
+}
+
+function legacyKey(id: string, kind: MediaKind): string {
+  return `posts/${mediaName(id, kind)}`;
+}
+
+function missingObject(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as Error & { Code?: string; code?: string }).Code ||
+    (error as Error & { code?: string }).code;
+  return error.name === "NoSuchKey" || error.name === "NotFound" ||
+    code === "NoSuchKey" || code === "NotFound" || code === "ENOENT";
+}
+
+export async function storePostMedia(clinicId: string, id: string, kind: MediaKind, bytes: Uint8Array): Promise<void> {
+  const key = storageKey(clinicId, id, kind);
   const cfg = config();
-  if (cfg) { const { DeleteObjectCommand } = await import("@aws-sdk/client-s3"); await cfg.client.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key(id, kind) })); return; }
-  await rm(localPath(id, kind), { force: true });
+  if (cfg) {
+    await cfg.client.send(new PutObjectCommand({
+      Bucket: cfg.bucket, Key: key, Body: bytes,
+      ContentType: kind === "video" ? "video/mp4" : "image/png",
+    }));
+    return;
+  }
+  const file = localPath(clinicId, id, kind);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, bytes);
+}
+
+export async function readPostMedia(clinicId: string, id: string, kind: MediaKind): Promise<Uint8Array> {
+  const key = storageKey(clinicId, id, kind);
+  const cfg = config();
+  if (cfg) {
+    try {
+      const object = await cfg.client.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key }));
+      if (!object.Body) throw new Error("Archivo multimedia ausente.");
+      return new Uint8Array(await object.Body.transformToByteArray());
+    } catch (error) {
+      if (clinicId !== "pilot" || !missingObject(error)) throw error;
+      const legacy = await cfg.client.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: legacyKey(id, kind) }));
+      if (!legacy.Body) throw new Error("Archivo multimedia ausente.");
+      return new Uint8Array(await legacy.Body.transformToByteArray());
+    }
+  }
+
+  try {
+    return new Uint8Array(await readFile(localPath(clinicId, id, kind)));
+  } catch (error) {
+    if (clinicId !== "pilot" || !missingObject(error)) throw error;
+    return new Uint8Array(await readFile(path.join(process.cwd(), "storage", legacyKey(id, kind))));
+  }
+}
+
+export async function deletePostMedia(clinicId: string, id: string, kind: MediaKind): Promise<void> {
+  const key = storageKey(clinicId, id, kind);
+  const cfg = config();
+  if (cfg) {
+    await cfg.client.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }));
+    return;
+  }
+  await rm(localPath(clinicId, id, kind), { force: true });
 }
