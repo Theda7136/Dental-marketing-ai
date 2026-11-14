@@ -43,10 +43,10 @@ runInNewContext(`(function(require, module, exports) { ${compiled} })`, { Buffer
 const { renderSocialPhoto, renderStoryPhoto, overlayOnClinicTemplate, parsePhotoOptions } = module.exports;
 
 async function logoCenterPixel(rendered, logo, canvasHeight) {
-  const processed = await logoModule.exports.prepareLogo(logo, 600, 240, true);
+  const processed = await logoModule.exports.prepareWatermarkLogo(logo);
   const { width, height } = await sharp(processed).metadata();
   const left = 1080 - width - 42 + Math.floor(width / 2);
-  const bottomInset = canvasHeight === 1920 ? 225 : 52;
+  const bottomInset = canvasHeight === 1920 ? 300 : 52;
   const top = canvasHeight - height - bottomInset + Math.floor(height / 2);
   return sharp(rendered).extract({ left, top, width: 1, height: 1 }).raw().toBuffer();
 }
