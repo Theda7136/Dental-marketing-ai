@@ -145,6 +145,8 @@ export default function VideoAdStudio() {
       }
       setVariants(payload.variants);
       setSelectedTone(null);
+      setScenes([]);
+      clearRender();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "No se pudieron generar los guiones.");
     } finally {
@@ -331,10 +333,10 @@ export default function VideoAdStudio() {
 
         <aside className="ad-studio-settings">
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
-          <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
-          <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
+          <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
+          <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
           <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); setScenes([]); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
-          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes([]); clearRender(); }}>{value} s</button>)}</div></div>
+          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
             <p>Genera tres versiones sin subir imágenes ni videos a la IA. Escribe solo información editorial, sin datos personales de pacientes.</p>
@@ -354,8 +356,8 @@ export default function VideoAdStudio() {
           <div className="ad-studio-script">
             <h3>Texto de la propuesta</h3>
             <p>Revisa y edita los textos antes de preparar el video. Gemini propone borradores, no hechos clínicos verificados.</p>
-            <button type="button" className="ad-studio-script-reset" onClick={() => { setCopy(outlineFor(treatment, goal, style)); setScenes([]); clearRender(); }}>Crear texto base</button>
-            {(["introduction", "explanation", "close"] as const).map((part,index) => <label className="ad-studio-field" key={part}>{["Apertura","Mensaje principal","Cierre"][index]}<textarea rows={index === 1 ? 3 : 2} value={copy[part]} onChange={event => { setCopy(previous => ({ ...previous, [part]: event.target.value })); setScenes([]); clearRender(); }} /></label>)}
+            <button type="button" className="ad-studio-script-reset" onClick={() => { setCopy(outlineFor(treatment, goal, style)); setSelectedTone(null); setScenes([]); clearRender(); }}>Crear texto base</button>
+            {(["introduction", "explanation", "close"] as const).map((part,index) => <label className="ad-studio-field" key={part}>{["Apertura","Mensaje principal","Cierre"][index]}<textarea rows={index === 1 ? 3 : 2} value={copy[part]} onChange={event => { setCopy(previous => ({ ...previous, [part]: event.target.value })); setSelectedTone(null); setScenes([]); clearRender(); }} /></label>)}
           </div>
           <label className="ad-studio-consent"><input type="checkbox" checked={consentConfirmed} onChange={event => { setConsentConfirmed(event.target.checked); if (!event.target.checked) clearRender(); }} /> <span>Confirmo que tengo autorización para utilizar estos archivos en contenido publicitario y que revisaré cualquier afirmación clínica.</span></label>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
