@@ -1,6 +1,6 @@
 node_modules
 .next
-storage/posts
+storage/
 
 # Environment secrets
 .env*
