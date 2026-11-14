@@ -144,6 +144,7 @@ export default function VideoAdStudio() {
 
     const form = new FormData();
     form.set("authorized", "true");
+    form.set("style", style);
     form.set("manifest", JSON.stringify(scenes.map(scene => {
       const asset = assets.find(source => source.id === scene.assetId)!;
       return { seconds: scene.seconds, heading: scene.heading, kind: asset.kind };
@@ -209,7 +210,7 @@ export default function VideoAdStudio() {
           <h2>Prepara tu próximo anuncio</h2>
           <p>Combina fotografías y clips reales, prepara las escenas y renderiza un MP4 para revisión. No se publica automáticamente.</p>
         </div>
-        <span className="ad-studio-phase">Fase 2 · MP4</span>
+        <span className="ad-studio-phase">Fase 3 · Anuncios visuales</span>
       </div>
 
       <div className="ad-studio-layout">
@@ -291,7 +292,7 @@ export default function VideoAdStudio() {
           <label className="ad-studio-consent"><input type="checkbox" checked={consentConfirmed} onChange={event => { setConsentConfirmed(event.target.checked); if (!event.target.checked) clearRender(); }} /> <span>Confirmo que tengo autorización para utilizar estos archivos en contenido publicitario y que revisaré cualquier afirmación clínica.</span></label>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
           <button type="button" className="ad-studio-primary" disabled={!assets.length || !consentConfirmed} onClick={draftScenes}>Preparar storyboard</button>
-          <p className="ad-studio-hint">Los archivos se envían al servidor solo al generar el MP4. El video es una vista previa descargable: no se guarda ni se publica. Esta fase no incluye locución ni generación de guiones con IA.</p>
+          <p className="ad-studio-hint">El estilo Premium, Dinámico o Educativo se aplica al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
         </aside>
       </div>
     </section>
