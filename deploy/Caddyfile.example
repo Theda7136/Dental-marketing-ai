@@ -1,0 +1,5 @@
+# Replace dental.example.com with your clinic's actual domain.
+dental.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+}
