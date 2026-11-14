@@ -1235,3 +1235,21 @@ body { background: var(--canvas); color: var(--ink); }
 .studio-brand-preview-note { display: block; margin-top: 12px; color: #687d71; font-size: .75rem; line-height: 1.5; }
 .studio-brand-composition.is-story { width: min(100%, 250px); }
 .studio-brand-example select { width: 100%; min-height: 40px; border: 1px solid #cbd8d0; border-radius: 8px; background: white; padding: 8px 12px; color: #284b42; }
+
+
+/* A compact video thumbnail opens the full player instead of squeezing native controls. */
+.studio-proposal-media .studio-proposal-video-thumb {
+  width: min(100%, 152px);
+  aspect-ratio: 9 / 16;
+  height: auto;
+  max-height: none;
+  flex: 0 0 auto;
+  margin: auto;
+}
+.studio-proposal-media .studio-proposal-video-thumb video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
