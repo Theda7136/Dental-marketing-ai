@@ -8,7 +8,8 @@
     "test": "node --test tests/meta-delivery-policy.test.mjs tests/meta-publishing-integration.test.mjs tests/meta-sqlite-persistence.test.mjs tests/image-layout.test.mjs tests/tiktok-publishing.test.mjs tests/tiktok-account-isolation.test.mjs tests/social-oauth-state.test.mjs tests/media-signature-isolation.test.mjs tests/media-storage-isolation.test.mjs tests/media-route-isolation.test.mjs tests/brand-clinic-migration.test.mjs tests/meta-page-identity-migration.test.mjs tests/instagram-page-link.test.mjs tests/clinic-permissions.test.mjs tests/clinic-session-isolation.test.mjs tests/production-checks.test.mjs tests/sqlite-backup.test.mjs tests/health-route.test.mjs tests/smoke-production.test.mjs tests/video-ad-studio.test.mjs tests/video-ad-render.test.mjs",
     "check:production": "node --env-file=.env scripts/preflight.mjs",
     "backup:db": "node scripts/backup-db.mjs",
-    "smoke:production": "node scripts/smoke-production.mjs"
+    "smoke:production": "node scripts/smoke-production.mjs",
+    "test:video-render": "node --test tests/video-ad-render.integration.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1163.0",
