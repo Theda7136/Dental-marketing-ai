@@ -259,7 +259,7 @@ export async function approveAndPublishPost(
       mediaUrl: post.mediaUrl,
       generatedCaption: post.generatedCaption,
       mediaKind: post.mediaType === "VIDEO" ? "video" : "image",
-    });
+    }, access.clinic.id);
     const approvedAt = new Date();
     await prisma.scheduledPost.update({
       where: { id: post.id, clinicId: access.clinic.id },
@@ -321,7 +321,7 @@ export async function retryPendingNetwork(
       mediaUrl: post.mediaUrl,
       generatedCaption: post.generatedCaption,
       mediaKind: post.mediaType === "VIDEO" ? "video" : "image",
-    }, network);
+    }, access.clinic.id, network);
 
     const publishedId = network === "facebook" ? result.facebookId : result.instagramId;
     if (!publishedId) {
@@ -763,7 +763,7 @@ export async function publishSelectedNetworks(
         const current = await prisma.scheduledPost.findUnique({ where: { id: postId, clinicId: access.clinic.id }, select: { archivedAt: true } });
         if (!current || current.archivedAt) throw new Error("La publicación ya no está disponible.");
       }
-      await publishToTikTok(postId, tiktok!.privacy, {
+      await publishToTikTok(postId, access.clinic.id, tiktok!.privacy, {
         disableComment: tiktok!.disableComment,
         disableDuet: tiktok!.disableDuet,
         disableStitch: tiktok!.disableStitch,
