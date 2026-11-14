@@ -173,11 +173,6 @@ export interface PhotoBrand {
   logoDataUrl: string | null;
 }
 
-function xmlText(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-}
-
 export async function overlayOnClinicTemplate(input: {
   cleanImage: Uint8Array;
   procedureName: string;
@@ -186,46 +181,28 @@ export async function overlayOnClinicTemplate(input: {
   canvasHeight?: number;
 }): Promise<Uint8Array> {
   if (input.procedureName) assertProcedure(input.procedureName);
-  const brand = input.brand;
+
   const canvasHeight = input.canvasHeight ?? HEIGHT;
-  const footerHeight = 104;
-  const photoHeight = brand ? canvasHeight - footerHeight : canvasHeight;
   const photoOptions = canvasHeight === 1920
     ? { ...DEFAULT_PHOTO_OPTIONS, ...input.options, background: "LIGHT" as const, layout: "CONTAIN" as const, zoom: 1, offsetX: 0, offsetY: 0 }
     : input.options;
-  const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, photoOptions, photoHeight));
-  if (!brand) return new Uint8Array(photo);
+  const photo = Buffer.from(await renderSocialPhoto(input.cleanImage, photoOptions, canvasHeight));
+  const logoDataUrl = input.brand?.logoDataUrl;
+  if (!logoDataUrl?.startsWith("data:image/png;base64,")) return new Uint8Array(photo);
 
-  const accent = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor)
-    ? brand.primaryColor : "#116D60";
-  const family = brand.fontFamily === "SERIF" ? "Georgia, serif"
-    : brand.fontFamily === "MODERN" ? "Arial, sans-serif" : "sans-serif";
-  const clinicName = xmlText(brand.clinicName.trim().slice(0, 70));
-  const hasLogo = Boolean(brand.logoDataUrl?.startsWith("data:image/"));
-  const textLeft = hasLogo ? 120 : 40;
-  const availableWidth = WIDTH - textLeft - 36;
-  const fontSize = Math.max(20, Math.min(34,
-    Math.floor(availableWidth / Math.max(1, brand.clinicName.trim().length * 0.58)),
-  ));
+  const logoSource = Buffer.from(logoDataUrl.slice("data:image/png;base64,".length), "base64");
+  const logo = await sharp(logoSource, { failOn: "error", limitInputPixels: 8_000_000 })
+    .resize({ width: 150, height: 110, fit: "inside", withoutEnlargement: true })
+    .png().toBuffer();
+  const { width = 0, height = 0 } = await sharp(logo).metadata();
+  if (!width || !height) throw new ImageServiceError("El logotipo configurado no es válido.", "TEMPLATE_FAILED");
 
-  const footer = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${footerHeight}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <rect width="100%" height="4" fill="${accent}"/>
-    <text x="${textLeft}" y="65" font-family="${family}" font-size="${fontSize}" font-weight="600" fill="#203c38">${clinicName}</text>
-  </svg>`);
-
-  const layers: sharp.OverlayOptions[] = [{ input: footer, top: canvasHeight - footerHeight, left: 0 }];
-  if (hasLogo) {
-    const encoded = brand.logoDataUrl!.split(",")[1];
-    if (encoded) {
-      const bytes = Buffer.from(encoded, "base64");
-      const logo = await sharp(bytes, { failOn: "error", limitInputPixels: 8_000_000 })
-        .resize(64, 64, { fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, left: 36, top: canvasHeight - footerHeight + 22 });
-    }
-  }
-
-  return new Uint8Array(await sharp({
-    create: { width: WIDTH, height: canvasHeight, channels: 4, background: "#ffffff" },
-  }).composite([{ input: photo, top: 0, left: 0 }, ...layers]).png().toBuffer());
+  // Keep the logo clear of bottom navigation overlays on vertical stories.
+  const margin = 42;
+  const bottomInset = canvasHeight === 1920 ? 225 : 52;
+  return new Uint8Array(await sharp(photo).composite([{
+    input: logo,
+    left: WIDTH - width - margin,
+    top: canvasHeight - height - bottomInset,
+  }]).png().toBuffer());
 }
