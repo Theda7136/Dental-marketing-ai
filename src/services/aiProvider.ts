@@ -1,4 +1,5 @@
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
+import { normalizeVideoAdCopy } from "./videoAdCopy";
 import {
   generateDentalVariants as generateWithGrok,
   type DentalPost,
@@ -227,14 +228,17 @@ export function validateVideoAdDrafts(raw: unknown, sceneCount: number): VideoAd
     )) {
       throw new AIProviderError("Los textos por escena no son válidos.", 502);
     }
-    value.scenes.forEach(text => clinicalGuardrails.validate(text as string));
-    return {
-      tone,
-      title: (value.title as string).trim(),
+    const cleanCopy = normalizeVideoAdCopy({
       opening: (value.opening as string).trim(),
       message: (value.message as string).trim(),
       closing: (value.closing as string).trim(),
       scenes: (value.scenes as string[]).map(text => text.trim()),
+    });
+    cleanCopy.scenes.forEach(text => clinicalGuardrails.validate(text));
+    return {
+      tone,
+      title: (value.title as string).trim(),
+      ...cleanCopy,
     };
   });
 }
@@ -267,6 +271,13 @@ export async function generateVideoAdDrafts(input: {
     "Cada variante debe contener exactamente el número de strings de scenes solicitado.",
     "title máximo 60 caracteres; opening, message, closing máximo 140; cada escena máximo 100.",
     "La primera escena plantea el tema, las intermedias desarrollan y la última invita a informarse o solicitar valoración.",
+    "IMPORTANTE: scenes contiene EXCLUSIVAMENTE frases publicitarias literales que se verán impresas sobre el video.",
+    "NO escribas instrucciones de producción, planos, acciones de cámara, composiciones, recursos gráficos o descripciones de imágenes dentro de scenes.",
+    "NO uses frases como «imagen de», «mostrar», «profesional revisando», «ícono de WhatsApp», «llamado a la acción» ni «fachada de la clínica».",
+    "No tienes acceso a las fotografías: NO inventes qué muestran. Cada frase debe funcionar sobre cualquier imagen dental aprobada.",
+    "Ejemplo de scenes para tres escenas: [«¿Quieres conocer el diseño de sonrisa?», «Descubre las opciones con orientación profesional.», «Solicita información sobre tu valoración.»].",
+    "Evita describir instrucciones en opening, message, closing y title; son solo textos publicitarios para pacientes.",
+    "El cierre debe concordar con el objetivo indicado; si el objetivo es WhatsApp, invita a escribir, sin afirmar que el icono aparecerá en el video.",
     "Para un único archivo, escribe un texto que funcione como anuncio completo.",
     "Las variantes deben diferenciar su enfoque, sin crear información nueva.",
     `Prohibidas estas frases: ${clinicalGuardrails.prohibitedRiskPhrases.join(", ")}.`,
