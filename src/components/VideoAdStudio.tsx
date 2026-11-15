@@ -49,7 +49,6 @@ export default function VideoAdStudio() {
   const [assets, setAssets] = useState<SourceAsset[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [visionConsent, setVisionConsent] = useState(false);
   const [visualCache, setVisualCache] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
@@ -103,7 +102,6 @@ export default function VideoAdStudio() {
     setVariants([]);
     setSelectedTone(null);
     clearRender();
-    setConsentConfirmed(false);
     setVisionConsent(false);
     setError("");
     if (fileInput.current) fileInput.current.value = "";
@@ -119,7 +117,6 @@ export default function VideoAdStudio() {
     setVariants([]);
     setSelectedTone(null);
     clearRender();
-    setConsentConfirmed(false);
     setVisualCache(previous => { const next = { ...previous }; delete next[id]; return next; });
   }
 
@@ -205,7 +202,7 @@ export default function VideoAdStudio() {
   }
 
   async function renderAd() {
-    if (!isDraftCurrent || rendering || !consentConfirmed || assignedSeconds < 1 || assignedSeconds > 45) return;
+    if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || assignedSeconds > 45) return;
     setRendering(true);
     setError("");
     clearRender();
@@ -339,7 +336,7 @@ export default function VideoAdStudio() {
                 </div>
               ))}
               {assignedSeconds !== duration && <p className="ad-studio-hint">La duración actual es de {assignedSeconds} s; seleccionaste {duration} s.</p>}
-              <div className="ad-studio-render-actions"><button type="button" className="ad-studio-download" onClick={downloadStoryboard}>Descargar guion</button><button type="button" className="ad-studio-primary" disabled={rendering || !consentConfirmed || assignedSeconds > 45} onClick={renderAd}>{rendering ? "Renderizando video..." : "Generar video MP4"}</button></div>
+              <div className="ad-studio-render-actions"><button type="button" className="ad-studio-download" onClick={downloadStoryboard}>Descargar guion</button><button type="button" className="ad-studio-primary" disabled={rendering || !visionConsent || assignedSeconds > 45} onClick={renderAd}>{rendering ? "Renderizando video..." : "Generar video MP4"}</button></div>
             </div>
           )}
         </div>
@@ -369,7 +366,6 @@ export default function VideoAdStudio() {
               </div>
             )}
           </div>
-          <label className="ad-studio-consent"><input type="checkbox" checked={consentConfirmed} onChange={event => { setConsentConfirmed(event.target.checked); if (!event.target.checked) clearRender(); }} /> <span>Confirmo que tengo autorización para utilizar estos archivos en contenido publicitario y que revisaré cualquier afirmación clínica.</span></label>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
           <p className="ad-studio-hint">El estilo Premium, Dinámico o Educativo se aplica al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
         </aside>
