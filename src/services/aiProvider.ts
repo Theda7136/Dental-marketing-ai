@@ -53,7 +53,9 @@ async function queryGemini(parts: object[], systemInstruction: string, json = fa
         await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
         continue;
       }
-      throw new AIProviderError("No se pudo conectar con Gemini después de varios intentos.", 503);
+      throw new AIProviderError(maxAttempts === 1
+        ? "Gemini no respondió dentro de 25 segundos. Puedes reintentar o usar el guion manual."
+        : "No se pudo conectar con Gemini después de varios intentos.", 503);
     }
 
     if (response.ok) return textOf(await response.json());
