@@ -159,10 +159,11 @@ async function captionOverlay(
   const title = escapeXml(brand.clinicName.slice(0, brand.logoDataUrl ? 22 : 29));
   const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
     isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
-  const lines = wrapCaption(heading, isClosing ? 23 : 26);
-  const fontSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
-  const lineHeight = fontSize + 25;
-  const textTop = isOpening ? 1280 : isClosing ? 1260 : 1310;
+  const lines = wrapCaption(heading, style === "dinamico" ? 22 : 27);
+  const baseSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
+  const fontSize = lines.length >= 4 ? Math.min(baseSize, 56) : lines.length === 3 ? Math.min(baseSize, 64) : baseSize;
+  const lineHeight = fontSize + 19;
+  const textTop = Math.min(1400, 1580 - lines.length * lineHeight);
   const textNodes = lines.map((line, number) =>
     `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
   ).join("");
@@ -183,13 +184,13 @@ async function captionOverlay(
       </linearGradient>
     </defs>
     <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
-    <rect x="70" y="90" rx="28" width="940" height="125" fill="#061916" fill-opacity=".55"/>
-    <rect x="88" y="107" rx="6" width="10" height="90" fill="${accent}"/>
+    <rect x="70" y="90" rx="22" width="940" height="104" fill="#061916" fill-opacity=".48"/>
+    <rect x="88" y="107" rx="6" width="8" height="70" fill="${accent}"/>
     ${brand.logoDataUrl ? '<rect x="810" y="101" rx="18" width="189" height="107" fill="white"/>' : ""}
-    <text x="120" y="163" fill="white" font-size="51" font-weight="700" font-family="Arial, sans-serif">${title}</text>
-    <rect x="91" y="1160" width="128" height="9" rx="4" fill="${accent}"/>
+    <text x="120" y="157" fill="white" font-size="44" font-weight="700" font-family="Arial, sans-serif">${title}</text>
+    <rect x="91" y="1160" width="128" height="7" rx="4" fill="${accent}"/>
     ${infoCard}
-    <text x="95" y="1242" fill="#E2FFF6" font-size="33" font-weight="700" font-family="Arial, sans-serif" letter-spacing="2">${category}</text>
+    <text x="95" y="1242" fill="#E2FFF6" font-size="29" font-weight="700" font-family="Arial, sans-serif" letter-spacing="2">${category}</text>
     ${textNodes}
     ${callToAction}
     <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
@@ -215,14 +216,14 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .blur(38).modulate({ brightness: 0.66 }).png().toBuffer();
 
   const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(958, 1340, { fit: "inside", withoutEnlargement: false })
+    .rotate().resize(1016, 1510, { fit: "inside", withoutEnlargement: false })
     .png().toBuffer();
   const dimensions = await sharp(foreground).metadata();
   const x = Math.round((WIDTH - (dimensions.width ?? 0)) / 2);
-  const y = Math.round(720 - (dimensions.height ?? 0) / 2);
+  const y = Math.round(820 - (dimensions.height ?? 0) / 2);
 
   return sharp(background)
-    .composite([{ input: foreground, left: x, top: Math.max(230, y) }])
+    .composite([{ input: foreground, left: x, top: Math.max(205, y) }])
     .png().toBuffer();
 }
 
