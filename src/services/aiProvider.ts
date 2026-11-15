@@ -304,12 +304,39 @@ export async function generateVideoAdDrafts(input: {
     ...(input.visualDescriptions?.map((description, index) => `Observación visual escena ${index + 1}: ${description}`) ?? []),
   ].join("\\n");
 
-  const answer = await queryGemini([{ text: prompt }], instruction, true, { attempts: 1, timeoutMs: 25000 });
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(answer);
-  } catch {
-    throw new AIProviderError("Gemini no devolvió un guion JSON válido.", 502);
+  const requestedTones: VideoAdTone[] = ["educativa", "emocional", "comercial"];
+  let lastError: AIProviderError | undefined;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const correction = attempt === 0 ? "" : [
+      "La respuesta anterior no cumplió el formato requerido.",
+      `Genera EXACTAMENTE 3 variantes con tones: ${requestedTones.join(", ")}.`,
+      `Cada variante debe incluir EXACTAMENTE ${input.sceneCount} textos en scenes, uno por cada fotografía y en el mismo orden.`,
+      "No omitas escenas ni devuelvas variantes parciales. Devuelve solo JSON válido.",
+    ].join("\n");
+    const answer = await queryGemini(
+      [{ text: correction ? `${prompt}\n\n${correction}` : prompt }],
+      instruction,
+      true,
+      { attempts: 1, timeoutMs: 25000 },
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(answer);
+    } catch {
+      lastError = new AIProviderError("Gemini no devolvió un guion JSON válido.", 502);
+      continue;
+    }
+
+    try {
+      return validateVideoAdDrafts(parsed, input.sceneCount);
+    } catch (error) {
+      if (!(error instanceof AIProviderError)) throw error;
+      lastError = error;
+      if (!/variantes|escenas incompletas|guiones solicitados/.test(error.message)) throw error;
+    }
   }
-  return validateVideoAdDrafts(parsed, input.sceneCount);
+
+  throw lastError ?? new AIProviderError("Gemini no pudo completar los guiones.", 502);
 }
