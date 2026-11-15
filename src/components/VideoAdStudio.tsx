@@ -188,9 +188,13 @@ export default function VideoAdStudio() {
         throw new Error(payload.error ?? "No se pudieron generar los guiones.");
       }
       setVariants(payload.variants);
-      setSelectedTone(null);
-      setScenes([]);
-      clearRender();
+      const preferred = payload.variants.find(variant => variant.tone === "educativa") ?? payload.variants[0];
+      if (preferred) useVariant(preferred);
+      else {
+        setSelectedTone(null);
+        setScenes([]);
+        clearRender();
+      }
     } catch (failure) {
       const message = failure instanceof Error && failure.name === "TimeoutError"
         ? "Gemini tardó demasiado. Vuelve a intentarlo o utiliza el guion manual."
@@ -204,7 +208,7 @@ export default function VideoAdStudio() {
   function useVariant(variant: AdVariant) {
     setSelectedTone(variant.tone);
     setCopy({ introduction: variant.opening, explanation: variant.message, close: variant.closing });
-    if (consentConfirmed && assets.length === variant.scenes.length) {
+    if (assets.length === variant.scenes.length) {
       const base = Math.floor(duration / assets.length);
       const remainder = duration % assets.length;
       setScenes(assets.map((asset, index) => ({
