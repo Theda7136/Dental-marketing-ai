@@ -21,23 +21,6 @@ function classifyFile(file: File): "image" | "video" | null {
   return null;
 }
 
-function outlineFor(treatment: string, goal: AdGoal, style: AdStyle) {
-  const introduction = style === "educativo"
-    ? `Conoce más sobre ${treatment.toLowerCase()}.`
-    : style === "dinamico"
-      ? `Una nueva manera de hablar de ${treatment.toLowerCase()}.`
-      : `Cada sonrisa merece atención personalizada.`;
-  const explanation = goal === "educacion"
-    ? `Descubre cómo evaluamos cada caso y planificamos el tratamiento según las necesidades de cada paciente.`
-    : `En nuestra clínica escuchamos tus objetivos y te explicamos las opciones de tratamiento tras una valoración profesional.`;
-  const close = goal === "whatsapp"
-    ? "Escríbenos por WhatsApp para solicitar una valoración."
-    : goal === "confianza"
-      ? "Conoce a nuestro equipo y cómo trabajamos."
-      : "Consulta con un profesional qué opciones pueden ser adecuadas para ti.";
-  return { introduction, explanation, close };
-}
-
 async function prepareVisionJpeg(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   try {
@@ -77,7 +60,6 @@ export default function VideoAdStudio() {
   const [clinicContext, setClinicContext] = useState("");
   const [scriptError, setScriptError] = useState("");
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
-  const [copy, setCopy] = useState(() => outlineFor(treatments[0], "whatsapp", "premium"));
   const fileInput = useRef<HTMLInputElement>(null);
   const assetsRef = useRef<SourceAsset[]>([]);
   const renderedRef = useRef<string | null>(null);
@@ -96,7 +78,6 @@ export default function VideoAdStudio() {
   const active = assets.find(asset => asset.id === activeId) ?? assets[0];
   const assignedSeconds = scenes.reduce((total, scene) => total + scene.seconds, 0);
   const isDraftCurrent = scenes.length > 0 && scenes.every(scene => assets.some(asset => asset.id === scene.assetId));
-  const hasEnoughAssets = assets.length > 0;
   const summary = useMemo(() => ({
     goal: goal === "whatsapp" ? "Consultas por WhatsApp" : goal === "confianza" ? "Confianza en la clínica" : "Educación del paciente",
     style: style === "premium" ? "Premium" : style === "educativo" ? "Educativo" : "Dinámico",
@@ -135,6 +116,8 @@ export default function VideoAdStudio() {
     setAssets(remaining);
     setActiveId(current => current === id ? remaining[0]?.id ?? null : current);
     setScenes([]);
+    setVariants([]);
+    setSelectedTone(null);
     clearRender();
     setConsentConfirmed(false);
     setVisualCache(previous => { const next = { ...previous }; delete next[id]; return next; });
@@ -197,7 +180,7 @@ export default function VideoAdStudio() {
       }
     } catch (failure) {
       const message = failure instanceof Error && failure.name === "TimeoutError"
-        ? "Gemini tardó demasiado. Vuelve a intentarlo o utiliza el guion manual."
+        ? "Gemini tardó demasiado. Vuelve a generar los guiones."
         : failure instanceof Error ? failure.message : "No se pudieron generar los guiones.";
       setScriptError(message);
     } finally {
@@ -207,7 +190,6 @@ export default function VideoAdStudio() {
 
   function useVariant(variant: AdVariant) {
     setSelectedTone(variant.tone);
-    setCopy({ introduction: variant.opening, explanation: variant.message, close: variant.closing });
     if (assets.length === variant.scenes.length) {
       const base = Math.floor(duration / assets.length);
       const remainder = duration % assets.length;
@@ -220,25 +202,6 @@ export default function VideoAdStudio() {
       setScenes([]);
     }
     clearRender();
-  }
-
-  function draftScenes() {
-    if (!hasEnoughAssets || !consentConfirmed) {
-      setError("Añade material y confirma que tienes autorización para utilizarlo.");
-      return;
-    }
-    const base = Math.floor(duration / assets.length);
-    const remainder = duration % assets.length;
-    const lines = [copy.introduction, copy.explanation, copy.close];
-    const selectedVariant = variants.find(variant => variant.tone === selectedTone);
-    setScenes(assets.map((asset, index) => ({
-      assetId: asset.id,
-      heading: selectedVariant?.scenes[index] ?? lines[index === 0 ? 0 : index === assets.length - 1 ? 2 : 1],
-      seconds: base + (index < remainder ? 1 : 0),
-    })));
-    setActiveId(assets[0].id);
-    clearRender();
-    setError("");
   }
 
   async function renderAd() {
@@ -287,8 +250,7 @@ export default function VideoAdStudio() {
       `Duración solicitada: ${duration} s`,
       `Duración planificada: ${assignedSeconds} s`,
       "",
-      "Guion:",
-      copy.introduction, copy.explanation, copy.close,
+      `Variante: ${selectedTone ?? "Sin seleccionar"}`,
       "",
       ...scenes.map((scene, index) => {
         const source = assets.find(asset => asset.id === scene.assetId);
@@ -386,15 +348,15 @@ export default function VideoAdStudio() {
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
           <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
-          <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); setScenes([]); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
-          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}>{value} s</button>)}</div></div>
+          <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
+          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
             <p>Gemini analizará las fotografías autorizadas para adaptar cada subtítulo. No incluyas datos personales en las notas.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para enviar estas fotografías a Gemini para análisis visual, además de utilizarlas en publicidad.</span></label>
             <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Consultando Gemini..." : "Generar 3 guiones con IA"}</button>
-            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes. Si Gemini no responde, podrás continuar con el guion manual.</p>}
+            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes y sus subtítulos por fotografía.</p>}
             {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p> }
             {variants.length > 0 && (
               <div className="ad-studio-variants" aria-label="Versiones creativas">
@@ -407,15 +369,8 @@ export default function VideoAdStudio() {
               </div>
             )}
           </div>
-          <div className="ad-studio-script">
-            <h3>Texto de la propuesta</h3>
-            <p>Revisa y edita los textos antes de preparar el video. Gemini propone borradores, no hechos clínicos verificados.</p>
-            <button type="button" className="ad-studio-script-reset" onClick={() => { setCopy(outlineFor(treatment, goal, style)); setSelectedTone(null); setScenes([]); clearRender(); }}>Crear texto base</button>
-            {(["introduction", "explanation", "close"] as const).map((part,index) => <label className="ad-studio-field" key={part}>{["Apertura","Mensaje principal","Cierre"][index]}<textarea rows={index === 1 ? 3 : 2} value={copy[part]} onChange={event => { setCopy(previous => ({ ...previous, [part]: event.target.value })); setSelectedTone(null); setScenes([]); clearRender(); }} /></label>)}
-          </div>
           <label className="ad-studio-consent"><input type="checkbox" checked={consentConfirmed} onChange={event => { setConsentConfirmed(event.target.checked); if (!event.target.checked) clearRender(); }} /> <span>Confirmo que tengo autorización para utilizar estos archivos en contenido publicitario y que revisaré cualquier afirmación clínica.</span></label>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
-          <button type="button" className="ad-studio-primary" disabled={!assets.length || !consentConfirmed} onClick={draftScenes}>Preparar storyboard</button>
           <p className="ad-studio-hint">El estilo Premium, Dinámico o Educativo se aplica al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
         </aside>
       </div>
