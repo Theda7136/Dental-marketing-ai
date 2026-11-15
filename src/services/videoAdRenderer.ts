@@ -117,8 +117,14 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
       `[front]scale=968:1460:force_original_aspect_ratio=decrease,setsar=1[subject];` +
       `[blur][subject]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=${FRAME_RATE},format=yuv420p[background];`;
 
+  const captionFade = style === "dinamico" ? 0.18 : style === "educativo" ? 0.55 : 0.4;
+  const captionDuration = Math.min(captionFade, seconds / 5);
+  const captionStart = Math.max(0, seconds - captionDuration);
+
   return source +
-    `[background][1:v]overlay=0:0:shortest=1,format=yuv420p,` +
+    `[1:v]format=rgba,fade=t=in:st=0:d=${captionDuration}:alpha=1,` +
+    `fade=t=out:st=${captionStart}:d=${captionDuration}:alpha=1[captions];` +
+    `[background][captions]overlay=0:0:shortest=1,format=yuv420p,` +
     `fade=t=in:st=0:d=${duration},fade=t=out:st=${Math.max(0, seconds - duration)}:d=${duration}[out]`;
 }
 
@@ -216,7 +222,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .blur(38).modulate({ brightness: 0.66 }).png().toBuffer();
 
   const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(1016, 1510, { fit: "inside", withoutEnlargement: false })
+    .rotate().resize(1040, 1580, { fit: "inside", withoutEnlargement: false })
     .png().toBuffer();
   const dimensions = await sharp(foreground).metadata();
   const x = Math.round((WIDTH - (dimensions.width ?? 0)) / 2);
