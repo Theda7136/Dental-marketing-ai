@@ -108,8 +108,6 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
 }
 
 function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle): string {
-  const fade = style === "dinamico" ? 0.15 : 0.35;
-  const duration = Math.min(fade, seconds / 4);
   const source = kind === "image"
     ? `[0:v]${photoMotionFilter(index, style)},format=yuv420p[background];`
     : `[0:v]split=2[back][front];` +
@@ -124,8 +122,7 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
   return source +
     `[1:v]format=rgba,fade=t=in:st=0:d=${captionDuration}:alpha=1,` +
     `fade=t=out:st=${captionStart}:d=${captionDuration}:alpha=1[captions];` +
-    `[background][captions]overlay=0:0:shortest=1,format=yuv420p,` +
-    `fade=t=in:st=0:d=${duration},fade=t=out:st=${Math.max(0, seconds - duration)}:d=${duration}[out]`;
+    `[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]`;
 }
 
 export function photoMotionFilter(index: number, style: VideoAdStyle = "premium"): string {
@@ -217,6 +214,18 @@ async function captionOverlay(
 }
 
 async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
+  const metadata = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 }).metadata();
+  const rotated = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
+  const width = rotated ? metadata.height : metadata.width;
+  const height = rotated ? metadata.width : metadata.height;
+  const ratio = width && height ? width / height : 1;
+
+  if (ratio >= 0.49 && ratio <= 0.76) {
+    return sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
+      .rotate().resize(WIDTH, HEIGHT, { fit: "cover", position: "attention" })
+      .png().toBuffer();
+  }
+
   const background = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
     .rotate().resize(WIDTH, HEIGHT, { fit: "cover" })
     .blur(38).modulate({ brightness: 0.66 }).png().toBuffer();
@@ -268,10 +277,26 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     }
 
     const joined = path.join(directory, "advertisement.mp4");
+    const transition = style === "dinamico" ? 0.2 : style === "educativo" ? 0.45 : 0.35;
+    const filters = rendered.map((_, index) =>
+      `[${index}:v:0]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[v${index}]`
+    );
+    let previous = "v0";
+    let elapsed = scenes[0].seconds;
+
+    for (let index = 1; index < rendered.length; index++) {
+      const overlap = Math.min(transition, scenes[index - 1].seconds / 4, scenes[index].seconds / 4);
+      const offset = Math.max(0, elapsed - overlap);
+      const output = `mix${index}`;
+      filters.push(`[${previous}][v${index}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${output}]`);
+      previous = output;
+      elapsed = offset + scenes[index].seconds;
+    }
+
     await runFfmpeg([
       ...rendered.flatMap(file => ["-i", file]),
-      "-filter_complex", `${rendered.map((_, index) => `[${index}:v:0]`).join("")}concat=n=${rendered.length}:v=1:a=0[out]`,
-      "-map", "[out]", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+      "-filter_complex", filters.join(";"),
+      "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", joined,
     ]);
     return await readFile(joined);
