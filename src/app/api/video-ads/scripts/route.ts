@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!access) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
 
   try {
-    if (Number(request.headers.get("content-length") ?? 0) > 8_000) {
+    if (Number(request.headers.get("content-length") ?? 0) > 12_000) {
       return NextResponse.json({ error: "La solicitud supera el tamaño permitido." }, { status: 413 });
     }
     const submitted: unknown = await request.json();
@@ -29,12 +29,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El procedimiento no está permitido." }, { status: 400 });
     }
 
+    if (form.visualDescriptions !== undefined && (!Array.isArray(form.visualDescriptions) || form.visualDescriptions.length !== form.sceneCount || !form.visualDescriptions.every((description: unknown) => typeof description === "string" && description.length > 0 && description.length <= 240))) {
+      return NextResponse.json({ error: "Descripciones visuales inválidas." }, { status: 400 });
+    }
+
     const variants = await generateVideoAdDrafts({
       procedure: form.procedure,
       goal: form.goal,
       duration: form.duration,
       sceneCount: form.sceneCount,
       clinicContext: form.clinicContext,
+      visualDescriptions: form.visualDescriptions as string[] | undefined,
     });
     return NextResponse.json({ variants }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
