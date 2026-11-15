@@ -474,7 +474,10 @@ export default function DashboardPage({ view = "create" }: { view?: StudioView }
                    : destination.id === "video-ads" ? <><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3V9Z"/></>
                    : destination.id === "pending" ? <><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 10h4"/></>
                    : destination.id === "history" ? <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>
-                   : <><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="white"/><circle cx="15" cy="12" r="2" fill="white"/><circle cx="10" cy="17" r="2" fill="white"/></>}
+                   : destination.id === "calendar" ? <><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></>
+                   : destination.id === "performance" ? <><path d="M4 19V10M10 19V6M16 19v-5M20 19H3"/></>
+                   : destination.id === "connections" ? <><path d="M9 12h6"/><path d="M15 8h1.5a4 4 0 0 1 0 8H15"/><path d="M9 16H7.5a4 4 0 0 1 0-8H9"/></>
+                   : <><circle cx="8" cy="9" r="2.2"/><circle cx="16" cy="9" r="2.2"/><path d="M3.8 19c.6-2.5 2.3-3.8 4.2-3.8s3.6 1.3 4.2 3.8"/><path d="M11.8 19c.6-2.5 2.3-3.8 4.2-3.8s3.6 1.3 4.2 3.8"/></>}
                </svg>
                <span>{destination.label}</span>
                {destination.id === "pending" && posts.some((post) => post.status === "PENDING_APPROVAL") && (
