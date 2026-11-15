@@ -19,7 +19,7 @@ export function looksLikeProductionInstruction(text: string): boolean {
 export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
   const keyLines = [draft.opening, draft.message, draft.closing];
   if (keyLines.some(text => looksLikeProductionInstruction(text))) {
-    throw new Error("El guion contiene indicaciones de producción en lugar de texto publicitario.");
+    throw new Error("El guion contiene instrucciones de producción en lugar de texto publicitario.");
   }
 
   const scenes = draft.scenes.map((caption, index) => {
