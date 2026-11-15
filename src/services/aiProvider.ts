@@ -228,12 +228,17 @@ export function validateVideoAdDrafts(raw: unknown, sceneCount: number): VideoAd
     )) {
       throw new AIProviderError("Los textos por escena no son válidos.", 502);
     }
-    const cleanCopy = normalizeVideoAdCopy({
+    let cleanCopy: ReturnType<typeof normalizeVideoAdCopy>;
+    try {
+      cleanCopy = normalizeVideoAdCopy({
       opening: (value.opening as string).trim(),
       message: (value.message as string).trim(),
       closing: (value.closing as string).trim(),
       scenes: (value.scenes as string[]).map(text => text.trim()),
-    });
+      });
+    } catch {
+      throw new AIProviderError("Gemini devolvió instrucciones de producción en vez de texto para el anuncio. Vuelve a generar el guion.", 502);
+    }
     cleanCopy.scenes.forEach(text => clinicalGuardrails.validate(text));
     return {
       tone,
