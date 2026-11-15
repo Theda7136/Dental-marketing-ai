@@ -254,12 +254,17 @@ export async function generateVideoAdDrafts(input: {
   sceneCount: number;
   duration: number;
   clinicContext: string;
+  visualDescriptions?: string[];
 }): Promise<VideoAdDraft[]> {
   if (!Number.isInteger(input.sceneCount) || input.sceneCount < 1 || input.sceneCount > 12) {
     throw new AIProviderError("Indica entre 1 y 12 escenas.", 400);
   }
   if (!Number.isInteger(input.duration) || input.duration < 15 || input.duration > 45) {
     throw new AIProviderError("La duración del anuncio debe estar entre 15 y 45 segundos.", 400);
+  }
+
+  if (input.visualDescriptions && (input.visualDescriptions.length !== input.sceneCount || input.visualDescriptions.some(description => !description.trim() || description.length > 240))) {
+    throw new AIProviderError("Las descripciones visuales no coinciden con las escenas.", 400);
   }
 
   const instruction = [
@@ -279,7 +284,8 @@ export async function generateVideoAdDrafts(input: {
     "IMPORTANTE: scenes contiene EXCLUSIVAMENTE frases publicitarias literales que se verán impresas sobre el video.",
     "NO escribas instrucciones de producción, planos, acciones de cámara, composiciones, recursos gráficos o descripciones de imágenes dentro de scenes.",
     "NO uses frases como «imagen de», «mostrar», «profesional revisando», «ícono de WhatsApp», «llamado a la acción» ni «fachada de la clínica».",
-    "No tienes acceso a las fotografías: NO inventes qué muestran. Cada frase debe funcionar sobre cualquier imagen dental aprobada.",
+    "Recibirás observaciones visuales no diagnósticas por escena cuando estén disponibles. Úsalas para adaptar cada subtítulo al material correspondiente, sin copiarlas literalmente.",
+    "Las observaciones visuales no confirman tratamientos, resultados, identidades ni diagnósticos. No inventes detalles que no estén descritos.",
     "Ejemplo de scenes para tres escenas: [«¿Quieres conocer el diseño de sonrisa?», «Descubre las opciones con orientación profesional.», «Solicita información sobre tu valoración.»].",
     "Evita describir instrucciones en opening, message, closing y title; son solo textos publicitarios para pacientes.",
     "El cierre debe concordar con el objetivo indicado; si el objetivo es WhatsApp, invita a escribir, sin afirmar que el icono aparecerá en el video.",
@@ -295,6 +301,7 @@ export async function generateVideoAdDrafts(input: {
     `Duración total: ${input.duration} segundos`,
     `Información editorial proporcionada por la clínica: ${input.clinicContext || "Sin detalles confirmados"}`,
     "Solo usa estos datos, no recibirás imágenes ni archivos de pacientes.",
+    ...(input.visualDescriptions?.map((description, index) => `Observación visual escena ${index + 1}: ${description}`) ?? []),
   ].join("\\n");
 
   const answer = await queryGemini([{ text: prompt }], instruction, true, { attempts: 1, timeoutMs: 25000 });
