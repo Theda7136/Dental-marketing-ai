@@ -53,6 +53,7 @@ export default function VideoAdStudio() {
   const [variants, setVariants] = useState<AdVariant[]>([]);
   const [selectedTone, setSelectedTone] = useState<AdVariant["tone"] | null>(null);
   const [clinicContext, setClinicContext] = useState("");
+  const [scriptError, setScriptError] = useState("");
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
   const [copy, setCopy] = useState(() => outlineFor(treatments[0], "whatsapp", "premium"));
   const fileInput = useRef<HTMLInputElement>(null);
@@ -131,9 +132,11 @@ export default function VideoAdStudio() {
     if (!assets.length || generatingScripts) return;
     setGeneratingScripts(true);
     setError("");
+    setScriptError("");
     try {
       const response = await fetch("/api/video-ads/scripts", {
         method: "POST",
+        signal: AbortSignal.timeout(32000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           procedure: treatment, goal, duration, sceneCount: assets.length, clinicContext,
@@ -148,7 +151,10 @@ export default function VideoAdStudio() {
       setScenes([]);
       clearRender();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "No se pudieron generar los guiones.");
+      const message = failure instanceof Error && failure.name === "TimeoutError"
+        ? "Gemini tardó demasiado. Vuelve a intentarlo o utiliza el guion manual."
+        : failure instanceof Error ? failure.message : "No se pudieron generar los guiones.";
+      setScriptError(message);
     } finally {
       setGeneratingScripts(false);
     }
@@ -341,7 +347,9 @@ export default function VideoAdStudio() {
             <h3>Guiones con Gemini</h3>
             <p>Genera tres versiones sin subir imágenes ni videos a la IA. Escribe solo información editorial, sin datos personales de pacientes.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
-            <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0} onClick={generateScripts}>{generatingScripts ? "Generando guiones..." : "Generar 3 guiones con IA"}</button>
+            <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0} onClick={generateScripts}>{generatingScripts ? "Consultando Gemini..." : "Generar 3 guiones con IA"}</button>
+            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes. Si Gemini no responde, podrás continuar con el guion manual.</p>}
+            {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p> }
             {variants.length > 0 && (
               <div className="ad-studio-variants" aria-label="Versiones creativas">
                 {variants.map(variant => (
