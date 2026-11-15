@@ -280,6 +280,13 @@ export async function generateVideoAdDrafts(input: {
     "Entrega exclusivamente JSON con { variants: [{ tone, title, opening, message, closing, scenes }] }.",
     "Cada variante debe contener exactamente el número de strings de scenes solicitado.",
     "title máximo 60 caracteres; opening, message, closing máximo 140; cada escena máximo 100.",
+    "Construye una sola historia publicitaria por variante: apertura que despierte interés, desarrollo conectado con las imágenes y cierre que continúe naturalmente la idea.",
+    "Cada texto en scenes debe continuar la idea del anterior. No escribas tres eslóganes independientes ni repitas el mismo concepto.",
+    "Ajusta cada frase a la observación visual de su escena, respetando exactamente el orden de las fotografías.",
+    "Si una escena muestra instalaciones, habla de la experiencia de atención sin atribuir equipos, certificaciones o capacidades no verificadas.",
+    "Si una escena muestra una sonrisa, no afirmes que es un resultado de tratamiento sin confirmación editorial.",
+    "Evita expresiones genéricas como «instalaciones equipadas para ti», «análisis clínico profesional» o «consulta opciones de diseño dental» cuando no aporten a la historia.",
+    "Para tres escenas, estructura: 1) gancho relacionado con la primera fotografía, 2) desarrollo conectado con la segunda, 3) cierre y llamado a la acción relacionado con la tercera.",
     "La primera escena plantea el tema, las intermedias desarrollan y la última invita a informarse o solicitar valoración.",
     "IMPORTANTE: scenes contiene EXCLUSIVAMENTE frases publicitarias literales que se verán impresas sobre el video.",
     "NO escribas instrucciones de producción, planos, acciones de cámara, composiciones, recursos gráficos o descripciones de imágenes dentro de scenes.",
@@ -292,7 +299,7 @@ export async function generateVideoAdDrafts(input: {
     "Para un único archivo, escribe un texto que funcione como anuncio completo.",
     "Las variantes deben diferenciar su enfoque, sin crear información nueva.",
     `Prohibidas estas frases: ${clinicalGuardrails.prohibitedRiskPhrases.join(", ")}.`,
-  ].join("\\n");
+  ].join("\n");
 
   const prompt = [
     `Procedimiento: ${input.procedure}`,
@@ -302,7 +309,7 @@ export async function generateVideoAdDrafts(input: {
     `Información editorial proporcionada por la clínica: ${input.clinicContext || "Sin detalles confirmados"}`,
     "Solo usa estos datos, no recibirás imágenes ni archivos de pacientes.",
     ...(input.visualDescriptions?.map((description, index) => `Observación visual escena ${index + 1}: ${description}`) ?? []),
-  ].join("\\n");
+  ].join("\n");
 
   const requestedTones: VideoAdTone[] = ["educativa", "emocional", "comercial"];
   let lastError: AIProviderError | undefined;
