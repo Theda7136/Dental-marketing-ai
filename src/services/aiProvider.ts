@@ -28,7 +28,7 @@ function textOf(response: unknown): string {
   return text;
 }
 
-async function queryGemini(parts: object[], systemInstruction: string, json = false): Promise<string> {
+async function queryGemini(parts: object[], systemInstruction: string, json = false, options: { attempts?: number; timeoutMs?: number } = {}): Promise<string> {
   const key = geminiKey();
   if (!key) throw new AIProviderError("Falta GEMINI_API_KEY en .env.");
 
@@ -38,17 +38,18 @@ async function queryGemini(parts: object[], systemInstruction: string, json = fa
     generationConfig: json ? { responseMimeType: "application/json", temperature: 0.5 } : { temperature: 0.2 },
   });
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const maxAttempts = options.attempts ?? 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let response: Response;
     try {
       response = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body,
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(options.timeoutMs ?? 45000),
       });
     } catch {
-      if (attempt < 2) {
+      if (attempt < maxAttempts - 1) {
         await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
         continue;
       }
@@ -57,7 +58,7 @@ async function queryGemini(parts: object[], systemInstruction: string, json = fa
 
     if (response.ok) return textOf(await response.json());
 
-    if ([500, 503, 504].includes(response.status) && attempt < 2) {
+    if ([500, 503, 504].includes(response.status) && attempt < maxAttempts - 1) {
       await response.body?.cancel();
       await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
       continue;
@@ -278,7 +279,7 @@ export async function generateVideoAdDrafts(input: {
     "Solo usa estos datos, no recibirás imágenes ni archivos de pacientes.",
   ].join("\\n");
 
-  const answer = await queryGemini([{ text: prompt }], instruction, true);
+  const answer = await queryGemini([{ text: prompt }], instruction, true, { attempts: 1, timeoutMs: 25000 });
   let parsed: unknown;
   try {
     parsed = JSON.parse(answer);
