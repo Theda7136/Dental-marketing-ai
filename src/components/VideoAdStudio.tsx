@@ -53,6 +53,7 @@ export default function VideoAdStudio() {
   const [visualCache, setVisualCache] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(false);
+  const [narrationEnabled, setNarrationEnabled] = useState(false);
   const [generatingScripts, setGeneratingScripts] = useState(false);
   const [variants, setVariants] = useState<AdVariant[]>([]);
   const [selectedTone, setSelectedTone] = useState<AdVariant["tone"] | null>(null);
@@ -210,6 +211,7 @@ export default function VideoAdStudio() {
     const form = new FormData();
     form.set("authorized", "true");
     form.set("style", style);
+    form.set("narration", String(narrationEnabled));
     form.set("manifest", JSON.stringify(scenes.map(scene => {
       const asset = assets.find(source => source.id === scene.assetId)!;
       return { seconds: scene.seconds, heading: scene.heading, kind: asset.kind };
@@ -346,6 +348,7 @@ export default function VideoAdStudio() {
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
           <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
           <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
+          <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
