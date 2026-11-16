@@ -63,6 +63,7 @@ export default function VideoAdStudio() {
   const [scriptError, setScriptError] = useState("");
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const musicInput = useRef<HTMLInputElement>(null);
   const assetsRef = useRef<SourceAsset[]>([]);
   const renderedRef = useRef<string | null>(null);
   useEffect(() => { assetsRef.current = assets; }, [assets]);
@@ -354,10 +355,10 @@ export default function VideoAdStudio() {
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
           <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
           <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
-          <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
           <div className="ad-studio-field">
-            <label htmlFor="ad-music-file">Música de fondo (opcional, con licencia comercial)</label>
-            <input id="ad-music-file" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" onChange={event => {
+            <span>Música de fondo (opcional)</span>
+            <label htmlFor="ad-music-file" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", alignSelf: "flex-start", padding: "11px 16px", border: "1px solid #91c5b4", borderRadius: 10, color: "#116d60", fontWeight: 700, cursor: "pointer" }}>Seleccionar música MP3, WAV o M4A</label>
+            <input ref={musicInput} id="ad-music-file" type="file" style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" onChange={event => {
               const selected = event.target.files?.[0] ?? null;
               if (selected && selected.size > 12 * 1024 * 1024) {
                 setError("La música no puede superar 12 MB.");
@@ -371,9 +372,9 @@ export default function VideoAdStudio() {
               <span>{musicFile.name}</span>
               <label htmlFor="ad-music-volume">Volumen de música: {musicVolume}%</label>
               <input id="ad-music-volume" type="range" min="5" max="50" step="1" value={musicVolume} onChange={event => { setMusicVolume(Number(event.target.value)); clearRender(); }} />
-              <button type="button" onClick={() => { setMusicFile(null); clearRender(); }}>Quitar música</button>
+              <button type="button" onClick={() => { setMusicFile(null); if (musicInput.current) musicInput.current.value = ""; clearRender(); }}>Quitar música</button>
             </>}
-            <small>Utiliza únicamente pistas que tengas autorización para usar en publicidad. Con narración, la música baja automáticamente de volumen.</small>
+            <small>Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
           </div>
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
@@ -381,6 +382,8 @@ export default function VideoAdStudio() {
             <p>Gemini analizará las fotografías autorizadas para adaptar cada subtítulo. No incluyas datos personales en las notas.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para enviar estas fotografías a Gemini para análisis visual, además de utilizarlas en publicidad.</span></label>
+            <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
+
             <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Consultando Gemini..." : "Generar 3 guiones con IA"}</button>
             {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes y sus subtítulos por fotografía.</p>}
             {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p> }
