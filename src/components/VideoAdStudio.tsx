@@ -54,6 +54,8 @@ export default function VideoAdStudio() {
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(false);
   const [narrationEnabled, setNarrationEnabled] = useState(false);
+  const [narrationVoice, setNarrationVoice] = useState("Kore");
+  const [captionFont, setCaptionFont] = useState("arial");
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(18);
   const [generatingScripts, setGeneratingScripts] = useState(false);
@@ -214,6 +216,8 @@ export default function VideoAdStudio() {
     const form = new FormData();
     form.set("authorized", "true");
     form.set("style", style);
+    form.set("voice", narrationVoice);
+    form.set("captionFont", captionFont);
     form.set("narration", String(narrationEnabled));
     if (musicFile) {
       form.set("music", musicFile);
@@ -354,6 +358,14 @@ export default function VideoAdStudio() {
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
           <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
+          <label className="ad-studio-field">Fuente de subtítulos
+            <select value={captionFont} onChange={event => { setCaptionFont(event.target.value); clearRender(); }}>
+              <option value="arial">Arial · Moderna</option>
+              <option value="georgia">Georgia · Elegante</option>
+              <option value="verdana">Verdana · Clara</option>
+              <option value="trebuchet">Trebuchet · Cercana</option>
+            </select>
+          </label>
           <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
           <div className="ad-studio-field">
             <span>Música de fondo (opcional)</span>
@@ -383,6 +395,13 @@ export default function VideoAdStudio() {
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para enviar estas fotografías a Gemini para análisis visual, además de utilizarlas en publicidad.</span></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
+            {narrationEnabled && <label className="ad-studio-field">Voz de la narración
+              <select value={narrationVoice} onChange={event => { setNarrationVoice(event.target.value); clearRender(); }}>
+                <option value="Kore">Kore · Serena</option>
+                <option value="Puck">Puck · Animada</option>
+                <option value="Charon">Charon · Profunda</option>
+              </select>
+            </label>}
 
             <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Consultando Gemini..." : "Generar 3 guiones con IA"}</button>
             {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes y sus subtítulos por fotografía.</p>}
