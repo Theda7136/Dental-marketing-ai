@@ -161,22 +161,17 @@ async function captionOverlay(
   const accent = safeColor(brand.primaryColor);
   const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
   const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
-  const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
-    isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
   const lines = wrapCaption(heading, style === "dinamico" ? 22 : 27);
   const baseSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
   const fontSize = lines.length >= 4 ? Math.min(baseSize, 56) : lines.length === 3 ? Math.min(baseSize, 64) : baseSize;
   const lineHeight = fontSize + 19;
-  const textTop = Math.min(1400, 1580 - lines.length * lineHeight);
+  const textTop = Math.min(1460, 1570 - (lines.length - 1) * lineHeight);
   const textNodes = lines.map((line, number) =>
     `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
   ).join("");
   const callToAction = isClosing
     ? `<rect x="92" y="1668" rx="21" width="608" height="106" fill="${accent}"/>
        <text x="124" y="1736" fill="#fff" font-size="43" font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>`
-    : "";
-  const infoCard = style === "educativo"
-    ? `<rect x="74" y="1192" width="932" height="438" rx="25" fill="#082923" fill-opacity=".72"/>`
     : "";
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
     <defs>
@@ -188,13 +183,10 @@ async function captionOverlay(
       </linearGradient>
     </defs>
     <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
-    <rect x="70" y="90" rx="25" width="940" height="118" fill="#061916" fill-opacity=".72"/>
-    <rect x="88" y="112" rx="5" width="6" height="72" fill="${accent}"/>
-    ${hasLogo ? '<rect x="108" y="105" rx="15" width="154" height="88" fill="#fff"/>' : ""}
-    <text x="${hasLogo ? 283 : 122}" y="163" fill="white" font-size="${hasLogo ? 39 : 44}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
-    <rect x="91" y="1160" width="128" height="7" rx="4" fill="${accent}"/>
-    ${infoCard}
-    <text x="95" y="1242" fill="#E2FFF6" font-size="29" font-weight="700" font-family="Arial, sans-serif" letter-spacing="2">${category}</text>
+    <rect x="70" y="92" rx="22" width="940" height="100" fill="#061916" fill-opacity=".64"/>
+    <rect x="88" y="111" rx="4" width="5" height="62" fill="${accent}"/>
+    ${hasLogo ? '<rect x="108" y="102" rx="13" width="140" height="80" fill="#fff"/>' : ""}
+    <text x="${hasLogo ? 268 : 120}" y="155" fill="white" font-size="${hasLogo ? 37 : 42}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
     ${textNodes}
     ${callToAction}
     <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
@@ -206,12 +198,12 @@ async function captionOverlay(
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
     if (logoBytes.length && logoBytes.length <= 500_000) {
       const logo = await sharp(logoBytes, { limitInputPixels: 8_000_000 })
-        .resize({ width: 138, height: 76, fit: "inside" }).png().toBuffer();
+        .resize({ width: 126, height: 68, fit: "inside" }).png().toBuffer();
       const logoSize = await sharp(logo).metadata();
       layers.push({
         input: logo,
-        top: 111 + Math.round((76 - (logoSize.height ?? 76)) / 2),
-        left: 116 + Math.round((138 - (logoSize.width ?? 138)) / 2),
+        top: 108 + Math.round((68 - (logoSize.height ?? 68)) / 2),
+        left: 115 + Math.round((126 - (logoSize.width ?? 126)) / 2),
       });
     }
   }
@@ -234,7 +226,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
 
   const background = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
     .rotate().resize(WIDTH, HEIGHT, { fit: "cover" })
-    .blur(38).modulate({ brightness: 0.66 }).png().toBuffer();
+    .blur(28).modulate({ brightness: 0.84 }).png().toBuffer();
 
   const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
     .rotate().resize(1040, 1580, { fit: "inside", withoutEnlargement: false })
