@@ -248,7 +248,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }): Promise<Buffer> {
   validateAdScenes(scenes);
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -305,17 +305,42 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", joined,
     ]);
-    if (narration?.length) {
-      const pcmPath = path.join(directory, "narration.pcm");
-      const voiced = path.join(directory, "advertisement-voiced.mp4");
-      await writeFile(pcmPath, narration);
+    if (narration?.length || music?.bytes.length) {
+      const output = path.join(directory, "advertisement-audio.mp4");
+      const inputs = ["-i", joined];
+      const filters: string[] = [];
+      let nextInput = 1;
+
+      if (narration?.length) {
+        const narrationPath = path.join(directory, "narration.pcm");
+        await writeFile(narrationPath, narration);
+        inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", narrationPath);
+        filters.push(`[${nextInput}:a]aresample=48000,volume=1.0,apad[voice]`);
+        nextInput++;
+      }
+
+      if (music?.bytes.length) {
+        const musicPath = path.join(directory, `music.${music.extension}`);
+        await writeFile(musicPath, music.bytes);
+        inputs.push("-stream_loop", "-1", "-i", musicPath);
+        filters.push(`[${nextInput}:a]aresample=48000,volume=${music.volume},afade=t=in:st=0:d=1.2[music]`);
+        if (narration?.length) {
+          filters.push("[music][voice]sidechaincompress=threshold=0.025:ratio=8:attack=50:release=450[ducked]");
+          filters.push("[ducked][voice]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[audio]");
+        } else {
+          filters.push("[music]alimiter=limit=0.95[audio]");
+        }
+      } else {
+        filters.push("[voice]anull[audio]");
+      }
+
       await runFfmpeg([
-        "-i", joined, "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath,
-        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "128k", "-af", "apad", "-shortest",
-        "-movflags", "+faststart", voiced,
+        ...inputs, "-filter_complex", filters.join(";"),
+        "-map", "0:v:0", "-map", "[audio]", "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "160k", "-t", String(elapsed),
+        "-movflags", "+faststart", output,
       ]);
-      return await readFile(voiced);
+      return await readFile(output);
     }
     return await readFile(joined);
   } finally {
