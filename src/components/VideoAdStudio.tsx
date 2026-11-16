@@ -54,6 +54,8 @@ export default function VideoAdStudio() {
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(false);
   const [narrationEnabled, setNarrationEnabled] = useState(false);
+  const [musicFile, setMusicFile] = useState<File | null>(null);
+  const [musicVolume, setMusicVolume] = useState(18);
   const [generatingScripts, setGeneratingScripts] = useState(false);
   const [variants, setVariants] = useState<AdVariant[]>([]);
   const [selectedTone, setSelectedTone] = useState<AdVariant["tone"] | null>(null);
@@ -212,6 +214,10 @@ export default function VideoAdStudio() {
     form.set("authorized", "true");
     form.set("style", style);
     form.set("narration", String(narrationEnabled));
+    if (musicFile) {
+      form.set("music", musicFile);
+      form.set("musicVolume", String(musicVolume / 100));
+    }
     form.set("manifest", JSON.stringify(scenes.map(scene => {
       const asset = assets.find(source => source.id === scene.assetId)!;
       return { seconds: scene.seconds, heading: scene.heading, kind: asset.kind };
@@ -349,6 +355,26 @@ export default function VideoAdStudio() {
           <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
           <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
           <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
+          <div className="ad-studio-field">
+            <label htmlFor="ad-music-file">Música de fondo (opcional, con licencia comercial)</label>
+            <input id="ad-music-file" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" onChange={event => {
+              const selected = event.target.files?.[0] ?? null;
+              if (selected && selected.size > 12 * 1024 * 1024) {
+                setError("La música no puede superar 12 MB.");
+                event.target.value = "";
+                return;
+              }
+              setMusicFile(selected);
+              clearRender();
+            }} />
+            {musicFile && <>
+              <span>{musicFile.name}</span>
+              <label htmlFor="ad-music-volume">Volumen de música: {musicVolume}%</label>
+              <input id="ad-music-volume" type="range" min="5" max="50" step="1" value={musicVolume} onChange={event => { setMusicVolume(Number(event.target.value)); clearRender(); }} />
+              <button type="button" onClick={() => { setMusicFile(null); clearRender(); }}>Quitar música</button>
+            </>}
+            <small>Utiliza únicamente pistas que tengas autorización para usar en publicidad. Con narración, la música baja automáticamente de volumen.</small>
+          </div>
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
