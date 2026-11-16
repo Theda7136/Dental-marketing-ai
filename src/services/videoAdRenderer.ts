@@ -171,10 +171,6 @@ async function captionOverlay(
   const textNodes = lines.map((line, number) =>
     `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
   ).join("");
-  const callToAction = isClosing
-    ? `<rect x="92" y="1690" rx="18" width="600" height="92" fill="${accent}"/>
-       <text x="126" y="1750" fill="#fff" font-size="41" font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>`
-    : "";
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
     <defs>
       <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
@@ -190,12 +186,19 @@ async function captionOverlay(
     ${hasLogo ? '<rect x="108" y="102" rx="13" width="140" height="80" fill="#fff"/>' : ""}
     <text x="${hasLogo ? 268 : 120}" y="155" fill="white" font-size="${hasLogo ? 37 : 42}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
     ${textNodes}
-    ${callToAction}
     <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
     <text x="92" y="1878" fill="#fff" font-size="28" font-family="Arial, sans-serif" fill-opacity=".8">Contenido informativo · Valoración profesional</text>
   </svg>`);
 
   const layers: sharp.OverlayOptions[] = [{ input: svg }];
+  if (isClosing) {
+    const button = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="92">
+      <rect width="600" height="92" rx="18" fill="#116D60"/>
+      <text x="300" y="59" text-anchor="middle" fill="#FFFFFF" font-size="40"
+        font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>
+    </svg>`);
+    layers.push({ input: await sharp(button).png().toBuffer(), left: 92, top: 1690 });
+  }
   if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
     if (logoBytes.length && logoBytes.length <= 500_000) {
