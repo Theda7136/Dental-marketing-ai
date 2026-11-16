@@ -14,6 +14,13 @@ const MAX_SECONDS = 45;
 const FRAME_RATE = 24;
 
 export type VideoAdStyle = "premium" | "dinamico" | "educativo";
+export type CaptionFont = "arial" | "georgia" | "verdana" | "trebuchet";
+const captionFamilies: Record<CaptionFont, string> = {
+  arial: "Arial, sans-serif",
+  georgia: "Georgia, serif",
+  verdana: "Verdana, sans-serif",
+  trebuchet: "Trebuchet MS, sans-serif",
+};
 
 export type AdScene = {
   filename: string;
@@ -157,7 +164,7 @@ function wrapCaption(text: string, limit = 24): string[] {
 }
 
 async function captionOverlay(
-  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number,
+  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont,
 ): Promise<Buffer> {
   const isOpening = index === 0;
   const isClosing = index === total - 1;
@@ -172,7 +179,7 @@ async function captionOverlay(
     ? Math.min(1350, 1440 - (lines.length - 1) * lineHeight)
     : Math.min(1500, 1600 - (lines.length - 1) * lineHeight);
   const textNodes = lines.map((line, number) =>
-    `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
+    `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}">${escapeXml(line)}</text>`
   ).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
     <defs>
@@ -248,7 +255,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
   validateAdScenes(scenes);
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -265,7 +272,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const overlay = path.join(directory, `overlay-${index}.png`);
       const output = path.join(directory, `scene-${index}.mp4`);
       await writeFile(source, scene.kind === "image" ? await preparePhotoScene(scene.bytes) : scene.bytes);
-      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, scenes.length));
+      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, scenes.length, captionFont));
 
       const duration = String(scene.seconds);
       const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === scenes.length - 1);
