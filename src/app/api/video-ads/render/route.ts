@@ -95,9 +95,8 @@ export async function POST(request: Request) {
     }
 
     const narrationEnabled = form.get("narration") === "true";
-    const narrationScript = records.map(scene => scene.heading.trim()).filter(Boolean).join(". ");
-    if (narrationEnabled && narrationScript.length > 1200) {
-      return NextResponse.json({ error: "El guion de voz supera 1200 caracteres." }, { status: 400 });
+    if (narrationEnabled && records.some(scene => scene.heading.length > 180)) {
+      return NextResponse.json({ error: "Revisa la longitud de los subtítulos." }, { status: 400 });
     }
 
     const brand = await prisma.brandProfile.findUnique({
@@ -111,7 +110,9 @@ export async function POST(request: Request) {
     renderInProgress = true;
     let video: Buffer;
     try {
-      const narration = narrationEnabled ? await generateGeminiNarration(narrationScript, voice as GeminiVoice) : undefined;
+      const narration = narrationEnabled
+        ? await Promise.all(records.map(scene => generateGeminiNarration(scene.heading, voice as GeminiVoice)))
+        : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
       }, style as VideoAdStyle, narration, music, captionFont as CaptionFont);
