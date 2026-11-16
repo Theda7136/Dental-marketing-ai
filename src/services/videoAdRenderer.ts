@@ -165,13 +165,15 @@ async function captionOverlay(
   const baseSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
   const fontSize = lines.length >= 4 ? Math.min(baseSize, 56) : lines.length === 3 ? Math.min(baseSize, 64) : baseSize;
   const lineHeight = fontSize + 19;
-  const textTop = Math.min(1460, 1570 - (lines.length - 1) * lineHeight);
+  const textTop = isClosing
+    ? Math.min(1430, 1510 - (lines.length - 1) * lineHeight)
+    : Math.min(1500, 1600 - (lines.length - 1) * lineHeight);
   const textNodes = lines.map((line, number) =>
     `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
   ).join("");
   const callToAction = isClosing
-    ? `<rect x="92" y="1668" rx="21" width="608" height="106" fill="${accent}"/>
-       <text x="124" y="1736" fill="#fff" font-size="43" font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>`
+    ? `<rect x="92" y="1690" rx="18" width="600" height="92" fill="${accent}"/>
+       <text x="126" y="1750" fill="#fff" font-size="41" font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>`
     : "";
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
     <defs>
