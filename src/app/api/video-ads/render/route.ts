@@ -64,6 +64,27 @@ export async function POST(request: Request) {
       });
     }
 
+    const musicFile = form.get("music");
+    const musicVolume = Number(form.get("musicVolume") ?? 0.18);
+    if (!Number.isFinite(musicVolume) || musicVolume < 0.05 || musicVolume > 0.5) {
+      return NextResponse.json({ error: "El volumen musical debe estar entre 5 % y 50 %." }, { status: 400 });
+    }
+    let music: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number } | undefined;
+    if (musicFile !== null) {
+      if (!(musicFile instanceof File) || musicFile.size < 100 || musicFile.size > 12 * 1024 * 1024) {
+        return NextResponse.json({ error: "La pista musical debe tener un tamaño máximo de 12 MB." }, { status: 400 });
+      }
+      const extension = musicFile.name.split(".").pop()?.toLowerCase();
+      if (extension !== "mp3" && extension !== "wav" && extension !== "m4a") {
+        return NextResponse.json({ error: "Selecciona una pista MP3, WAV o M4A." }, { status: 400 });
+      }
+      const bytes = Buffer.from(await musicFile.arrayBuffer());
+      if (uploadedBytes + bytes.length > 120 * 1024 * 1024) {
+        return NextResponse.json({ error: "El material supera los 120 MB permitidos." }, { status: 413 });
+      }
+      music = { bytes, extension, volume: musicVolume };
+    }
+
     const narrationEnabled = form.get("narration") === "true";
     const narrationScript = records.map(scene => scene.heading.trim()).filter(Boolean).join(". ");
     if (narrationEnabled && narrationScript.length > 1200) {
@@ -84,7 +105,7 @@ export async function POST(request: Request) {
       const narration = narrationEnabled ? await generateGeminiNarration(narrationScript) : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
-      }, style as VideoAdStyle, narration);
+      }, style as VideoAdStyle, narration, music);
     } finally {
       renderInProgress = false;
     }
