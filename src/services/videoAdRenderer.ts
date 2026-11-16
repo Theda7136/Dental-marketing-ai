@@ -169,7 +169,7 @@ async function captionOverlay(
   const fontSize = lines.length >= 4 ? Math.min(baseSize, 56) : lines.length === 3 ? Math.min(baseSize, 64) : baseSize;
   const lineHeight = fontSize + 19;
   const textTop = isClosing
-    ? Math.min(1430, 1510 - (lines.length - 1) * lineHeight)
+    ? Math.min(1350, 1440 - (lines.length - 1) * lineHeight)
     : Math.min(1500, 1600 - (lines.length - 1) * lineHeight);
   const textNodes = lines.map((line, number) =>
     `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="Arial, sans-serif">${escapeXml(line)}</text>`
@@ -200,7 +200,7 @@ async function captionOverlay(
       <text x="300" y="59" text-anchor="middle" fill="#FFFFFF" font-size="40"
         font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>
     </svg>`);
-    layers.push({ input: await sharp(button).png().toBuffer(), left: 92, top: 1690 });
+    layers.push({ input: await sharp(button).png().toBuffer(), left: 92, top: 1520 });
   }
   if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
