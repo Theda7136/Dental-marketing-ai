@@ -3,6 +3,7 @@ import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { renderVideoAd, type AdScene, type VideoAdStyle } from "@/services/videoAdRenderer";
+import { generateGeminiNarration } from "@/services/geminiNarration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,12 @@ export async function POST(request: Request) {
       });
     }
 
+    const narrationEnabled = form.get("narration") === "true";
+    const narrationScript = records.map(scene => scene.heading.trim()).filter(Boolean).join(". ");
+    if (narrationEnabled && narrationScript.length > 1200) {
+      return NextResponse.json({ error: "El guion de voz supera 1200 caracteres." }, { status: 400 });
+    }
+
     const brand = await prisma.brandProfile.findUnique({
       where: { clinicId: access.clinic.id },
       select: { clinicName: true, primaryColor: true, logoDataUrl: true },
@@ -74,9 +81,10 @@ export async function POST(request: Request) {
     renderInProgress = true;
     let video: Buffer;
     try {
+      const narration = narrationEnabled ? await generateGeminiNarration(narrationScript) : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
-      }, style as VideoAdStyle);
+      }, style as VideoAdStyle, narration);
     } finally {
       renderInProgress = false;
     }
