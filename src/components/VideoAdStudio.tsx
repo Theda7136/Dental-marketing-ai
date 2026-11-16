@@ -244,7 +244,8 @@ export default function VideoAdStudio() {
   }
 
   async function renderAd() {
-    if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || assignedSeconds > 45) return;
+    if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || assignedSeconds > 60) return;
+    if (scenes.length === 1 && assignedSeconds > 30) { setError("Para un anuncio de 60 segundos agrega más fotografías o clips."); return; }
     setRendering(true);
     setError("");
     clearRender();
@@ -381,9 +382,10 @@ export default function VideoAdStudio() {
                     <strong>{assets.find(asset => asset.id === scene.assetId)?.file.name}</strong>
                     <textarea aria-label={`Texto de escena ${index + 1}`} rows={2} value={scene.heading} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, heading: event.target.value } : entry)); }} />
                   </div>
-                  <label className="ad-studio-scene-duration">Seg.<input type="number" min={1} max={60} value={scene.seconds} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, seconds: Math.max(1, Math.min(45, Number(event.target.value) || 1)) } : entry)); }} /></label>
+                  <label className="ad-studio-scene-duration">Seg.<input type="number" min={1} max={60} value={scene.seconds} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, seconds: Math.max(1, Math.min(60, Number(event.target.value) || 1)) } : entry)); }} /></label>
                 </div>
               ))}
+              {scenes.length === 1 && duration === 60 && <p className="ad-studio-hint">Para 60 segundos añade al menos otra fotografía o un clip; una sola escena no es suficiente.</p>}
               {assignedSeconds !== duration && <p className="ad-studio-hint">La duración actual es de {assignedSeconds} s; seleccionaste {duration} s.</p>}
               <div className="ad-studio-render-actions"><button type="button" className="ad-studio-download" onClick={downloadStoryboard}>Descargar guion</button><button type="button" className="ad-studio-primary" disabled={rendering || !visionConsent || assignedSeconds > 45} onClick={renderAd}>{rendering ? "Renderizando video..." : "Generar video MP4"}</button></div>
             </div>
@@ -424,7 +426,7 @@ export default function VideoAdStudio() {
             </>}
             <small>Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
           </div>
-          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
+          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
             <p>Gemini analizará fotografías y un fotograma representativo de cada video para adaptar los subtítulos. No incluyas datos personales en las notas.</p>
