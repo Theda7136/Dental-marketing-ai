@@ -159,7 +159,8 @@ async function captionOverlay(
   const isOpening = index === 0;
   const isClosing = index === total - 1;
   const accent = safeColor(brand.primaryColor);
-  const title = escapeXml(brand.clinicName.slice(0, brand.logoDataUrl ? 22 : 29));
+  const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
+  const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
   const category = isOpening ? "TU SONRISA, NUESTRA PRIORIDAD" :
     isClosing ? "SIGUIENTE PASO" : "ATENCIÓN ODONTOLÓGICA";
   const lines = wrapCaption(heading, style === "dinamico" ? 22 : 27);
@@ -187,10 +188,10 @@ async function captionOverlay(
       </linearGradient>
     </defs>
     <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
-    <rect x="70" y="90" rx="22" width="940" height="104" fill="#061916" fill-opacity=".48"/>
-    <rect x="88" y="107" rx="6" width="8" height="70" fill="${accent}"/>
-    ${brand.logoDataUrl ? '<rect x="810" y="101" rx="18" width="189" height="107" fill="white"/>' : ""}
-    <text x="120" y="157" fill="white" font-size="44" font-weight="700" font-family="Arial, sans-serif">${title}</text>
+    <rect x="70" y="90" rx="25" width="940" height="118" fill="#061916" fill-opacity=".72"/>
+    <rect x="88" y="112" rx="5" width="6" height="72" fill="${accent}"/>
+    ${hasLogo ? '<rect x="108" y="105" rx="15" width="154" height="88" fill="#fff"/>' : ""}
+    <text x="${hasLogo ? 283 : 122}" y="163" fill="white" font-size="${hasLogo ? 39 : 44}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
     <rect x="91" y="1160" width="128" height="7" rx="4" fill="${accent}"/>
     ${infoCard}
     <text x="95" y="1242" fill="#E2FFF6" font-size="29" font-weight="700" font-family="Arial, sans-serif" letter-spacing="2">${category}</text>
@@ -205,8 +206,13 @@ async function captionOverlay(
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
     if (logoBytes.length && logoBytes.length <= 500_000) {
       const logo = await sharp(logoBytes, { limitInputPixels: 8_000_000 })
-        .resize({ width: 160, height: 88, fit: "inside" }).png().toBuffer();
-      layers.push({ input: logo, top: 112, left: 825 });
+        .resize({ width: 138, height: 76, fit: "inside" }).png().toBuffer();
+      const logoSize = await sharp(logo).metadata();
+      layers.push({
+        input: logo,
+        top: 111 + Math.round((76 - (logoSize.height ?? 76)) / 2),
+        left: 116 + Math.round((138 - (logoSize.width ?? 138)) / 2),
+      });
     }
   }
   return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#00000000" } })
