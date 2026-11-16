@@ -1266,8 +1266,10 @@ body { background: var(--canvas); color: var(--ink); }
 .ad-studio-panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 16px; }
 .ad-studio-panel-heading h3 { color: #213c36; font-size: 1.06rem; font-weight: 740; }
 .ad-studio-panel-heading p { color: #72877d; font-size: .79rem; margin-top: 3px; }
-.ad-studio-stage { display: grid; place-items: center; height: min(430px, 58vw); min-height: 310px; border-radius: 12px; background: #f1f6f2; overflow: hidden; border: 1px solid #e0ebe4; }
-.ad-studio-stage img, .ad-studio-stage video { max-width: 100%; height: 100%; object-fit: contain; }
+.ad-studio-stage { display: flex; align-items: center; justify-content: center; height: clamp(360px, 48vw, 530px); padding: 14px; border-radius: 14px; background: #172923; overflow: hidden; border: 1px solid #d9e6df; }
+.ad-studio-stage img, .ad-studio-stage video { display: block; width: auto; height: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; background: #101c18; }
+.ad-studio-stage video { aspect-ratio: 9 / 16; }
+@media (max-width: 760px) { .ad-studio-stage { height: min(65vh, 490px); } }
 .ad-studio-empty { text-align: center; max-width: 250px; color: #7c9487; display: grid; justify-items: center; gap: 10px; padding: 18px; }
 .ad-studio-empty > span { font-size: 2.4rem; line-height: 1; }
 .ad-studio-empty strong { color: #375b50; font-size: .95rem; }
