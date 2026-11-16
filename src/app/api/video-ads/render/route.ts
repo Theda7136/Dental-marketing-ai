@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
-import { renderVideoAd, type AdScene, type VideoAdStyle } from "@/services/videoAdRenderer";
-import { generateGeminiNarration } from "@/services/geminiNarration";
+import { renderVideoAd, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
+import { generateGeminiNarration, GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +37,15 @@ export async function POST(request: Request) {
     if (!Array.isArray(parsed) || !parsed.length || parsed.length > MAX_SCENES ||
         form.get("authorized") !== "true") {
       return NextResponse.json({ error: "Confirma la autorización y añade entre 1 y 12 escenas." }, { status: 400 });
+    }
+
+    const voice = form.get("voice") ?? "Kore";
+    const captionFont = form.get("captionFont") ?? "arial";
+    if (typeof voice !== "string" || !GEMINI_VOICES.some(option => option === voice)) {
+      return NextResponse.json({ error: "Selecciona una voz válida." }, { status: 400 });
+    }
+    if (typeof captionFont !== "string" || !["arial", "georgia", "verdana", "trebuchet"].includes(captionFont)) {
+      return NextResponse.json({ error: "Selecciona una fuente válida." }, { status: 400 });
     }
 
     const records: AdScene[] = [];
@@ -102,10 +111,10 @@ export async function POST(request: Request) {
     renderInProgress = true;
     let video: Buffer;
     try {
-      const narration = narrationEnabled ? await generateGeminiNarration(narrationScript) : undefined;
+      const narration = narrationEnabled ? await generateGeminiNarration(narrationScript, voice as GeminiVoice) : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
-      }, style as VideoAdStyle, narration, music);
+      }, style as VideoAdStyle, narration, music, captionFont as CaptionFont);
     } finally {
       renderInProgress = false;
     }
