@@ -323,7 +323,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         const musicPath = path.join(directory, `music.${music.extension}`);
         await writeFile(musicPath, music.bytes);
         inputs.push("-stream_loop", "-1", "-i", musicPath);
-        filters.push(`[${nextInput}:a]aresample=48000,volume=${music.volume},afade=t=in:st=0:d=1.2[music]`);
+        filters.push(`[${nextInput}:a]aresample=48000,volume=${music.volume},afade=t=in:st=0:d=1.2,afade=t=out:st=${Math.max(0, elapsed - 1.5)}:d=1.5[music]`);
         if (narration?.length) {
           filters.push("[music][voice]sidechaincompress=threshold=0.025:ratio=8:attack=50:release=450[ducked]");
           filters.push("[ducked][voice]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[audio]");
