@@ -248,7 +248,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium"): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer): Promise<Buffer> {
   validateAdScenes(scenes);
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -305,6 +305,18 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", joined,
     ]);
+    if (narration?.length) {
+      const pcmPath = path.join(directory, "narration.pcm");
+      const voiced = path.join(directory, "advertisement-voiced.mp4");
+      await writeFile(pcmPath, narration);
+      await runFfmpeg([
+        "-i", joined, "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath,
+        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "128k", "-af", "apad", "-shortest",
+        "-movflags", "+faststart", voiced,
+      ]);
+      return await readFile(voiced);
+    }
     return await readFile(joined);
   } finally {
     await rm(directory, { recursive: true, force: true });
