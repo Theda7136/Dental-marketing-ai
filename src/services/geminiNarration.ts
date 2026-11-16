@@ -1,8 +1,9 @@
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || "gemini-2.5-flash-preview-tts";
-const TTS_VOICE = "Kore";
+export const GEMINI_VOICES = ["Kore", "Puck", "Charon"] as const;
+export type GeminiVoice = typeof GEMINI_VOICES[number];
 const TTS_URL = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(TTS_MODEL)}:generateContent`;
 
-export async function generateGeminiNarration(script: string): Promise<Buffer> {
+export async function generateGeminiNarration(script: string, voice: GeminiVoice = "Kore"): Promise<Buffer> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("Configura GEMINI_API_KEY para generar la narración.");
   const text = script.trim();
@@ -15,7 +16,7 @@ export async function generateGeminiNarration(script: string): Promise<Buffer> {
       contents: [{ parts: [{ text: `Lee el siguiente anuncio en español de Colombia, con voz natural, clara, cercana y ritmo publicitario pausado. No agregues palabras.\n\n${text}` }] }],
       generationConfig: {
         responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
     }),
     signal: AbortSignal.timeout(60000),
