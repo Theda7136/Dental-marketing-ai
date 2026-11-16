@@ -10,7 +10,7 @@ const HEIGHT = 1920;
 const MAX_FILES = 12;
 const MAX_FILE_BYTES = 80 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 120 * 1024 * 1024;
-const MAX_SECONDS = 45;
+const MAX_SECONDS = 60;
 const FRAME_RATE = 24;
 
 export type VideoAdStyle = "premium" | "dinamico" | "educativo";
@@ -69,7 +69,7 @@ export function validateAdScenes(scenes: AdScene[]): void {
     seconds += scene.seconds;
   }
   if (bytes > MAX_TOTAL_BYTES || seconds > MAX_SECONDS) {
-    throw new Error("El anuncio no puede superar 120 MB de archivos ni 45 segundos.");
+    throw new Error("El anuncio no puede superar 120 MB de archivos ni 60 segundos.");
   }
 }
 
@@ -255,7 +255,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
   validateAdScenes(scenes);
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -319,11 +319,20 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       let nextInput = 1;
 
       if (narration?.length) {
-        const narrationPath = path.join(directory, "narration.pcm");
-        await writeFile(narrationPath, narration);
-        inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", narrationPath);
-        filters.push(`[${nextInput}:a]aresample=48000,volume=1.0,apad[voice]`);
-        nextInput++;
+        const voiceInputs: string[] = [];
+        let position = 0;
+        for (const [index, clip] of narration.entries()) {
+          const pcmPath = path.join(directory, `narration-${index}.pcm`);
+          await writeFile(pcmPath, clip);
+          inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath);
+          const sceneSeconds = scenes[index].seconds;
+          const overlap = index === 0 ? 0 : Math.min(transition, scenes[index - 1].seconds / 4, sceneSeconds / 4);
+          position += index === 0 ? 0 : scenes[index - 1].seconds - overlap;
+          filters.push(`[${nextInput}:a]aresample=48000,atrim=duration=${Math.max(0.2, sceneSeconds - 0.2)},adelay=${Math.round(position * 1000)}:all=1[voice${index}]`);
+          voiceInputs.push(`[voice${index}]`);
+          nextInput++;
+        }
+        filters.push(`${voiceInputs.join("")}amix=inputs=${voiceInputs.length}:duration=longest:normalize=0,apad[voice]`);
       }
 
       if (music?.bytes.length) {
