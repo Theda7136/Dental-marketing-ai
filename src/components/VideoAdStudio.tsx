@@ -41,6 +41,43 @@ async function prepareVisionJpeg(file: File): Promise<Blob> {
   }
 }
 
+async function prepareVideoFrame(file: File): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("No se pudo abrir el clip para analizarlo."));
+      video.src = url;
+    });
+    const position = Math.min(1, Math.max(0, video.duration / 2));
+    if (position > 0) {
+      await new Promise<void>((resolve, reject) => {
+        video.onseeked = () => resolve();
+        video.onerror = () => reject(new Error("No se pudo obtener una imagen del clip."));
+        video.currentTime = position;
+      });
+    }
+    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No se pudo preparar el fotograma.");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo extraer el fotograma.")), "image/jpeg", 0.75)
+    );
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+  }
+}
+
 export default function VideoAdStudio() {
   const [treatment, setTreatment] = useState(treatments[0]);
   const [goal, setGoal] = useState<AdGoal>("whatsapp");
@@ -141,7 +178,6 @@ export default function VideoAdStudio() {
   async function generateScripts() {
     if (!assets.length || generatingScripts) return;
     if (!visionConsent) { setScriptError("Autoriza el análisis visual con Gemini antes de generar guiones."); return; }
-    if (assets.some(asset => asset.kind !== "image")) { setScriptError("El análisis de clips de video aún no está disponible. Usa fotografías para generar guiones contextualizados."); return; }
     setGeneratingScripts(true);
     setError("");
     setScriptError("");
@@ -152,7 +188,7 @@ export default function VideoAdStudio() {
         if (!updatedCache[asset.id]) {
           const form = new FormData();
           form.set("consent", "true");
-          form.set("image", await prepareVisionJpeg(asset.file), "vision.jpg");
+          form.set("image", asset.kind === "image" ? await prepareVisionJpeg(asset.file) : await prepareVideoFrame(asset.file), "vision.jpg");
           const visionResponse = await fetch("/api/video-ads/vision", { method: "POST", body: form });
           const visionPayload = await visionResponse.json() as { description?: string; error?: string };
           if (!visionResponse.ok || !visionPayload.description) throw new Error(visionPayload.error ?? "No se pudo analizar la fotografía.");
@@ -391,9 +427,9 @@ export default function VideoAdStudio() {
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,45] .map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
-            <p>Gemini analizará las fotografías autorizadas para adaptar cada subtítulo. No incluyas datos personales en las notas.</p>
+            <p>Gemini analizará fotografías y un fotograma representativo de cada video para adaptar los subtítulos. No incluyas datos personales en las notas.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
-            <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para enviar estas fotografías a Gemini para análisis visual, además de utilizarlas en publicidad.</span></label>
+            <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para analizar con Gemini las fotografías y fotogramas de los videos, y para utilizarlos en publicidad.</span></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
             {narrationEnabled && <label className="ad-studio-field">Voz de la narración
               <select value={narrationVoice} onChange={event => { setNarrationVoice(event.target.value); clearRender(); }}>
