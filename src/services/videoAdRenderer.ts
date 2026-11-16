@@ -107,7 +107,7 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
   });
 }
 
-function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle): string {
+function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle, isClosing: boolean): string {
   const source = kind === "image"
     ? `[0:v]${photoMotionFilter(index, style)},format=yuv420p[background];`
     : `[0:v]split=2[back][front];` +
@@ -119,9 +119,12 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
   const captionDuration = Math.min(captionFade, seconds / 5);
   const captionStart = Math.max(0, seconds - captionDuration);
 
-  return source +
-    `[1:v]format=rgba,fade=t=in:st=0:d=${captionDuration}:alpha=1,` +
-    `fade=t=out:st=${captionStart}:d=${captionDuration}:alpha=1[captions];` +
+  const captions = isClosing
+    ? "[1:v]format=rgba[captions];"
+    : `[1:v]format=rgba,fade=t=in:st=0:d=${captionDuration}:alpha=1,` +
+      `fade=t=out:st=${captionStart}:d=${captionDuration}:alpha=1[captions];`;
+
+  return source + captions +
     `[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]`;
 }
 
@@ -265,7 +268,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, scenes.length));
 
       const duration = String(scene.seconds);
-      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style);
+      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === scenes.length - 1);
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
