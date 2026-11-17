@@ -91,6 +91,7 @@ export default function VideoAdStudio() {
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(false);
   const [narrationEnabled, setNarrationEnabled] = useState(false);
+  const [includeClosing, setIncludeClosing] = useState(true);
   const [narrationVoice, setNarrationVoice] = useState("Kore");
   const [narrationProvider, setNarrationProvider] = useState<"gemini" | "elevenlabs">("elevenlabs");
   const [captionFont, setCaptionFont] = useState("arial");
@@ -120,6 +121,7 @@ export default function VideoAdStudio() {
 
   const active = assets.find(asset => asset.id === activeId) ?? assets[0];
   const assignedSeconds = scenes.reduce((total, scene) => total + scene.seconds, 0);
+  const finalSeconds = assignedSeconds + (includeClosing ? 6 : 0);
   const isDraftCurrent = scenes.length > 0 && scenes.every(scene => assets.some(asset => asset.id === scene.assetId));
   const summary = useMemo(() => ({
     goal: goal === "whatsapp" ? "Consultas por WhatsApp" : goal === "confianza" ? "Confianza en la clínica" : "Educación del paciente",
@@ -245,7 +247,7 @@ export default function VideoAdStudio() {
   }
 
   async function renderAd() {
-    if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || assignedSeconds > 60) return;
+    if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || finalSeconds > 60) return;
     if (scenes.length === 1 && assignedSeconds > 30) { setError("Para un anuncio de 60 segundos agrega más fotografías o clips."); return; }
     setRendering(true);
     setError("");
@@ -258,6 +260,7 @@ export default function VideoAdStudio() {
     form.set("narrationProvider", narrationProvider);
     form.set("captionFont", captionFont);
     form.set("narration", String(narrationEnabled));
+    form.set("includeClosing", String(includeClosing));
     if (musicFile) {
       form.set("music", musicFile);
       form.set("musicVolume", String(musicVolume / 100));
@@ -435,6 +438,10 @@ export default function VideoAdStudio() {
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para analizar con Gemini las fotografías y fotogramas de los videos, y para utilizarlos en publicidad.</span></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con IA. ElevenLabs ofrece voces más naturales; requiere una cuenta y créditos disponibles.</span></label>
+            <label className="ad-studio-field">
+              <input type="checkbox" checked={includeClosing} onChange={event => { setIncludeClosing(event.target.checked); clearRender(); }} />
+              Cierre comercial · Transforma tu sonrisa. Contáctanos por WhatsApp (+6 s)
+            </label>
             {narrationEnabled && <label className="ad-studio-field">Motor de narración
               <select value={narrationProvider} onChange={event => { setNarrationProvider(event.target.value as "gemini" | "elevenlabs"); clearRender(); }}>
                 <option value="elevenlabs">ElevenLabs · Voz natural</option>
