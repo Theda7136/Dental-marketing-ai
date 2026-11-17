@@ -1,3 +1,4 @@
+import { compactNarration, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import ffmpegStatic from "ffmpeg-static";
 
 const API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
-export async function generateElevenLabsNarration(script: string): Promise<Buffer> {
+async function synthesize(script: string, language: "es-CO" | "en-US", timed: boolean): Promise<{ pcm: Buffer; alignment?: CharacterAlignment }> {
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
   if (!apiKey || !voiceId) {
@@ -14,19 +15,20 @@ export async function generateElevenLabsNarration(script: string): Promise<Buffe
   }
 
   const text = script.trim();
-  if (!text || text.length > 1200) {
-    throw new Error("El texto de narración debe tener entre 1 y 1200 caracteres.");
+  if (!text || text.length > 2400) {
+    throw new Error("El texto de narración debe tener entre 1 y 2400 caracteres.");
   }
 
-  const response = await fetch(`${API_URL}/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
+  const response = await fetch(`${API_URL}/${encodeURIComponent(voiceId)}${timed ? "/with-timestamps" : ""}?output_format=mp3_44100_128`, {
     method: "POST",
     headers: {
       "xi-api-key": apiKey,
       "Content-Type": "application/json",
-      "Accept": "audio/mpeg",
+      "Accept": timed ? "application/json" : "audio/mpeg",
     },
     body: JSON.stringify({
       text,
+      language_code: language === "en-US" ? "en" : "es",
       model_id: "eleven_multilingual_v2",
       voice_settings: { stability: 0.55, similarity_boost: 0.78, style: 0.18, use_speaker_boost: true },
     }),
@@ -41,7 +43,8 @@ export async function generateElevenLabsNarration(script: string): Promise<Buffe
     throw new Error(`ElevenLabs no pudo generar la voz (HTTP ${response.status}).`);
   }
 
-  const mp3 = Buffer.from(await response.arrayBuffer());
+  const payload = timed ? await response.json() : undefined;
+  const mp3 = timed ? Buffer.from(payload.audio_base64 ?? "", "base64") : Buffer.from(await response.arrayBuffer());
   if (!mp3.length || mp3.length > 8_000_000) {
     throw new Error("ElevenLabs devolvió un audio vacío o demasiado grande.");
   }
@@ -72,8 +75,37 @@ export async function generateElevenLabsNarration(script: string): Promise<Buffe
     if (!pcm.length || pcm.length > 12_000_000) {
       throw new Error("La narración convertida no es válida.");
     }
-    return pcm;
+    return { pcm, alignment: payload?.alignment };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+
+type CharacterAlignment = { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };
+
+export async function generateElevenLabsNarration(script: string, language: "es-CO" | "en-US" = "es-CO"): Promise<Buffer> {
+  return (await synthesize(script, language, false)).pcm;
+}
+
+export async function generateElevenLabsTimedNarration(segments: string[], language: "es-CO" | "en-US"): Promise<NarrationTrack> {
+  const text = segments.map(segment => segment.trim()).join("\n");
+  const { pcm, alignment } = await synthesize(text, language, true);
+  const chars = Array.from(text);
+  if (!alignment || !Array.isArray(alignment.characters) || alignment.characters.join("") !== text ||
+      alignment.character_start_times_seconds?.length !== chars.length || alignment.character_end_times_seconds?.length !== chars.length ||
+      alignment.character_start_times_seconds.some((start, i) => !Number.isFinite(start) || start < 0 ||
+        !Number.isFinite(alignment.character_end_times_seconds[i]) || alignment.character_end_times_seconds[i] < start ||
+        alignment.character_end_times_seconds[i] > pcm.length / 48000 + 0.05 ||
+        (i > 0 && start < alignment.character_start_times_seconds[i - 1]))) {
+    throw new Error("ElevenLabs no devolvió tiempos válidos para el guion completo.");
+  }
+  const compact = compactNarration(pcm);
+  let offset = 0;
+  const starts = segments.map((segment, i) => {
+    const start = i === 0 ? 0 : compact.mapTime(alignment.character_start_times_seconds[offset]);
+    offset += Array.from(segment.trim()).length + 1;
+    return start;
+  });
+  return { pcm: compact.pcm, starts };
 }

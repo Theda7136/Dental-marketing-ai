@@ -7,7 +7,7 @@ export async function generateGeminiNarration(script: string, voice: GeminiVoice
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("Configura GEMINI_API_KEY para generar la narración.");
   const text = script.trim();
-  if (!text || text.length > 1200) throw new Error("El guion de narración debe tener entre 1 y 1200 caracteres.");
+  if (!text || text.length > 2400) throw new Error("El guion de narración debe tener entre 1 y 2400 caracteres.");
 
   const response = await fetch(TTS_URL, {
     method: "POST",
@@ -30,12 +30,16 @@ export async function generateGeminiNarration(script: string, voice: GeminiVoice
   const payload = await response.json() as {
     candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
   };
-  const audio = payload.candidates?.flatMap(candidate => candidate.content?.parts ?? [])
-    .find(part => part.inlineData?.data && part.inlineData.mimeType?.startsWith("audio/"))?.inlineData;
-  if (!audio?.data || !audio.mimeType?.includes("audio/")) {
+  const parts = payload.candidates?.[0]?.content?.parts ?? [];
+  const audio = parts.flatMap(part => part.inlineData?.data && part.inlineData.mimeType?.startsWith("audio/") ? [part.inlineData] : []);
+  if (!audio.length) {
     throw new Error("Gemini no devolvió audio. Prueba otra voz o utiliza ElevenLabs; revisa también la disponibilidad y cuota del modelo TTS.");
   }
-  const pcm = Buffer.from(audio.data, "base64");
-  if (!pcm.length || pcm.length > 12_000_000) throw new Error("El audio generado es inválido o demasiado grande.");
+  if (audio.some(part => !/^audio\/(?:L16|pcm)(?:;|$)/i.test(part.mimeType!) ||
+      !/rate=24000(?:;|$)/i.test(part.mimeType!) || /channels=(?!1(?:;|$))/.test(part.mimeType!))) {
+    throw new Error("Gemini devolvió un formato de audio no compatible: se requiere PCM mono a 24 kHz.");
+  }
+  const pcm = Buffer.concat(audio.map(part => Buffer.from(part.data!, "base64")));
+  if (!pcm.length || pcm.length % 2 || pcm.length > 12_000_000) throw new Error("El audio generado es inválido o demasiado grande.");
   return pcm;
 }

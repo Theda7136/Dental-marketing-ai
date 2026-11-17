@@ -32,3 +32,35 @@ export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
 
   return { ...draft, scenes };
 }
+
+
+const genericCopy = [
+  /advanced (?:digital )?(?:technology|planning)/i,
+  /personalized approach|natural[- ]looking finish|quality materials/i,
+  /tecnolog[ií]a avanzada|dise[nñ]o personalizado|materiales de (?:alta )?calidad|resultados precisos/i,
+  /transform(?:a|amos|ing)? (?:tu|your) (?:sonrisa|smile)|sonrisa de tus sue[nñ]os|smile of your dreams/i,
+  /instalaciones equipadas para ti|an[aá]lisis cl[ií]nico profesional/i,
+];
+const unsupportedClaims = [
+  /guarantee(?:d|s)?|pain[- ]?free|risk[- ]?free|no side effects|permanent results|100\s*%/i,
+  /sin dolor|sin riesgos?|sin efectos secundarios|garantizad[oa]s?|resultados permanentes/i,
+  /(?:best|finest|superior|highest)[ -](?:quality|materials|results|dentist)|board[- ]certified/i,
+  /(?:mejores|superiores) (?:materiales|resultados)|certificad[oa]s?|alta precisi[oó]n/i,
+  /(?:zirconia|zirconio|porcelain|porcelana|titanium|titanio)|before and after|antes y despu[eé]s/i,
+  /(?:in|en) (?:just |solo )?\d+ (?:days?|d[ií]as?|sessions?|sesiones)|\$\s*\d+/i,
+];
+
+export function validateCommercialText(text: string, language?: "es-CO" | "en-US"): void {
+  if (looksLikeProductionInstruction(text)) throw new Error("El texto contiene instrucciones de producción.");
+  if (!text.trim()) throw new Error("El texto publicitario no puede estar vacío.");
+  if (genericCopy.some(pattern => pattern.test(text))) {
+    throw new Error("El guion contiene frases genéricas. Describe un detalle visible concreto y su relación con la consulta.");
+  }
+  if (unsupportedClaims.some(pattern => pattern.test(text))) {
+    throw new Error("El guion contiene afirmaciones no verificadas sobre materiales, resultados o credenciales.");
+  }
+  if ((language === "en-US" && /\b(?:agenda tu|cont[aá]ctanos|valoraci[oó]n|sonrisa|escr[ií]benos|conoce tus)\b/i.test(text)) ||
+      (language === "es-CO" && /\b(?:book your|contact us|your smile|schedule your|message us)\b/i.test(text))) {
+    throw new Error("El guion mezcla idiomas. Usa únicamente el idioma seleccionado.");
+  }
+}

@@ -203,7 +203,7 @@ export default function VideoAdStudio() {
       }
       const response = await fetch("/api/video-ads/scripts", {
         method: "POST",
-        signal: AbortSignal.timeout(32000),
+        signal: AbortSignal.timeout(175000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           procedure: treatment, goal, duration, language, sceneCount: assets.length, clinicContext, visualDescriptions: observations,
@@ -234,8 +234,9 @@ export default function VideoAdStudio() {
   function useVariant(variant: AdVariant) {
     setSelectedTone(variant.tone);
     if (assets.length === variant.scenes.length) {
-      const base = Math.floor(duration / assets.length);
-      const remainder = duration % assets.length;
+      const sceneBudget = Math.max(assets.length, duration - 6);
+      const base = Math.floor(sceneBudget / assets.length);
+      const remainder = sceneBudget % assets.length;
       setScenes(assets.map((asset, index) => ({
         assetId: asset.id,
         heading: variant.scenes[index],
@@ -249,7 +250,6 @@ export default function VideoAdStudio() {
 
   async function renderAd() {
     if (!isDraftCurrent || rendering || !visionConsent || assignedSeconds < 1 || finalSeconds > 60) return;
-    if (scenes.length === 1 && assignedSeconds > 30) { setError("Para un anuncio de 60 segundos agrega más fotografías o clips."); return; }
     setRendering(true);
     setError("");
     clearRender();
@@ -432,9 +432,9 @@ export default function VideoAdStudio() {
               <input id="ad-music-volume" type="range" min="5" max="50" step="1" value={musicVolume} onChange={event => { setMusicVolume(Number(event.target.value)); clearRender(); }} />
               <button type="button" onClick={() => { setMusicFile(null); if (musicInput.current) musicInput.current.value = ""; clearRender(); }}>Quitar música</button>
             </>}
-            <small>Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
+            <small>Con narración, las escenas y el cierre siguen la duración real de la voz (máximo 60 s). Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
           </div>
-          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(value / previous.length) + (index < value % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
+          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(Math.max(previous.length, value - 6) / previous.length) + (index < Math.max(previous.length, value - 6) % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
             <p>Gemini analizará fotografías y un fotograma representativo de cada video para adaptar los subtítulos. No incluyas datos personales en las notas.</p>

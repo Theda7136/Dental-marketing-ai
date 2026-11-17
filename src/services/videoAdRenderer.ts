@@ -1,3 +1,4 @@
+import { narrationDurations, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +8,11 @@ import ffmpegStatic from "ffmpeg-static";
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
+const adLabels = {
+  "es-CO": { footer: "Información · Valoración profesional", contact: "Agenda tu valoración", cta: "Conoce tus opciones. Escríbenos por WhatsApp." },
+  "en-US": { footer: "Information · Professional consultation", contact: "Book a consultation", cta: "Explore your options. Message us on WhatsApp." },
+};
+export type AdLanguage = keyof typeof adLabels;
 const MAX_FILES = 12;
 const MAX_FILE_BYTES = 80 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 120 * 1024 * 1024;
@@ -59,7 +65,7 @@ export function validateAdScenes(scenes: AdScene[]): void {
       throw new Error("Uno de los archivos multimedia no es válido o supera 80 MB.");
     }
     if (!Number.isInteger(scene.seconds) || scene.seconds < 1 || scene.seconds > MAX_SECONDS) {
-      throw new Error("La duración de cada escena debe estar entre 1 y 45 segundos.");
+      throw new Error("La duración de cada escena debe estar entre 1 y 60 segundos.");
     }
     if (typeof scene.heading !== "string" || scene.heading.length > 180 ||
         typeof scene.filename !== "string" || scene.filename.length > 180) {
@@ -92,6 +98,7 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
       windowsHide: true,
       stdio: ["ignore", "ignore", "pipe"] as const,
     });
+    child.stderr.resume();
     let settled = false;
     const timer = setTimeout(() => {
       child.kill();
@@ -115,39 +122,23 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
 }
 
 function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle, isClosing: boolean): string {
+  // Fit the entire clinical source, without zoom, crop, retouching or a blurred duplicate.
   const source = kind === "image"
-    ? `[0:v]${photoMotionFilter(index, style)},format=yuv420p[background];`
-    : `[0:v]split=2[back][front];` +
-      `[back]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},boxblur=24:2,eq=brightness=-0.10[blur];` +
-      `[front]scale=968:1460:force_original_aspect_ratio=decrease,setsar=1[subject];` +
-      `[blur][subject]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=${FRAME_RATE},tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
-
-  const captionFade = style === "dinamico" ? 0.18 : style === "educativo" ? 0.55 : 0.4;
-  const captionDuration = Math.min(captionFade, seconds / 5);
-  const captionStart = Math.max(0, seconds - captionDuration);
-
-  const captions = isClosing
-    ? "[1:v]format=rgba[captions];"
-    : `[1:v]format=rgba,fade=t=in:st=0:d=${captionDuration}:alpha=1,` +
-      `fade=t=out:st=${captionStart}:d=${captionDuration}:alpha=1[captions];`;
-
-  return source + captions +
-    `[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]`;
+    ? `[0:v]setsar=1,format=yuv420p[background];`
+    : `[0:v]scale=${WIDTH}:1260:force_original_aspect_ratio=decrease,setsar=1,` +
+      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:210+(1260-ih)/2:color=0x081e1b,fps=${FRAME_RATE},` +
+      `tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
+  return source + "[1:v]format=rgba[captions];" +
+    "[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]";
 }
 
+// Kept as a public helper for callers; clinical photographs remain stationary.
 export function photoMotionFilter(index: number, style: VideoAdStyle = "premium"): string {
-  const speed = style === "dinamico" ? 0.0008 : style === "educativo" ? 0.00025 : 0.00045;
-  const magnitude = style === "dinamico" ? 1.065 : style === "educativo" ? 1.022 : 1.04;
-  const approach = index % 2 === 0;
-  const zoom = approach
-    ? `min(zoom+${speed},${magnitude})`
-    : `if(eq(on,0),${magnitude},max(zoom-${speed},1.0))`;
-  return `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':` +
-    `d=1:s=${WIDTH}x${HEIGHT}:fps=${FRAME_RATE},setsar=1`;
+  return `fps=${FRAME_RATE},setsar=1`;
 }
 
 function wrapCaption(text: string, limit = 24): string[] {
-  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const words = text.replace(/\s+/g, " ").trim().split(" ").flatMap(word => word.match(new RegExp(`.{1,${limit}}`, "gu")) ?? []);
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -164,18 +155,16 @@ function wrapCaption(text: string, limit = 24): string[] {
 }
 
 async function captionOverlay(
-  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont,
+  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont, language: AdLanguage,
 ): Promise<Buffer> {
-  const isOpening = index === 0;
-  const isClosing = index === total - 1;
   const accent = safeColor(brand.primaryColor);
   const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
   const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
-  const lines = wrapCaption(heading, 22);
+  const lines = wrapCaption(heading, 34);
   const baseSize = style === "dinamico" ? 68 : style === "educativo" ? 58 : 64;
-  const fontSize = Math.max(38, Math.min(baseSize, Math.floor(390 / Math.max(1, lines.length)) - 10));
-  const lineHeight = fontSize + 14;
-  const textBottom = isClosing ? 1430 : 1500;
+  const fontSize = Math.max(26, Math.min(baseSize, Math.floor(860 / (Math.max(...lines.map(line => line.length), 1) * 0.7)), Math.floor(250 / Math.max(1, lines.length)) - 8));
+  const lineHeight = fontSize + 8;
+  const textBottom = 1720;
   const textTop = textBottom - (lines.length - 1) * lineHeight;
   const textNodes = lines.map((line, number) => {
     const estimatedWidth = line.length * fontSize * 0.62;
@@ -183,33 +172,17 @@ async function captionOverlay(
     return `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}" textLength="${width}" lengthAdjust="spacingAndGlyphs">${escapeXml(line)}</text>`;
   }).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
-    <defs>
-      <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#061916" stop-opacity=".63"/>
-        <stop offset="28%" stop-color="#061916" stop-opacity="0"/>
-        <stop offset="64%" stop-color="#061916" stop-opacity=".18"/>
-        <stop offset="100%" stop-color="#061916" stop-opacity=".94"/>
-      </linearGradient>
-    </defs>
-    <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
+    <rect x="0" y="1480" width="${WIDTH}" height="440" fill="#081e1b"/>
     <rect x="70" y="92" rx="22" width="940" height="100" fill="#061916" fill-opacity=".64"/>
     <rect x="88" y="111" rx="4" width="5" height="62" fill="${accent}"/>
     ${hasLogo ? '<rect x="108" y="102" rx="13" width="140" height="80" fill="#fff"/>' : ""}
     <text x="${hasLogo ? 268 : 120}" y="155" fill="white" font-size="${hasLogo ? 37 : 42}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
     ${textNodes}
     <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
-    <text x="92" y="1878" fill="#fff" font-size="28" font-family="Arial, sans-serif" fill-opacity=".8">Contenido informativo · Valoración profesional</text>
+    <text x="92" y="1878" fill="#fff" font-size="28" font-family="Arial, sans-serif" fill-opacity=".8">${adLabels[language].footer}</text>
   </svg>`);
 
   const layers: sharp.OverlayOptions[] = [{ input: svg }];
-  if (false && isClosing) {
-    const button = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="92">
-      <rect width="600" height="92" rx="18" fill="#116D60"/>
-      <text x="300" y="59" text-anchor="middle" fill="#FFFFFF" font-size="40"
-        font-family="Arial, sans-serif" font-weight="700">Solicita tu valoración</text>
-    </svg>`);
-    layers.push({ input: await sharp(button).png().toBuffer(), left: 92, top: 1520 });
-  }
   if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
     const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
     if (logoBytes.length && logoBytes.length <= 500_000) {
@@ -227,53 +200,22 @@ async function captionOverlay(
     .composite(layers).png().toBuffer();
 }
 
-async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
-  const metadata = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 }).metadata();
-  const rotated = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
-  const width = rotated ? metadata.height : metadata.width;
-  const height = rotated ? metadata.width : metadata.height;
-  const ratio = width && height ? width / height : 1;
-
-  if (ratio >= 0.49 && ratio <= 0.76) {
-    return sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-      .rotate().resize(WIDTH, HEIGHT, { fit: "cover", position: "attention" })
-      .png().toBuffer();
-  }
-
-  const background = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(WIDTH, HEIGHT, { fit: "cover" })
-    .blur(28).modulate({ brightness: 0.84 }).png().toBuffer();
-
+export async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
   const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(1040, 1580, { fit: "inside", withoutEnlargement: false })
-    .png().toBuffer();
+    .rotate().resize(WIDTH, 1260, { fit: "inside", withoutEnlargement: false }).png().toBuffer();
   const dimensions = await sharp(foreground).metadata();
-  const x = Math.round((WIDTH - (dimensions.width ?? 0)) / 2);
-  const y = Math.round(820 - (dimensions.height ?? 0) / 2);
-
-  return sharp(background)
-    .composite([{ input: foreground, left: x, top: Math.max(205, y) }])
-    .png().toBuffer();
+  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: "#081e1b" } })
+    .composite([{ input: foreground, left: Math.round((WIDTH - dimensions.width!) / 2),
+      top: 210 + Math.round((1260 - dimensions.height!) / 2) }]).png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { narration?: Buffer; text?: string; whatsapp?: string }): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: NarrationTrack, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { text?: string; whatsapp?: string }, language: AdLanguage = "es-CO"): Promise<Buffer> {
   validateAdScenes(scenes);
-  if (narration && narration.length !== scenes.length) {
-    throw new Error("La narración no coincide con las escenas del anuncio.");
-  }
-
-  // Los clips de video siguen el ritmo de la voz; las fotografías conservan su duración.
-  const timedScenes = scenes.map((scene, index) => {
-    if (scene.kind !== "video" || !narration?.[index]) return scene;
-    const voiceSeconds = narration[index].byteLength / (24000 * 2);
-    const seconds = Math.min(scene.seconds, Math.max(1, Math.ceil(voiceSeconds + 0.6)));
-    if (voiceSeconds > scene.seconds - 0.2) {
-      throw new Error(`La narración de la escena ${index + 1} supera su duración. Acorta el subtítulo o amplía la escena.`);
-    }
-    return { ...scene, seconds };
-  });
-  if (closing && timedScenes.reduce((total, scene) => total + scene.seconds, 0) + 6 > MAX_SECONDS) {
-    throw new Error("Reserva seis segundos para el cierre comercial. Reduce la duración de las escenas.");
+  const durations = narration ? narrationDurations(narration, scenes.length + (closing ? 1 : 0)) : undefined;
+  const timedScenes = scenes.map((scene, index) => ({ ...scene, seconds: durations?.[index] ?? scene.seconds }));
+  const closingSeconds = closing ? (durations?.[scenes.length] ?? 6) : 0;
+  if (timedScenes.reduce((total, scene) => total + scene.seconds, 0) + closingSeconds > MAX_SECONDS + 1 / FRAME_RATE) {
+    throw new Error("El anuncio completo, incluido el cierre, no puede superar 60 segundos.");
   }
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
@@ -290,7 +232,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const overlay = path.join(directory, `overlay-${index}.png`);
       const output = path.join(directory, `scene-${index}.mp4`);
       await writeFile(source, scene.kind === "image" ? await preparePhotoScene(scene.bytes) : scene.bytes);
-      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont));
+      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont, language));
 
       const duration = String(scene.seconds);
       const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1);
@@ -308,30 +250,24 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     }
 
     if (closing) {
-      const closingSeconds = 6;
       const closingPath = path.join(directory, "closing.png");
       const closingVideo = path.join(directory, "closing.mp4");
       const accent = safeColor(brand.primaryColor);
       const clinic = escapeXml(brand.clinicName.slice(0, 40));
-      const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : "Agenda tu valoración";
-      const callToAction = (closing.text ?? "Transforma tu sonrisa. Contáctanos por WhatsApp.").trim();
-      const headline = callToAction.split(/[.!?]/)[0]?.trim() || "Transforma tu sonrisa";
-      const action = callToAction.slice(headline.length).replace(/^[.!?\\s]+/, "").trim() || "Contáctanos por WhatsApp";
-      const headlineLines = wrapCaption(headline, 23).slice(0, 3);
-      const actionLines = wrapCaption(action, 24).slice(0, 3);
-      const headlineSize = headlineLines.length > 1 ? 60 : 68;
-      const actionSize = actionLines.length > 1 ? 40 : 45;
-      const headlineSvg = headlineLines.map((line, index) => `<text x="540" y="${735 + index * 76}" text-anchor="middle" fill="#ffffff" font-size="${headlineSize}" font-weight="700" font-family="Arial, sans-serif">${escapeXml(line)}</text>`).join("");
-      const actionSvg = actionLines.map((line, index) => `<text x="540" y="${1062 + index * 54}" text-anchor="middle" fill="#ffffff" font-size="${actionSize}" font-weight="700" font-family="Arial, sans-serif">${escapeXml(line)}</text>`).join("");
+      const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : adLabels[language].contact;
+      const callToAction = (closing.text ?? adLabels[language].cta).trim();
+      const headlineLines = wrapCaption(callToAction, 25);
+      const headlineSize = Math.min(headlineLines.length > 5 ? 48 : 60, Math.floor(880 / (Math.max(...headlineLines.map(line => line.length), 1) * 0.8)));
+      const headlineSvg = headlineLines.map((line, index) => `<text x="100" y="${700 + index * 78}" fill="#ffffff" font-size="${headlineSize}" font-weight="500" font-family="${captionFamilies[captionFont]}">${escapeXml(line)}</text>`).join("");
       const closingSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
         <rect width="1080" height="1920" fill="#081e1b"/>
         <rect x="0" y="0" width="1080" height="18" fill="${accent}"/>
-        <circle cx="540" cy="775" r="330" fill="${accent}" opacity=".13"/>
+        <path d="M100 550 H300" stroke="${accent}" stroke-width="6"/>
         <text x="540" y="340" text-anchor="middle" fill="#c5ded8" font-size="40" font-family="Arial, sans-serif">${clinic}</text>
         ${headlineSvg}
-        <rect x="100" y="970" width="880" height="${Math.max(145, actionLines.length * 54 + 65)}" rx="30" fill="#116D60" stroke="#d2e9e0" stroke-width="3"/>
-        ${actionSvg}
-        <text x="540" y="1300" text-anchor="middle" fill="#d4e8e2" font-size="39" font-family="Arial, sans-serif">${contact}</text>
+        <path d="M100 1390 H980" stroke="#c5ded8" stroke-opacity=".35"/>
+        <text x="100" y="1470" fill="#d4e8e2" font-size="36" font-family="Arial, sans-serif">${contact}</text>
+        <text x="100" y="1790" fill="#c5ded8" font-size="26" font-family="Arial, sans-serif">${adLabels[language].footer}</text>
       </svg>`);
       const closingLayers: sharp.OverlayOptions[] = [{ input: closingSvg }];
       if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
@@ -347,7 +283,6 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         "-pix_fmt", "yuv420p", "-r", String(FRAME_RATE), closingVideo]);
       rendered.push(closingVideo);
       timedScenes.push({ filename: "closing.png", bytes: Buffer.from([1]), kind: "image", seconds: closingSeconds, heading: "" });
-      if (narration) narration = [...narration, closing.narration ?? Buffer.alloc(0)];
     }
 
     const joined = path.join(directory, "advertisement.mp4");
@@ -359,10 +294,12 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     let elapsed = timedScenes[0].seconds;
 
     for (let index = 1; index < rendered.length; index++) {
-      const overlap = Math.min(transition, timedScenes[index - 1].seconds / 4, timedScenes[index].seconds / 4);
+      const overlap = narration ? 0 : Math.min(transition, timedScenes[index - 1].seconds / 4, timedScenes[index].seconds / 4);
       const offset = Math.max(0, elapsed - overlap);
       const output = `mix${index}`;
-      filters.push(`[${previous}][v${index}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${output}]`);
+      filters.push(narration
+        ? `[${previous}][v${index}]concat=n=2:v=1:a=0[${output}]`
+        : `[${previous}][v${index}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${output}]`);
       previous = output;
       elapsed = offset + timedScenes[index].seconds;
     }
@@ -373,27 +310,18 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", joined,
     ]);
-    if (narration?.length || music?.bytes.length) {
+    if (narration?.pcm.length || music?.bytes.length) {
       const output = path.join(directory, "advertisement-audio.mp4");
       const inputs = ["-i", joined];
       const filters: string[] = [];
       let nextInput = 1;
 
-      if (narration?.length) {
-        const voiceInputs: string[] = [];
-        let position = 0;
-        for (const [index, clip] of narration.entries()) {
-          const pcmPath = path.join(directory, `narration-${index}.pcm`);
-          await writeFile(pcmPath, clip);
-          inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath);
-          const sceneSeconds = timedScenes[index].seconds;
-          const overlap = index === 0 ? 0 : Math.min(transition, timedScenes[index - 1].seconds / 4, sceneSeconds / 4);
-          position += index === 0 ? 0 : timedScenes[index - 1].seconds - overlap;
-          filters.push(`[${nextInput}:a]aresample=48000,atrim=duration=${Math.max(0.2, sceneSeconds - 0.2)},adelay=${Math.round(position * 1000)}:all=1[voice${index}]`);
-          voiceInputs.push(`[voice${index}]`);
-          nextInput++;
-        }
-        filters.push(`${voiceInputs.join("")}amix=inputs=${voiceInputs.length}:duration=longest:normalize=0,apad[voice]`);
+      if (narration?.pcm.length) {
+        const pcmPath = path.join(directory, "narration.pcm");
+        await writeFile(pcmPath, narration.pcm);
+        inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath);
+        filters.push(`[${nextInput}:a]aresample=48000,apad=pad_dur=0.05[voice]`);
+        nextInput++;
       }
 
       if (music?.bytes.length) {
@@ -401,9 +329,10 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         await writeFile(musicPath, music.bytes);
         inputs.push("-stream_loop", "-1", "-i", musicPath);
         filters.push(`[${nextInput}:a]aresample=48000,volume=${music.volume},afade=t=in:st=0:d=1.2,afade=t=out:st=${Math.max(0, elapsed - 1.5)}:d=1.5[music]`);
-        if (narration?.length) {
-          filters.push("[music][voice]sidechaincompress=threshold=0.025:ratio=8:attack=50:release=450[ducked]");
-          filters.push("[ducked][voice]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[audio]");
+        if (narration?.pcm.length) {
+          filters.push("[voice]asplit=2[sidechain][narration]");
+          filters.push("[music][sidechain]sidechaincompress=threshold=0.025:ratio=8:attack=50:release=450[ducked]");
+          filters.push("[ducked][narration]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[audio]");
         } else {
           filters.push("[music]alimiter=limit=0.95[audio]");
         }

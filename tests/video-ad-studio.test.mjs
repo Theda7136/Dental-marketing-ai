@@ -48,7 +48,7 @@ test("AI drafts are editable and rendering remains a separate explicit action", 
 });
 
 test("Gemini request times out visibly next to the generate button", () => {
-  assert.match(source, /AbortSignal\.timeout\(32000\)/);
+  assert.match(source, /AbortSignal\.timeout\(175000\)/);
   assert.match(source, /setScriptError\(message\)/);
   assert.match(source, /scriptError && <p role="alert"/);
 });

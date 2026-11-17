@@ -1,0 +1,70 @@
+export type NarrationTrack = { pcm: Buffer; starts: number[] };
+const RATE = 24000;
+
+// Keep natural breaths, but remove provider padding and long dead air. PCM is
+// mono signed 16-bit little endian at 24 kHz throughout the pipeline.
+export function compactNarration(pcm: Buffer) {
+  if (!pcm.length || pcm.length % 2 || pcm.length > RATE * 2 * 90) {
+    throw new Error("La narración está vacía, es inválida o supera 90 segundos.");
+  }
+  const window = 240;
+  const active: boolean[] = [];
+  for (let offset = 0; offset < pcm.length / 2; offset += window) {
+    let energy = 0;
+    const count = Math.min(window, pcm.length / 2 - offset);
+    for (let i = 0; i < count; i++) energy += (pcm.readInt16LE((offset + i) * 2) / 32768) ** 2;
+    active.push(Math.sqrt(energy / count) > 0.003);
+  }
+  const first = active.indexOf(true);
+  const last = active.lastIndexOf(true);
+  if (first < 0) throw new Error("El proveedor devolvió una narración silenciosa.");
+  const keep: { from: number; to: number; output: number }[] = [];
+  let output = 0;
+  for (let i = Math.max(0, first - 3); i <= Math.min(active.length - 1, last + 5);) {
+    let end = i + 1;
+    while (end < active.length && active[end] === active[i]) end++;
+    end = Math.min(end, last + 6);
+    const count = !active[i] && end - i > 30 ? 20 : end - i;
+    const from = i * window * 2;
+    const to = Math.min(pcm.length, (i + count) * window * 2);
+    keep.push({ from, to, output });
+    output += to - from;
+    i = end;
+  }
+  const result = Buffer.concat(keep.map(range => pcm.subarray(range.from, range.to)));
+  return {
+    pcm: result,
+    mapTime(seconds: number) {
+      const byte = seconds * RATE * 2;
+      for (const range of keep) {
+        if (byte <= range.to) return (range.output + Math.max(0, byte - range.from)) / (RATE * 2);
+      }
+      return result.length / (RATE * 2);
+    },
+  };
+}
+
+export function narrationDurations(track: NarrationTrack, count: number, fps = 24): number[] {
+  const duration = track.pcm.length / (RATE * 2);
+  if (!track.pcm.length || track.pcm.length % 2 || duration > 60 || track.starts.length !== count) {
+    throw new Error("La narración debe estar completa y durar como máximo 60 segundos.");
+  }
+  const frames = track.starts.map(time => Math.round(time * fps));
+  if (track.starts.some(time => !Number.isFinite(time) || time < 0 || time >= duration) ||
+      frames[0] !== 0 || frames.some((frame, i) => i > 0 && frame <= frames[i - 1])) {
+    throw new Error("No se pudo sincronizar la narración con todas las escenas. Vuelve a generar la voz.");
+  }
+  const end = Math.ceil(duration * fps);
+  if (frames[frames.length - 1] >= end) throw new Error("La última escena no tiene duración suficiente para sincronizarse.");
+  return frames.map((frame, i) => ((frames[i + 1] ?? end) - frame) / fps);
+}
+
+export function pcmWave(pcm: Buffer): Buffer {
+  const header = Buffer.alloc(44);
+  header.write("RIFF"); header.writeUInt32LE(pcm.length + 36, 4); header.write("WAVEfmt ", 8);
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(RATE, 24); header.writeUInt32LE(RATE * 2, 28);
+  header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
+  header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}

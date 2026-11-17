@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getStudioAccess } from "@/lib/studioAccess";
 import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
-import { renderVideoAd, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
-import { generateGeminiNarration, GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
-import { generateElevenLabsNarration } from "@/services/elevenLabsNarration";
+import { renderVideoAd, validateAdScenes, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
+import { GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
+import { generateVideoAdNarration } from "@/services/videoAdNarration";
+import { validateCommercialText } from "@/services/videoAdCopy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const MAX_BODY_BYTES = 125 * 1024 * 1024;
 const MAX_SCENES = 12;
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "El material supera los 120 MB permitidos." }, { status: 413 });
       }
       clinicalGuardrails.validate(scene.heading);
+      validateCommercialText(scene.heading, language);
       records.push({
         filename: file.name,
         bytes: Buffer.from(await file.arrayBuffer()),
@@ -111,7 +113,11 @@ export async function POST(request: Request) {
         ? "Explore your options. Message our Medellín clinic on WhatsApp."
         : "Conoce tus opciones. Escríbenos por WhatsApp.";
     if (closingText.length > 150) return NextResponse.json({ error: "El cierre comercial es demasiado largo." }, { status: 400 });
-    clinicalGuardrails.validate(closingText);
+    if (includeClosing) {
+      clinicalGuardrails.validate(closingText);
+      validateCommercialText(closingText, language);
+    }
+    validateAdScenes(records);
     if (narrationEnabled && records.some(scene => scene.heading.length > 180)) {
       return NextResponse.json({ error: "Revisa la longitud de los subtítulos." }, { status: 400 });
     }
@@ -127,20 +133,14 @@ export async function POST(request: Request) {
     renderInProgress = true;
     let video: Buffer;
     try {
+      const segments = [...records.map(scene => scene.heading.trim()), ...(includeClosing ? [closingText] : [])];
       const narration = narrationEnabled
-        ? await Promise.all(records.map(scene => provider === "elevenlabs"
-          ? generateElevenLabsNarration(scene.heading)
-          : generateGeminiNarration(scene.heading, voice as GeminiVoice, language)))
-        : undefined;
-      const closingNarration = includeClosing && narrationEnabled
-        ? await (provider === "elevenlabs"
-          ? generateElevenLabsNarration(closingText)
-          : generateGeminiNarration(closingText, voice as GeminiVoice, language))
+        ? await generateVideoAdNarration(segments, provider, voice as GeminiVoice, language)
         : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
       }, style as VideoAdStyle, narration, music, captionFont as CaptionFont,
-      includeClosing ? { narration: closingNarration, text: closingText } : undefined);
+      includeClosing ? { text: closingText } : undefined, language);
     } finally {
       renderInProgress = false;
     }

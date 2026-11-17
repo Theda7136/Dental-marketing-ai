@@ -1,3 +1,4 @@
+import { loadTs } from "./helpers/load-ts.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -20,41 +21,24 @@ test("rendering implementation and API route transpile without syntax errors", (
 });
 
 test("video rendering rejects oversized and excessively long storyboards", () => {
-  const module = { exports: {} };
-  const code = ts.transpileModule(rendererSource, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true },
-  }).outputText;
-
-  runInNewContext(`(function(require, module, exports) { ${code} })`, { Buffer, URL, setTimeout, clearTimeout })(
-    (specifier) => {
-      if (specifier === "sharp" || specifier === "ffmpeg-static") return () => null;
-      if (specifier.startsWith("node:")) return {};
-      throw new Error(`Unexpected dependency ${specifier}`);
-    },
-    module,
-    module.exports,
-  );
-
+  const renderer = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url));
   const scene = { filename: "foto.png", bytes: Buffer.from([1]), kind: "image", seconds: 15, heading: "Valoración profesional" };
-  assert.doesNotThrow(() => module.exports.validateAdScenes([scene]));
-  assert.throws(() => module.exports.validateAdScenes([{ ...scene, seconds: 61 }]), /duración/);
-  assert.throws(() => module.exports.validateAdScenes(Array.from({ length: 13 }, () => scene)), /12 escenas/);
-  assert.throws(() => module.exports.validateAdScenes([{ ...scene, heading: "a".repeat(181) }]), /demasiado largo/);
+  assert.doesNotThrow(() => renderer.validateAdScenes([scene]));
+  assert.throws(() => renderer.validateAdScenes([{ ...scene, seconds: 61 }]), /duración/);
+  assert.throws(() => renderer.validateAdScenes(Array.from({ length: 13 }, () => scene)), /12 escenas/);
+  assert.throws(() => renderer.validateAdScenes([{ ...scene, heading: "a".repeat(181) }]), /demasiado largo/);
 });
 
-test("photo composition uses a full-frame blurred backdrop and safe foreground", () => {
-  assert.match(rendererSource, /function photoMotionFilter\(index: number, style: VideoAdStyle/);
-  assert.match(rendererSource, /zoompan=z=/);
-  assert.match(rendererSource, /preparePhotoScene\(scene\.bytes\)/);
-  assert.match(rendererSource, /\.blur\(28\)/);
+test("clinical sources are fitted without crop, blur or zoom", () => {
+  assert.doesNotMatch(rendererSource, /zoompan|boxblur|fit: "cover"|position: "attention"/);
   assert.match(rendererSource, /fit: "inside"/);
-  assert.match(rendererSource, /sceneFilter\(scene\.kind, scene\.seconds, index, style, index === timedScenes\.length - 1\)/);
+  assert.match(rendererSource, /force_original_aspect_ratio=decrease/);
 });
 
 test("advertising narrative includes a branded opening and closing CTA", () => {
   assert.match(rendererSource, /brand\.clinicName\.slice/);
   assert.match(rendererSource, /isClosing/);
-  assert.match(rendererSource, /Solicita tu valoración/);
+  assert.match(rendererSource, /Book a consultation/);
   assert.match(routeSource, /style !== "premium"/);
   assert.match(routeSource, /style !== "dinamico"/);
   assert.match(routeSource, /style !== "educativo"/);
