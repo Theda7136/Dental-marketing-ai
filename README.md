@@ -1,6 +1,6 @@
 # Dental Marketing AI
 
-> Panel privado para que una clínica prepare, revise y publique contenido odontológico en redes sociales. El proyecto está en fase piloto para una sola clínica.
+> Plataforma privada de marketing odontológico asistido por IA para preparar contenido clínico autorizado, producir anuncios audiovisuales y gestionar publicaciones en redes sociales. **El acceso operativo sigue limitado a una clínica piloto.**
 
 ## Qué permite hacer
 
@@ -14,22 +14,34 @@
 - Quitar propuestas de Pendientes o Historial mediante «Quitar del panel» en cualquier estado, archivando el registro sin borrar las publicaciones realizadas en Meta o TikTok ni los datos de auditoría. Un envío ya iniciado puede continuar en la plataforma.
 - Conectar una Página de Facebook y, si está vinculada, una cuenta profesional de Instagram.
 - Elegir Facebook, Instagram y/o TikTok desde un único control de publicación, sin enviar a redes no seleccionadas y con estado de entrega separado por plataforma.
+- Configurar la identidad de marca de la clínica: nombre, color, tipografía y logo.
+- Crear anuncios verticales con Gemini Vision, guiones bilingües, voz opcional y cierre comercial.
+- Gestionar usuarios, sesiones y permisos por rol, con acceso operativo limitado a la clínica piloto.
 - Guardar propuestas en SQLite y medios en el disco local o en almacenamiento compatible con S3.
 
 La aplicación no programa publicaciones futuras. La aprobación inicia la publicación inmediata en las redes conectadas.
 
-## Video Ad Studio — fase 2: render MP4
+## Video Ad Studio — producción de anuncios con IA
 
-En **Videos publicitarios** (`/dashboard/video-ads`) se organizan hasta doce fotografías o clips de la clínica en escenas, se edita el guion, se ajusta la duración y se confirma la autorización para utilizar el material.
+En **Videos publicitarios** (`/dashboard/video-ads`) se crean anuncios a partir de fotografías y clips reales de la clínica. Este flujo produce un MP4 descargable: **no guarda automáticamente el anuncio en Pendientes ni lo publica en redes**.
 
-El botón **Generar video MP4** envía las escenas seleccionadas al endpoint protegido `POST /api/video-ads/render`. El servidor usa **FFmpeg + Sharp** para producir un video vertical **1080×1920** a 24 fps con fundidos, títulos, color corporativo y el logo guardado de la clínica. Las fotografías mantienen su composición original en primer plano, sobre un fondo ampliado y desenfocado de la misma fotografía (sin franjas negras), y reciben movimiento Ken Burns suave. Los clips usan una composición similar con fondo desenfocado. El overlay incorpora encabezado de marca visible, rótulos de lectura clara, apertura narrativa y CTA en la escena final. Los estilos Premium, Dinámico y Educativo ajustan animación y composición sin alterar las imágenes originales. Los fundidos se aplican por escena, todavía no son transiciones solapadas entre clips. El resultado aparece en el panel para reproducirlo y descargarlo. El audio se silencia deliberadamente en esta primera versión; todavía no hay locución ni música.
+- **Análisis visual con consentimiento:** Gemini Vision analiza fotografías y fotogramas extraídos de videos para obtener descripciones de elementos visibles. No diagnostica ni confirma tratamientos, resultados o identidades.
+- **Guiones comerciales:** Gemini genera propuestas de apertura, desarrollo, cierre y textos editables por escena. El editor prioriza el enfoque comercial. El servidor aplica filtros para rechazar determinadas frases genéricas, indicaciones de producción y afirmaciones de riesgo; no sustituyen la revisión humana.
+- **Español e inglés:** selección `es-CO` / `en-US` para guion, subtítulos, voz y textos fijos del cierre. Los anuncios en inglés corresponden a una clínica situada en Medellín, no en Estados Unidos.
+- **Narración continua opcional:** Gemini TTS o ElevenLabs. Se genera una pista completa y se sincroniza con las escenas a partir de tiempos del audio. ElevenLabs ofrece marcas temporales; Gemini requiere un paso de alineación con otro modelo. Si la sincronización no es válida, el render se detiene en lugar de inventar tiempos.
+- **Música opcional** y composición vertical mediante FFmpeg y Sharp, con identidad de marca, subtítulos y cierre de WhatsApp. Las fotografías clínicas se conservan sin retoque clínico y sin recortar su contenido.
+- **Exportación:** MP4 de 1080 × 1920 a 24 fps. Hasta 12 archivos, 80 MB por archivo, 120 MB combinados y 60 segundos de video. La duración efectiva puede depender de la narración y del cierre.
+- **Privacidad:** los archivos temporales de render se eliminan al finalizar. El MP4 no se almacena automáticamente en la base de datos.
 
-- Máximo 45 segundos de video, 12 archivos y 120 MB combinados. Las imágenes originales no se retocan clínicamente; se adaptan al formato vertical sin recortar su contenido.
-- La composición se realiza en archivos temporales del servidor y estos se eliminan al finalizar. El MP4 no se guarda en la base de datos ni se publica automáticamente en ninguna red.
-- La propuesta sigue requiriendo revisión clínica y consentimiento antes de reutilizar el MP4 en cualquier flujo de publicación o campaña paga.
-- **Guiones Gemini:** `POST /api/video-ads/scripts` genera tres variantes (educativa, emocional, comercial), con apertura, desarrollo, CTA y textos por escena. Solo se envían datos editoriales y cantidad de escenas; las fotos y videos no se envían a Gemini. El editor puede elegir, modificar y revisar cada texto antes de crear el MP4. Requiere `GEMINI_API_KEY` configurada; si la IA falla, se mantiene el flujo manual. Los borradores se validan con los guardrails existentes y un filtro adicional impide que indicaciones de cámara o diseño (como «imagen de fachada» o «ícono de WhatsApp») se impriman en pantalla: esas frases se reemplazan por el copy de apertura, desarrollo o cierre. Si Gemini coloca instrucciones en los campos principales, la propuesta se rechaza con un error explicativo. No se inspeccionan fotografías con IA en este flujo; la revisión humana sigue siendo obligatoria. Guardar el MP4 en Pendientes es una etapa posterior.
+### Uso básico
 
-Para probar: carga dos fotografías autorizadas, elige 15 segundos, pulsa **Preparar storyboard**, después **Generar video MP4** y reproduce o descarga el resultado. Comprueba también un clip corto. En producción, el VPS necesita recursos suficientes para FFmpeg, almacenamiento temporal y un tiempo máximo de ejecución compatible.
+1. Configura Gemini y, si lo deseas, ElevenLabs en `.env`.
+2. Abre **Videos publicitarios**, carga material autorizado y selecciona procedimiento e idioma.
+3. Confirma el consentimiento para Gemini Vision, genera el guion comercial y revisa cada frase.
+4. Elige narración y música opcionales; genera, reproduce y descarga el MP4.
+5. Verifica el resultado completo, la precisión clínica, los subtítulos y el CTA antes de utilizarlo en una campaña.
+
+La síntesis y alineación de voz dependen de cuotas, permisos y disponibilidad de APIs externas. FFmpeg necesita recursos suficientes de CPU, memoria, espacio temporal y tiempo de ejecución. La prueba específica del renderizador se ejecuta con `npm run test:video-render`.
 
 ## Reels e Historias
 
@@ -80,7 +92,7 @@ Edita `.env` en tu equipo y configura las variables que vayas a usar. Después p
     npx prisma generate --schema .\prisma\schema.prisma
     npm run dev
 
-Abre `http://localhost:3000`. El nombre de usuario del acceso es `clinica`; la contraseña se define en `DENTAL_APP_PASSWORD` y debe tener al menos 16 caracteres.
+Abre `http://localhost:3000`. El proyecto conserva configuración de contraseña para el piloto y ahora incluye usuarios, sesiones y permisos por rol. La autorización de las operaciones del estudio continúa limitada a la clínica `pilot`; no se debe interpretar como soporte multiempresa habilitado.
 
 SQLite está configurado en el esquema como `file:./dev.db`; no se necesita `DATABASE_URL` para la configuración local estándar.
 
@@ -92,13 +104,19 @@ La plantilla completa está en [`.env.example`](./.env.example). Configura los v
 | --- | --- |
 | `DENTAL_APP_PASSWORD` | Contraseña compartida del piloto; mínimo 16 caracteres. El usuario es `clinica`. |
 | `GEMINI_API_KEY` | Clave principal privada de Google AI Studio. |
-| `GEMINI_MODEL` | Modelo Gemini; por defecto `gemini-3.1-flash-lite`. |
+| `GEMINI_MODEL` | Modelo Gemini de texto; valor de ejemplo `gemini-3.1-flash-lite`. |
+| `GEMINI_TTS_MODEL` | Modelo Gemini para sintetizar la narración. |
+| `GEMINI_ALIGNMENT_MODEL` | Modelo Gemini que alinea audio y escenas; si se omite, usa `GEMINI_MODEL`. |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Credenciales opcionales para narración ElevenLabs. |
 | `XAI_API_KEY` | Clave opcional para el respaldo Grok de texto cuando Gemini tiene errores temporales o de cuota. |
 | `META_CLIENT_ID` | ID de la aplicación de Meta. |
 | `META_CLIENT_SECRET` | Secreto de la aplicación de Meta; mantenlo solo en el servidor. |
 | `META_PAGE_ID` | Opcional. Fija la Página piloto si la cuenta administra más de una. |
 | `NEXT_PUBLIC_APP_URL` | URL base de la aplicación. Usa localhost en desarrollo y HTTPS público para que Meta pueda descargar medios. |
 | `META_REDIRECT_URI` | Callback OAuth de Meta; debe coincidir exactamente con la URL registrada en la aplicación Meta. |
+| `META_PUBLIC_MEDIA_URL` | URL pública opcional para que Meta descargue medios. |
+| `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | Credenciales de la aplicación TikTok. |
+| `TIKTOK_REDIRECT_URI`, `TIKTOK_PUBLIC_MEDIA_URL` | Callback OAuth y URL pública verificada de TikTok. |
 | `DENTAL_MEDIA_SIGNING_SECRET` | Secreto aleatorio de al menos 32 caracteres para firmar enlaces temporales de medios. |
 | `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Opcionales. Si se define almacenamiento S3/R2, completa las tres. |
 | `AWS_REGION` | Región de S3; para Cloudflare R2 se usa `auto`. |
@@ -174,8 +192,12 @@ La base SQLite del piloto guarda tokens de TikTok y Meta sin cifrado de aplicaci
 | `npm run dev` | Inicia el servidor de desarrollo. |
 | `npm run build` | Compila la aplicación y comprueba los tipos de TypeScript. |
 | `npm run start` | Inicia la compilación de producción después de `npm run build`. |
+| `npm test` | Ejecuta pruebas automatizadas. |
+| `npm run test:video-render` | Ejecuta la prueba de integración del renderizador. |
+| `npm run check:production` | Valida la configuración de despliegue. |
+| `npm run backup:db` | Crea y comprueba un respaldo local de SQLite. |
 
-El proyecto incluye `npm test` para pruebas de persistencia, publicación y estados de redes sociales.
+El proyecto incluye `npm test` para persistencia, sesiones, permisos, publicación, guiones, narración y renderizado de anuncios.
 
 ## Estructura del proyecto
 
@@ -184,7 +206,7 @@ El proyecto incluye `npm test` para pruebas de persistencia, publicación y esta
     src/app/api/             Rutas de contenido, medios y conexión social
     src/components/          Formulario y cola de revisión
     src/config/              Términos permitidos y controles clínicos
-    src/services/            Integración Gemini/Grok, procesamiento multimedia y almacenamiento
+    src/services/            Gemini/Grok, Vision, voz, sincronización, FFmpeg y almacenamiento
     src/lib/metaPublish.ts   Publicación en Meta
     storage/posts/           Medios guardados localmente durante el piloto
 
@@ -200,4 +222,4 @@ El proyecto incluye `npm test` para pruebas de persistencia, publicación y esta
 
 ## Estado del piloto
 
-La compilación de producción y la vista móvil se verificaron en el entorno local. La prueba de publicación de un Reel en Facebook fue aceptada por Meta. Instagram requiere que se vincule una cuenta profesional para probar esa ruta.
+El código incluye flujos de publicación para Facebook, Instagram y TikTok, además de Video Ad Studio con generación audiovisual bilingüe. La disponibilidad real de publicación depende de las cuentas vinculadas, permisos de cada plataforma y sus revisiones de aplicación. Las funciones de narración y sincronización dependen de los proveedores externos. **No se declara un despliegue productivo ni un sistema multiempresa listo para clientes.** El README documenta capacidades del código; no equivale a una certificación de pruebas de extremo a extremo en producción.
