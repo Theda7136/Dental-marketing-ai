@@ -130,12 +130,12 @@ export async function POST(request: Request) {
       const narration = narrationEnabled
         ? await Promise.all(records.map(scene => provider === "elevenlabs"
           ? generateElevenLabsNarration(scene.heading)
-          : generateGeminiNarration(scene.heading, voice as GeminiVoice)))
+          : generateGeminiNarration(scene.heading, voice as GeminiVoice, language)))
         : undefined;
       const closingNarration = includeClosing && narrationEnabled
         ? await (provider === "elevenlabs"
           ? generateElevenLabsNarration(closingText)
-          : generateGeminiNarration(closingText, voice as GeminiVoice))
+          : generateGeminiNarration(closingText, voice as GeminiVoice, language))
         : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
