@@ -257,11 +257,25 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
 
 export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
   validateAdScenes(scenes);
+  if (narration && narration.length !== timedScenes.length) {
+    throw new Error("La narración no coincide con las escenas del anuncio.");
+  }
+
+  // Los clips de video siguen el ritmo de la voz; las fotografías conservan su duración.
+  const timedScenes = scenes.map((scene, index) => {
+    if (scene.kind !== "video" || !narration?.[index]) return scene;
+    const voiceSeconds = narration[index].byteLength / (24000 * 2);
+    const seconds = Math.min(scene.seconds, Math.max(1, Math.ceil(voiceSeconds + 0.6)));
+    if (voiceSeconds > scene.seconds - 0.2) {
+      throw new Error(`La narración de la escena ${index + 1} supera su duración. Acorta el subtítulo o amplía la escena.`);
+    }
+    return { ...scene, seconds };
+  });
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
   try {
     const rendered: string[] = [];
-    for (const [index, scene] of scenes.entries()) {
+    for (const [index, scene] of timedScenes.entries()) {
       const extension = mediaExtension(scene.bytes);
       if (!extension || (scene.kind === "image" && !["jpg", "png", "webp"].includes(extension)) ||
           (scene.kind === "video" && !["mp4", "mov", "webm"].includes(extension))) {
@@ -272,14 +286,14 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const overlay = path.join(directory, `overlay-${index}.png`);
       const output = path.join(directory, `scene-${index}.mp4`);
       await writeFile(source, scene.kind === "image" ? await preparePhotoScene(scene.bytes) : scene.bytes);
-      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, scenes.length, captionFont));
+      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont));
 
       const duration = String(scene.seconds);
-      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === scenes.length - 1);
+      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1);
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
-        : ["-stream_loop", "-1", "-i", source];
+        : ["-i", source];
       await runFfmpeg([
         ...inputs, "-loop", "1", "-framerate", String(FRAME_RATE), "-i", overlay,
         "-filter_complex", videoFilter, "-map", "[out]", "-an",
@@ -295,15 +309,15 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       `[${index}:v:0]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[v${index}]`
     );
     let previous = "v0";
-    let elapsed = scenes[0].seconds;
+    let elapsed = timedScenes[0].seconds;
 
     for (let index = 1; index < rendered.length; index++) {
-      const overlap = Math.min(transition, scenes[index - 1].seconds / 4, scenes[index].seconds / 4);
+      const overlap = Math.min(transition, timedScenes[index - 1].seconds / 4, timedScenes[index].seconds / 4);
       const offset = Math.max(0, elapsed - overlap);
       const output = `mix${index}`;
       filters.push(`[${previous}][v${index}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${output}]`);
       previous = output;
-      elapsed = offset + scenes[index].seconds;
+      elapsed = offset + timedScenes[index].seconds;
     }
 
     await runFfmpeg([
@@ -325,9 +339,9 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
           const pcmPath = path.join(directory, `narration-${index}.pcm`);
           await writeFile(pcmPath, clip);
           inputs.push("-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcmPath);
-          const sceneSeconds = scenes[index].seconds;
-          const overlap = index === 0 ? 0 : Math.min(transition, scenes[index - 1].seconds / 4, sceneSeconds / 4);
-          position += index === 0 ? 0 : scenes[index - 1].seconds - overlap;
+          const sceneSeconds = timedScenes[index].seconds;
+          const overlap = index === 0 ? 0 : Math.min(transition, timedScenes[index - 1].seconds / 4, sceneSeconds / 4);
+          position += index === 0 ? 0 : timedScenes[index - 1].seconds - overlap;
           filters.push(`[${nextInput}:a]aresample=48000,atrim=duration=${Math.max(0.2, sceneSeconds - 0.2)},adelay=${Math.round(position * 1000)}:all=1[voice${index}]`);
           voiceInputs.push(`[voice${index}]`);
           nextInput++;
