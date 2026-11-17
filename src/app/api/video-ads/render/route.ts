@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { renderVideoAd, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
 import { generateGeminiNarration, GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
+import { generateElevenLabsNarration } from "@/services/elevenLabsNarration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Confirma la autorización y añade entre 1 y 12 escenas." }, { status: 400 });
     }
 
+    const provider = form.get("narrationProvider") ?? "gemini";
+    if (provider !== "gemini" && provider !== "elevenlabs") {
+      return NextResponse.json({ error: "Selecciona un proveedor de voz válido." }, { status: 400 });
+    }
     const voice = form.get("voice") ?? "Kore";
     const captionFont = form.get("captionFont") ?? "arial";
     if (typeof voice !== "string" || !GEMINI_VOICES.some(option => option === voice)) {
@@ -111,7 +116,9 @@ export async function POST(request: Request) {
     let video: Buffer;
     try {
       const narration = narrationEnabled
-        ? await Promise.all(records.map(scene => generateGeminiNarration(scene.heading, voice as GeminiVoice)))
+        ? await Promise.all(records.map(scene => provider === "elevenlabs"
+          ? generateElevenLabsNarration(scene.heading)
+          : generateGeminiNarration(scene.heading, voice as GeminiVoice)))
         : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
