@@ -40,6 +40,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Confirma la autorización y añade entre 1 y 12 escenas." }, { status: 400 });
     }
 
+    const language = form.get("language") ?? "es-CO";
+    if (language !== "es-CO" && language !== "en-US") {
+      return NextResponse.json({ error: "Idioma no permitido." }, { status: 400 });
+    }
     const provider = form.get("narrationProvider") ?? "gemini";
     if (provider !== "gemini" && provider !== "elevenlabs") {
       return NextResponse.json({ error: "Selecciona un proveedor de voz válido." }, { status: 400 });
@@ -103,7 +107,9 @@ export async function POST(request: Request) {
     const includeClosing = form.get("includeClosing") === "true";
     const submittedClosing = form.get("closingText");
     const closingText = typeof submittedClosing === "string" && submittedClosing.trim()
-      ? submittedClosing.trim() : "Transforma tu sonrisa. Contáctanos por WhatsApp.";
+      ? submittedClosing.trim() : language === "en-US"
+        ? "Explore your options. Message our Medellín clinic on WhatsApp."
+        : "Conoce tus opciones. Escríbenos por WhatsApp.";
     if (closingText.length > 150) return NextResponse.json({ error: "El cierre comercial es demasiado largo." }, { status: 400 });
     clinicalGuardrails.validate(closingText);
     if (narrationEnabled && records.some(scene => scene.heading.length > 180)) {
