@@ -255,6 +255,7 @@ export async function generateVideoAdDrafts(input: {
   duration: number;
   clinicContext: string;
   visualDescriptions?: string[];
+  language?: "es-CO" | "en-US";
 }): Promise<VideoAdDraft[]> {
   if (!Number.isInteger(input.sceneCount) || input.sceneCount < 1 || input.sceneCount > 12) {
     throw new AIProviderError("Indica entre 1 y 12 escenas.", 400);
@@ -267,9 +268,19 @@ export async function generateVideoAdDrafts(input: {
     throw new AIProviderError("Las descripciones visuales no coinciden con las escenas.", 400);
   }
 
+  const language = input.language ?? "es-CO";
+  if (!["es-CO", "en-US"].includes(language)) throw new AIProviderError("Idioma no permitido.", 400);
+
   const instruction = [
-    "Eres un creativo publicitario especializado en odontología para clínicas de Colombia.",
-    "Redacta tres variantes diferentes: educativa, emocional y comercial, en español natural, específico y breve.",
+    language === "en-US"
+      ? "You are a US English advertising copywriter for a dental clinic located in Medellín, Colombia. Write natural American English, never imply the clinic is located in the US."
+      : "Eres un creativo publicitario especializado en odontología para clínicas de Medellín, Colombia.",
+    language === "en-US"
+      ? "Write all patient-facing fields in natural American English. Avoid literal translations and artificial sales slogans."
+      : "Redacta todos los textos para pacientes en español colombiano natural, cálido, específico y breve.",
+    "Las tres variantes son exclusivamente comerciales y deben diferenciarse por el gancho, no por ser educativas o emocionales.",
+    "Habla a una persona real: utiliza frases fluidas, verbos concretos, detalles visuales relevantes y un beneficio prudente. Evita lenguaje corporativo y lugares comunes.",
+    "El cierre debe ser una invitación clara a contactar a la clínica por WhatsApp, sin inventar el número ni prometer resultados.",
     "No uses diagnósticos, promesas de resultados, urgencias artificiales, precios inventados ni testimonios.",
     "El procedimiento declarado NO demuestra que se haya realizado ni que aparezca en las fotos.",
     "No presumas detalles visuales, pacientes, instalaciones, resultados ni credenciales.",
@@ -306,6 +317,7 @@ export async function generateVideoAdDrafts(input: {
   ].join("\n");
 
   const prompt = [
+    `Idioma de todos los textos publicitarios: ${language}`,
     `Procedimiento: ${input.procedure}`,
     `Objetivo: ${input.goal}`,
     `Escenas disponibles: ${input.sceneCount}`,
