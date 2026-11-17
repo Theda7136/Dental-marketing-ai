@@ -160,7 +160,7 @@ function wrapCaption(text: string, limit = 24): string[] {
     }
   }
   if (current) lines.push(current);
-  return lines.slice(0, 4);
+  return lines;
 }
 
 async function captionOverlay(
@@ -171,16 +171,17 @@ async function captionOverlay(
   const accent = safeColor(brand.primaryColor);
   const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
   const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
-  const lines = wrapCaption(heading, style === "dinamico" ? 22 : 27);
-  const baseSize = style === "dinamico" ? 77 : style === "educativo" ? 63 : 71;
-  const fontSize = lines.length >= 4 ? Math.min(baseSize, 56) : lines.length === 3 ? Math.min(baseSize, 64) : baseSize;
-  const lineHeight = fontSize + 19;
-  const textTop = isClosing
-    ? Math.min(1350, 1440 - (lines.length - 1) * lineHeight)
-    : Math.min(1500, 1600 - (lines.length - 1) * lineHeight);
-  const textNodes = lines.map((line, number) =>
-    `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}">${escapeXml(line)}</text>`
-  ).join("");
+  const lines = wrapCaption(heading, 22);
+  const baseSize = style === "dinamico" ? 68 : style === "educativo" ? 58 : 64;
+  const fontSize = Math.max(38, Math.min(baseSize, Math.floor(390 / Math.max(1, lines.length)) - 10));
+  const lineHeight = fontSize + 14;
+  const textBottom = isClosing ? 1430 : 1500;
+  const textTop = textBottom - (lines.length - 1) * lineHeight;
+  const textNodes = lines.map((line, number) => {
+    const estimatedWidth = line.length * fontSize * 0.62;
+    const width = Math.min(860, Math.max(1, Math.round(estimatedWidth)));
+    return `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}" textLength="${width}" lengthAdjust="spacingAndGlyphs">${escapeXml(line)}</text>`;
+  }).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
     <defs>
       <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
