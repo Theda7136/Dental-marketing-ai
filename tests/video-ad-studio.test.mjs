@@ -38,7 +38,8 @@ test("rendered MP4 is previewed and downloaded without automatic publishing", ()
 test("AI drafts are editable and rendering remains a separate explicit action", () => {
   assert.match(source, /\/api\/video-ads\/scripts/);
   assert.match(source, /Generar 3 guiones con IA/);
-  assert.match(source, /setCopy\(\{ introduction: variant\.opening/);
+  assert.match(source, /function useVariant\(variant: AdVariant\)/);
+  assert.match(source, /setSelectedTone\(variant\.tone\)/);
   assert.match(source, /setScenes\(assets\.map/);
   assert.match(source, /\/api\/video-ads\/render/);
   assert.doesNotMatch(source, /publishSelectedNetworks|create-post/);
