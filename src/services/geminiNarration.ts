@@ -3,7 +3,7 @@ export const GEMINI_VOICES = ["Kore", "Puck", "Charon"] as const;
 export type GeminiVoice = typeof GEMINI_VOICES[number];
 const TTS_URL = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(TTS_MODEL)}:generateContent`;
 
-export async function generateGeminiNarration(script: string, voice: GeminiVoice = "Kore"): Promise<Buffer> {
+export async function generateGeminiNarration(script: string, voice: GeminiVoice = "Kore", language: "es-CO" | "en-US" = "es-CO"): Promise<Buffer> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("Configura GEMINI_API_KEY para generar la narración.");
   const text = script.trim();
@@ -13,7 +13,7 @@ export async function generateGeminiNarration(script: string, voice: GeminiVoice
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `Lee el siguiente anuncio en español de Colombia, con voz natural, clara, cercana y ritmo publicitario pausado. No agregues palabras.\n\n${text}` }] }],
+      contents: [{ parts: [{ text: `${language === "en-US" ? "Read the following dental advertisement in natural American English with a warm, clear and conversational voice." : "Lee el siguiente anuncio en español de Colombia, con voz natural, clara, cercana y ritmo publicitario pausado."} Speak exactly the provided text, without adding words:\n\n${text}` }] }],
       generationConfig: {
         responseModalities: ["AUDIO"],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
@@ -30,9 +30,10 @@ export async function generateGeminiNarration(script: string, voice: GeminiVoice
   const payload = await response.json() as {
     candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
   };
-  const audio = payload.candidates?.[0]?.content?.parts?.find(part => part.inlineData?.data)?.inlineData;
+  const audio = payload.candidates?.flatMap(candidate => candidate.content?.parts ?? [])
+    .find(part => part.inlineData?.data && part.inlineData.mimeType?.startsWith("audio/"))?.inlineData;
   if (!audio?.data || !audio.mimeType?.includes("audio/")) {
-    throw new Error("Gemini no devolvió audio para la narración.");
+    throw new Error("Gemini no devolvió audio. Prueba otra voz o utiliza ElevenLabs; revisa también la disponibilidad y cuota del modelo TTS.");
   }
   const pcm = Buffer.from(audio.data, "base64");
   if (!pcm.length || pcm.length > 12_000_000) throw new Error("El audio generado es inválido o demasiado grande.");
