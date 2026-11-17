@@ -121,7 +121,7 @@ test("render endpoint sends one full narration and language to the renderer; inv
 test("script generation repairs rejected slogans without blocking on an inconclusive visual audit", async t => {
   process.env.GEMINI_API_KEY = "test-key";
   let requests = [];
-  const tones = ["educativa", "emocional", "comercial"];
+  const tones = ["comercial"];
   function drafts(generic) { return { variants: tones.map(tone => ({ tone, title: "A closer look", opening: "See each tooth on this digital model.", message: "Bring your questions to a consultation.", closing: "Message us on WhatsApp.", scenes: [generic ? "Advanced digital planning for a personalized approach" : "This digital model shows the shape of each tooth."] })) }; }
   t.mock.method(globalThis, "fetch", async (_url, options) => {
     requests.push(JSON.parse(options.body));
@@ -130,7 +130,7 @@ test("script generation repairs rejected slogans without blocking on an inconclu
   });
   const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
   const variants = await generateVideoAdDrafts({ procedure: "Diseño de sonrisa", goal: "whatsapp", sceneCount: 1, duration: 15, clinicContext: "", visualDescriptions: ["Modelo digital de dientes en una pantalla."], language: "en-US" });
-  assert.equal(variants.length, 3);
+  assert.equal(variants.length, 1);
   assert.equal(requests.length, 2);
   assert.match(requests[1].contents[0].parts[0].text, /frases genéricas/);
   assert.match(requests[1].systemInstruction.parts[0].text, /No afirmes|No atribuyas/);

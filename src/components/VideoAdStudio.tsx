@@ -6,7 +6,7 @@ type SourceAsset = { id: string; file: File; url: string; kind: "image" | "video
 type AdStyle = "premium" | "educativo" | "dinamico";
 type AdGoal = "whatsapp" | "confianza" | "educacion";
 type Scene = { assetId: string; heading: string; seconds: number };
-type AdVariant = { tone: "educativa" | "emocional" | "comercial"; title: string; opening: string; message: string; closing: string; scenes: string[] };
+type AdVariant = { tone: "comercial"; title: string; opening: string; message: string; closing: string; scenes: string[] };
 
 const treatments = ["Diseño de sonrisa", "Implantes dentales", "Ortodoncia", "Blanqueamiento", "Rehabilitación oral", "Presentación de la clínica"];
 const maxFiles = 12;
@@ -222,7 +222,7 @@ export default function VideoAdStudio() {
         }),
       });
       const payload = await response.json() as { variants?: AdVariant[]; error?: string };
-      if (!response.ok || !payload.variants) {
+      if (!response.ok || !payload.variants || payload.variants.length !== 1 || payload.variants[0].tone !== "comercial" || payload.variants[0].scenes.length !== assets.length) {
         throw new Error(payload.error ?? "No se pudieron generar los guiones.");
       }
       setVariants(payload.variants);
@@ -445,7 +445,7 @@ export default function VideoAdStudio() {
               <input id="ad-music-volume" type="range" min="5" max="50" step="1" value={musicVolume} onChange={event => { setMusicVolume(Number(event.target.value)); clearRender(); }} />
               <button type="button" onClick={() => { setMusicFile(null); if (musicInput.current) musicInput.current.value = ""; clearRender(); }}>Quitar música</button>
             </>}
-            <small>Con narración, las escenas y el cierre siguen la duración real de la voz (máximo 60 s). Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
+            <small>La duración elegida incluye escenas, pausas y cierre, sin acelerar la voz. Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
           </div>
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(Math.max(previous.length, value - 6) / previous.length) + (index < Math.max(previous.length, value - 6) % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
@@ -469,7 +469,8 @@ export default function VideoAdStudio() {
             </label>}
 
             {variants.length === 0 && <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Preparando anuncio..." : "Generar guion publicitario con IA"}</button>}
-            {generatingScripts && <p role="status" className="ad-studio-hint">Analizando el material y preparando el guion comercial.</p>}
+            <p className="ad-studio-hint">Gemini genera el guion y analiza las imágenes. ElevenLabs o Gemini generan la voz al crear el video, según el motor seleccionado.</p>
+            {generatingScripts && <p role="status" className="ad-studio-hint">Gemini está preparando un único guion comercial, con una escena por archivo.</p>}
             {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p>}
             {variants.length > 0 && <div className="ad-studio-hint"><strong>Guion comercial listo.</strong> Puedes editar los textos en «Guion por escenas» antes de generar el video.</div>}
           </div>

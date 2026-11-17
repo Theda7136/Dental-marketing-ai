@@ -18,12 +18,12 @@ test("video ad Gemini service and route transpile without syntax errors", () => 
   }
 });
 
-test("AI drafts require three distinct tones, safe copy and a caption for every scene", () => {
-  assert.match(aiSource, /"educativa", "emocional", "comercial"/);
+test("AI drafts require one commercial variant, safe copy and a caption for every file", () => {
+  assert.match(aiSource, /const tones: VideoAdTone\[\] = \["comercial"\]/);
   assert.match(aiSource, /value\.scenes\.length !== sceneCount/);
   assert.match(aiSource, /cleanCopy\.scenes\.forEach\(text => clinicalGuardrails\.validate\(text\)\)/);
   assert.match(aiSource, /clinicalGuardrails\.validate\(value\[field\] as string\)/);
-  assert.match(aiSource, /const answer = await queryGemini/);
+  assert.match(aiSource, /answer = await queryGemini/);
   assert.match(aiSource, /Solo usa estos datos, no recibirás imágenes ni archivos de pacientes/);
 });
 
@@ -64,4 +64,114 @@ test("production directions are not accepted as ad captions", async () => {
   assert.throws(() => normalizeVideoAdCopy({
     ...draft, opening: "Imagen de la fachada de la clínica",
   }), /instrucciones de producción/);
+});
+
+import { loadTs } from "./helpers/load-ts.mjs";
+const input = { procedure: "Diseño de sonrisa", goal: "whatsapp", duration: 15, sceneCount: 2, clinicContext: "", language: "en-US", visualDescriptions: ["Modelo digital de dientes", "Modelo físico dental"] };
+function completeDraft() {
+  return { variants: [{ tone: "comercial", title: "A closer look", opening: "Look at each tooth.", message: "Bring your questions.", closing: "Message us on WhatsApp.", scenes: ["Explore each tooth on this digital model.", "Now examine those shapes on a physical model."] }] };
+}
+function modelResponse(text) {
+  return Response.json({ candidates: [{ content: { parts: [{ text: typeof text === "string" ? text : JSON.stringify(text) }] } }] });
+}
+
+test("missing, empty, extra and malformed scenes are automatically repaired from original observations", async t => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey; });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  const invalid = [
+    { variants: [{ ...completeDraft().variants[0], scenes: ["Explore each tooth on this digital model."] }] },
+    { variants: [{ ...completeDraft().variants[0], scenes: ["Explore each tooth on this digital model.", ""] }] },
+    { variants: [{ ...completeDraft().variants[0], scenes: [...completeDraft().variants[0].scenes, "An extra scene."] }] },
+    { variants: [{ ...completeDraft().variants[0], scenes: null }] },
+    '{"variants":[',
+    "",
+  ];
+  for (const bad of invalid) {
+    const requests = [];
+    const mock = t.mock.method(globalThis, "fetch", async (url, options) => {
+      assert.match(url, /generativelanguage.googleapis.com/);
+      requests.push(JSON.parse(options.body));
+      return modelResponse(requests.length === 1 ? bad : completeDraft());
+    });
+    const result = await generateVideoAdDrafts(input);
+    assert.deepEqual(result, completeDraft().variants);
+    assert.equal(requests.length, 2);
+    const repair = requests[1].contents[0].parts[0].text;
+    assert.match(repair, /EXACTAMENTE UNA/);
+    assert.match(repair, /scenes\[0\]/);
+    assert.match(repair, /scenes\[1\]/);
+    assert.match(repair, /Modelo físico dental/);
+    assert.match(repair, /NO evidencia clínica/);
+    assert.match(repair, /sin inventar detalles/);
+    mock.mock.restore();
+  }
+});
+
+test("repair is bounded and never returns invented filler after repeated incomplete responses", async t => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return modelResponse({ variants: [{ ...completeDraft().variants[0], scenes: [] }] });
+  });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  await assert.rejects(generateVideoAdDrafts(input), /escenas incompletas/);
+  assert.equal(calls, 3);
+});
+
+test("a repaired response with unsupported clinical claims must be repaired again", async t => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    const draft = completeDraft();
+    if (calls === 1) draft.variants[0].scenes.pop();
+    if (calls === 2) draft.variants[0].scenes[1] = "Guaranteed pain-free results with this physical model.";
+    return modelResponse(draft);
+  });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  assert.deepEqual(await generateVideoAdDrafts(input), completeDraft().variants);
+  assert.equal(calls, 3);
+});
+
+test("one commercial variant requires exactly one nonempty caption per file", () => {
+  const { validateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  for (const count of [1, 2, 12]) {
+    const draft = completeDraft();
+    draft.variants[0].scenes = Array.from({ length: count }, (_, i) => `Bring question number ${i + 1} to your consultation.`);
+    assert.equal(validateVideoAdDrafts(draft, count, "en-US")[0].scenes.length, count);
+  }
+  const draft = completeDraft();
+  assert.throws(() => validateVideoAdDrafts({ variants: [...draft.variants, ...draft.variants] }, 2), /variantes/);
+  draft.variants[0].tone = "educativa";
+  assert.throws(() => validateVideoAdDrafts(draft, 2));
+});
+
+test("ElevenLabs selection never changes the Gemini script pipeline or calls speech APIs", async t => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls++;
+    assert.match(url, /generativelanguage.googleapis.com/);
+    assert.doesNotMatch(options.body, /speechConfig|responseModalities|elevenlabs/i);
+    return modelResponse(completeDraft());
+  });
+  const { POST } = loadTs(new URL("../src/app/api/video-ads/scripts/route.ts", import.meta.url), {
+    "@/lib/studioAccess": { getStudioAccess: async () => ({ clinic: { id: "test-clinic" } }) },
+    "./grokService": {},
+  });
+  for (const narrationProvider of ["elevenlabs", "gemini"]) {
+    const response = await POST(new Request("http://localhost/api/video-ads/scripts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, narrationProvider }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), completeDraft());
+  }
+  assert.equal(calls, 2);
 });

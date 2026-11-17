@@ -12,7 +12,7 @@
 
 ## Script validation
 
-Gemini Vision observations are required for each scene. Generation uses a word budget, continuity instructions and a separate closing. All variants pass deterministic checks for generic slogans, risky/unverified claims, duplicated scenes, production directions and common mixed-language CTAs. A second Gemini review checks the complete copy against the observations and selected language. Rejected drafts are regenerated with the specific validation issue (at most three attempts). Invalid audit responses never count as approval.
+Gemini Vision observations are required for each scene. Generation uses a word budget, continuity instructions and a separate closing. The single commercial variant passes deterministic checks for generic slogans, risky/unverified claims, duplicated scenes, production directions and common mixed-language CTAs. Rejected drafts are repaired using the prior response, original observations and specific validation issue (at most three attempts total). Every repaired response must pass the same validation.
 
 The semantic audit and Gemini audio alignment are model-based checks, not a guarantee of factual accuracy or word-perfect forced alignment. Review a real generated advertisement before campaign use. User notes and visible objects do not establish material composition, credentials, clinical results or diagnoses. No external publishing was added.
 
@@ -55,3 +55,16 @@ La validación comprueba detalles visuales conocidos, frases repetidas y fórmul
 vacías; no constituye una garantía semántica de coherencia ni de hechos clínicos.
 Las fuentes clínicas se ajustan completas y los subtítulos se colocan después de
 la imagen visible, sin cubrirla ni recortarla.
+
+
+### Guion comercial único y reparación
+
+Gemini devuelve `variants` con una única entrada de tono `comercial`, y exactamente
+una frase de escena por archivo, respetando su orden. El cierre es independiente.
+Si faltan escenas, están vacías, sobran o el JSON está incompleto, se realizan hasta
+dos intentos de reparación con el borrador anterior y las observaciones originales.
+Cada respuesta completa vuelve a pasar los filtros clínicos, visuales, de idioma y
+de duración. No se rellenan escenas con detalles clínicos inventados. Si persiste
+el error, se informa y no se acepta un guion parcial.
+La selección de ElevenLabs solo controla la voz durante el renderizado: el análisis
+visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
