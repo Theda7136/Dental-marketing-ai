@@ -41,7 +41,7 @@ async function prepareVisionJpeg(file: File): Promise<Blob> {
   }
 }
 
-async function prepareVideoFrame(file: File): Promise<Blob> {
+async function prepareVideoFrames(file: File): Promise<Blob[]> {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
   video.preload = "auto";
@@ -53,24 +53,31 @@ async function prepareVideoFrame(file: File): Promise<Blob> {
       video.onerror = () => reject(new Error("No se pudo abrir el clip para analizarlo."));
       video.src = url;
     });
-    const position = Math.min(1, Math.max(0, video.duration / 2));
-    if (position > 0) {
+    if (!Number.isFinite(video.duration) || video.duration <= 0 || !video.videoWidth || !video.videoHeight) {
+      throw new Error("El video no tiene una duración o resolución válida.");
+    }
+    const positions = [0.15, 0.5, 0.85].map(fraction => Math.min(video.duration - 0.05, video.duration * fraction));
+    const frames: Blob[] = [];
+    for (const position of positions) {
       await new Promise<void>((resolve, reject) => {
         video.onseeked = () => resolve();
-        video.onerror = () => reject(new Error("No se pudo obtener una imagen del clip."));
-        video.currentTime = position;
+        video.onerror = () => reject(new Error("No se pudo obtener un fotograma del clip."));
+        video.currentTime = Math.max(0, position);
       });
+      const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("No se pudo preparar el fotograma.");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const jpeg = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo extraer el fotograma.")), "image/jpeg", 0.7)
+      );
+      if (jpeg.size > 2 * 1024 * 1024) throw new Error("Un fotograma supera 2 MB.");
+      frames.push(jpeg);
     }
-    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("No se pudo preparar el fotograma.");
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo extraer el fotograma.")), "image/jpeg", 0.75)
-    );
+    return frames;
   } finally {
     video.removeAttribute("src");
     video.load();
@@ -192,11 +199,16 @@ export default function VideoAdStudio() {
         if (!updatedCache[asset.id]) {
           const form = new FormData();
           form.set("consent", "true");
-          form.set("image", asset.kind === "image" ? await prepareVisionJpeg(asset.file) : await prepareVideoFrame(asset.file), "vision.jpg");
-          const visionResponse = await fetch("/api/video-ads/vision", { method: "POST", body: form });
-          const visionPayload = await visionResponse.json() as { description?: string; error?: string };
-          if (!visionResponse.ok || !visionPayload.description) throw new Error(visionPayload.error ?? "No se pudo analizar la fotografía.");
-          updatedCache[asset.id] = visionPayload.description;
+          const frames = asset.kind === "image" ? [await prepareVisionJpeg(asset.file)] : await prepareVideoFrames(asset.file);
+          const descriptions: string[] = [];
+          for (const frame of frames) {
+            form.set("image", frame, "vision.jpg");
+            const visionResponse = await fetch("/api/video-ads/vision", { method: "POST", body: form });
+            const visionPayload = await visionResponse.json() as { description?: string; error?: string };
+            if (!visionResponse.ok || !visionPayload.description) throw new Error(visionPayload.error ?? "No se pudo analizar el material visual.");
+            descriptions.push(visionPayload.description);
+          }
+          updatedCache[asset.id] = descriptions.join(" | ").slice(0, 240);
           setVisualCache({ ...updatedCache });
         }
         observations.push(updatedCache[asset.id]);
