@@ -1,3 +1,5 @@
+import { AD_CANVAS, clinicalLayout, composeAdOverlay, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
+import { validateCommercialText } from "./videoAdCopy";
 import { planAdTimeline, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -9,8 +11,8 @@ import ffmpegStatic from "ffmpeg-static";
 const WIDTH = 1080;
 const HEIGHT = 1920;
 const adLabels = {
-  "es-CO": { footer: "Información · Valoración profesional", contact: "Agenda tu valoración", cta: "Conoce tus opciones. Escríbenos por WhatsApp." },
-  "en-US": { footer: "Information · Professional consultation", contact: "Book a consultation", cta: "Explore your options. Message us on WhatsApp." },
+  "es-CO": { cta: "Hablemos por WhatsApp." },
+  "en-US": { cta: "Message us on WhatsApp." },
 };
 export type AdLanguage = keyof typeof adLabels;
 const MAX_FILES = 12;
@@ -21,12 +23,6 @@ const FRAME_RATE = 24;
 
 export type VideoAdStyle = "premium" | "dinamico" | "educativo";
 export type CaptionFont = "arial" | "georgia" | "verdana" | "trebuchet";
-const captionFamilies: Record<CaptionFont, string> = {
-  arial: "Arial, sans-serif",
-  georgia: "Georgia, serif",
-  verdana: "Verdana, sans-serif",
-  trebuchet: "Trebuchet MS, sans-serif",
-};
 
 export type AdScene = {
   filename: string;
@@ -41,16 +37,6 @@ export type AdBrand = {
   primaryColor: string;
   logoDataUrl: string | null;
 };
-
-function escapeXml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;",
-  })[character] ?? character);
-}
-
-function safeColor(value: string): string {
-  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#116D60";
-}
 
 export function validateAdScenes(scenes: AdScene[]): void {
   if (!Array.isArray(scenes) || !scenes.length || scenes.length > MAX_FILES) {
@@ -89,16 +75,18 @@ function mediaExtension(bytes: Buffer): "jpg" | "png" | "webp" | "mp4" | "mov" |
   return null;
 }
 
-async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
+async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<{ stdout: string; stderr: string }> {
   const binary = ffmpegStatic;
   if (!binary) throw new Error("FFmpeg no está disponible en el servidor.");
 
-  await new Promise<void>((resolve, reject) => {
+  return await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(binary, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", ...args], {
       windowsHide: true,
-      stdio: ["ignore", "ignore", "pipe"] as const,
+      stdio: ["ignore", "pipe", "pipe"] as const,
     });
-    child.stderr.resume();
+    let stdout = "", stderr = "";
+    child.stdout.on("data", data => { stdout = (stdout + data.toString()).slice(-1000000); });
+    child.stderr.on("data", data => { stderr = (stderr + data.toString()).slice(-1000000); });
     let settled = false;
     const timer = setTimeout(() => {
       child.kill();
@@ -110,7 +98,7 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
       settled = true;
       clearTimeout(timer);
       if (error) reject(error);
-      else resolve();
+      else resolve({ stdout, stderr });
     }
 
     child.on("error", error => finish(error));
@@ -121,12 +109,12 @@ async function runFfmpeg(args: string[], timeoutMs = 180_000): Promise<void> {
   });
 }
 
-function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle, isClosing: boolean): string {
+function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, style: VideoAdStyle, isClosing: boolean, layout: ReturnType<typeof clinicalLayout>): string {
   // Fit the entire clinical source, without zoom, crop, retouching or a blurred duplicate.
   const source = kind === "image"
     ? `[0:v]setsar=1,format=yuv420p[background];`
-    : `[0:v]scale=${WIDTH}:1380:force_original_aspect_ratio=decrease,setsar=1,` +
-      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:200+(1380-ih)*0.2:color=0x081e1b,fps=${FRAME_RATE},` +
+    : `[0:v]setpts=PTS-STARTPTS,scale=${layout.width}:${layout.height}:force_original_aspect_ratio=decrease,setsar=1,` +
+      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:${layout.top}:color=0xf5f3ee,fps=${FRAME_RATE},` +
       `tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
   return source + "[1:v]format=rgba[captions];" +
     "[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]";
@@ -137,82 +125,28 @@ export function photoMotionFilter(index: number, style: VideoAdStyle = "premium"
   return `fps=${FRAME_RATE},setsar=1`;
 }
 
-function wrapCaption(text: string, limit = 24): string[] {
-  const words = text.replace(/\s+/g, " ").trim().split(" ").flatMap(word => word.match(new RegExp(`.{1,${limit}}`, "gu")) ?? []);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > limit && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-async function captionOverlay(
-  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont, language: AdLanguage, mediaBottom: number = 1580,
-): Promise<Buffer> {
-  const accent = safeColor(brand.primaryColor);
-  const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
-  const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
-  const lines = wrapCaption(heading, 34);
-  const baseSize = style === "dinamico" ? 68 : style === "educativo" ? 58 : 64;
-  const fontSize = Math.max(12, Math.min(baseSize, Math.floor(860 / (Math.max(...lines.map(line => line.length), 1) * 0.7)), Math.floor(180 / Math.max(1, lines.length)) - 8));
-  const lineHeight = fontSize + 8;
-  const textBottom = Math.min(1780, mediaBottom + 75 + lines.length * lineHeight);
-  const textTop = textBottom - (lines.length - 1) * lineHeight;
-  const textNodes = lines.map((line, number) => {
-    const estimatedWidth = line.length * fontSize * 0.62;
-    const width = Math.min(860, Math.max(1, Math.round(estimatedWidth)));
-    return `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}" textLength="${width}" lengthAdjust="spacingAndGlyphs">${escapeXml(line)}</text>`;
-  }).join("");
-  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
-    <rect x="0" y="${mediaBottom}" width="${WIDTH}" height="${HEIGHT - mediaBottom}" fill="#081e1b"/>
-    <rect x="70" y="92" rx="22" width="940" height="100" fill="#061916" fill-opacity=".64"/>
-    <rect x="88" y="111" rx="4" width="5" height="62" fill="${accent}"/>
-    ${hasLogo ? '<rect x="108" y="102" rx="13" width="140" height="80" fill="#fff"/>' : ""}
-    <text x="${hasLogo ? 268 : 120}" y="155" fill="white" font-size="${hasLogo ? 37 : 42}" font-weight="700" font-family="Arial, sans-serif">${title}</text>
-    ${textNodes}
-    <rect x="92" y="1837" width="896" height="3" fill="#fff" fill-opacity=".28"/>
-    <text x="92" y="1878" fill="#fff" font-size="28" font-family="Arial, sans-serif" fill-opacity=".8">${adLabels[language].footer}</text>
-  </svg>`);
-
-  const layers: sharp.OverlayOptions[] = [{ input: svg }];
-  if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
-    const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
-    if (logoBytes.length && logoBytes.length <= 500_000) {
-      const logo = await sharp(logoBytes, { limitInputPixels: 8_000_000 })
-        .resize({ width: 126, height: 68, fit: "inside" }).png().toBuffer();
-      const logoSize = await sharp(logo).metadata();
-      layers.push({
-        input: logo,
-        top: 108 + Math.round((68 - (logoSize.height ?? 68)) / 2),
-        left: 115 + Math.round((126 - (logoSize.width ?? 126)) / 2),
-      });
-    }
-  }
-  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#00000000" } })
-    .composite(layers).png().toBuffer();
-}
-
 export async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
-  const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(WIDTH, 1380, { fit: "inside", withoutEnlargement: false }).png().toBuffer();
-  const dimensions = await sharp(foreground).metadata();
-  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: "#081e1b" } })
-    .composite([{ input: foreground, left: Math.round((WIDTH - dimensions.width!) / 2),
-      top: 200 + Math.round((1380 - dimensions.height!) * 0.2) }]).png().toBuffer();
+  const oriented = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 }).rotate().toBuffer({ resolveWithObject: true });
+  const layout = clinicalLayout(oriented.info.width, oriented.info.height);
+  const foreground = await sharp(oriented.data).resize(layout.width, layout.height, { fit: "inside" }).png().toBuffer();
+  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: AD_CANVAS.background } })
+    .composite([{ input: foreground, left: layout.left, top: layout.top }]).png().toBuffer();
 }
 
 export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: NarrationTrack, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { text?: string; whatsapp?: string }, language: AdLanguage = "es-CO", targetSeconds?: number): Promise<Buffer> {
   validateAdScenes(scenes);
+  for (const scene of scenes) {
+    validateCommercialText(scene.heading, language);
+    await layoutAdCaption(scene.heading, captionFont);
+  }
+  if (closing) {
+    validateClosingCopy(closing.text ?? adLabels[language].cta, closing.whatsapp);
+    await layoutAdCaption(closing.text ?? adLabels[language].cta, captionFont, 76);
+  }
   const weights = [...scenes.map(scene => scene.seconds), ...(closing ? [6] : [])];
-  const plan = planAdTimeline(weights, targetSeconds ?? weights.reduce((a, b) => a + b, 0), narration);
+  const expectedSeconds = targetSeconds ?? weights.reduce((a, b) => a + b, 0);
+  const readingTimes = [...scenes.map(scene => Math.max(2, scene.heading.trim().split(/\s+/).length / 2.5)), ...(closing ? [Math.max(3, (closing.text ?? adLabels[language].cta).trim().split(/\s+/).length / 2.5)] : [])];
+  const plan = planAdTimeline(weights, expectedSeconds, narration, readingTimes);
   const durations = plan.durations;
   narration = plan.narration;
   const timedScenes = scenes.map((scene, index) => ({ ...scene, seconds: durations?.[index] ?? scene.seconds }));
@@ -245,12 +179,10 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         await runFfmpeg(["-i", source, "-frames:v", "1", "-vf", "scale=1080:1380:force_original_aspect_ratio=decrease,setsar=1", preview]);
         dimensions = await sharp(preview).metadata();
       }
-      const fittedHeight = Math.round(Math.min(1380, WIDTH * dimensions.height! / dimensions.width!));
-      const mediaBottom = 200 + Math.round((1380 - fittedHeight) * 0.2) + fittedHeight;
-      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont, language, mediaBottom));
+      const layout = clinicalLayout(dimensions.width!, dimensions.height!);
+      await writeFile(overlay, await composeAdOverlay(scene.heading, brand, captionFont, layout.captionTop));
 
-      const duration = String(scene.seconds);
-      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1);
+      const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1, layout);
 
       const inputs = scene.kind === "image"
         ? ["-loop", "1", "-framerate", String(FRAME_RATE), "-i", source]
@@ -258,7 +190,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       await runFfmpeg([
         ...inputs, "-loop", "1", "-framerate", String(FRAME_RATE), "-i", overlay,
         "-filter_complex", videoFilter, "-map", "[out]", "-an",
-        "-t", duration, "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+        "-frames:v", String(Math.round(scene.seconds * FRAME_RATE)), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-pix_fmt", "yuv420p", "-r", String(FRAME_RATE), "-movflags", "+faststart", output,
       ]);
       rendered.push(output);
@@ -267,37 +199,9 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     if (closing) {
       const closingPath = path.join(directory, "closing.png");
       const closingVideo = path.join(directory, "closing.mp4");
-      const accent = safeColor(brand.primaryColor);
-      const rgb = accent.slice(1).match(/../g)!.map(value => parseInt(value, 16) / 255)
-        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-      const contactColor = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 0.179 ? "#081e1b" : "#ffffff";
-      const clinic = escapeXml(brand.clinicName.slice(0, 40));
-      const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : adLabels[language].contact;
-      const callToAction = (closing.text ?? adLabels[language].cta).trim();
-      const headlineLines = wrapCaption(callToAction, 25);
-      const headlineSize = Math.min(headlineLines.length > 5 ? 48 : 60, Math.floor(880 / (Math.max(...headlineLines.map(line => line.length), 1) * 0.8)));
-      const headlineSvg = headlineLines.map((line, index) => `<text x="100" y="${700 + index * 78}" fill="#ffffff" font-size="${headlineSize}" font-weight="700" font-family="${captionFamilies[captionFont]}">${escapeXml(line)}</text>`).join("");
-      const closingSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
-        <rect width="1080" height="1920" fill="#081e1b"/>
-        <rect x="0" y="0" width="1080" height="18" fill="${accent}"/>
-        <path d="M100 550 H300" stroke="${accent}" stroke-width="6"/>
-        <text x="540" y="440" text-anchor="middle" fill="#c5ded8" font-size="48" font-family="Arial, sans-serif">${clinic}</text>
-        ${headlineSvg}
-        <rect x="80" y="1385" width="920" height="135" rx="24" fill="${accent}"/>
-        <text x="100" y="1470" fill="${contactColor}" font-size="36" font-family="Arial, sans-serif">${contact}</text>
-        <text x="100" y="1790" fill="#c5ded8" font-size="26" font-family="Arial, sans-serif">${adLabels[language].footer}</text>
-      </svg>`);
-      const closingLayers: sharp.OverlayOptions[] = [{ input: closingSvg }];
-      if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
-        const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
-        if (logoBytes.length && logoBytes.length <= 500_000) {
-          const logo = await sharp(logoBytes).resize({ width: 220, height: 120, fit: "inside" }).png().toBuffer();
-          closingLayers.push({ input: logo, top: 135, left: 430 });
-        }
-      }
-      await writeFile(closingPath, await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#081e1b" } }).composite(closingLayers).png().toBuffer());
+      await writeFile(closingPath, await composeAdOverlay(closing.text ?? adLabels[language].cta, brand, captionFont, 980, true, closing.whatsapp));
       await runFfmpeg(["-loop", "1", "-framerate", String(FRAME_RATE), "-i", closingPath,
-        "-t", String(closingSeconds), "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+        "-frames:v", String(Math.round(closingSeconds * FRAME_RATE)), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-pix_fmt", "yuv420p", "-r", String(FRAME_RATE), closingVideo]);
       rendered.push(closingVideo);
       timedScenes.push({ filename: "closing.png", bytes: Buffer.from([1]), kind: "image", seconds: closingSeconds, heading: "" });
@@ -316,7 +220,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     await runFfmpeg([
       ...rendered.flatMap(file => ["-i", file]),
       "-filter_complex", filters.join(";"),
-      "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+      "-map", `[${previous}]`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", joined,
     ]);
     if (narration?.pcm.length || music?.bytes.length) {
@@ -355,10 +259,25 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         "-c:a", "aac", "-b:a", "160k", "-t", String(elapsed),
         "-movflags", "+faststart", output,
       ]);
+      await verifyRenderedAd(output, expectedSeconds);
       return await readFile(output);
     }
+    await verifyRenderedAd(joined, expectedSeconds);
     return await readFile(joined);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+
+export async function verifyRenderedAd(filename: string, expectedSeconds: number) {
+  const result = await runFfmpeg(["-loglevel", "info", "-i", filename, "-map", "0:v:0", "-an", "-progress", "pipe:1", "-f", "null", "-"], 120000);
+  const frames = Number([...result.stdout.matchAll(/^frame=(\d+)/gm)].at(-1)?.[1]);
+  const seconds = Number([...result.stdout.matchAll(/^out_time_us=(\d+)/gm)].at(-1)?.[1]) / 1000000 + 1 / FRAME_RATE;
+  const container = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(result.stderr);
+  const containerSeconds = container ? Number(container[1]) * 3600 + Number(container[2]) * 60 + Number(container[3]) : NaN;
+  if (!Number.isFinite(containerSeconds) || Math.abs(containerSeconds - expectedSeconds) > 0.05 || frames !== Math.round(expectedSeconds * FRAME_RATE) || !Number.isFinite(seconds) || Math.abs(seconds - expectedSeconds) > 0.001 || !/1080x1920/.test(result.stderr)) {
+    throw new Error(`El MP4 exportado no cumple la duración solicitada (${expectedSeconds} s) o el formato vertical. No se entregará este archivo.`);
+  }
+  return { frames, seconds };
 }

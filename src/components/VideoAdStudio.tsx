@@ -270,6 +270,7 @@ export default function VideoAdStudio() {
     form.set("authorized", "true");
     form.set("style", style);
     form.set("duration", String(duration));
+    if (scenes.every(scene => visualCache[scene.assetId])) form.set("visualDescriptions", JSON.stringify(scenes.map(scene => visualCache[scene.assetId])));
     form.set("voice", narrationVoice);
     form.set("language", language);
     form.set("narrationProvider", narrationProvider);
@@ -277,7 +278,7 @@ export default function VideoAdStudio() {
     form.set("narration", String(narrationEnabled));
     form.set("includeClosing", "true");
     const chosenVariant = variants.find(variant => variant.tone === selectedTone);
-    form.set("closingText", chosenVariant?.closing || (language === "en-US" ? "Explore your options. Message our clinic in Medellín on WhatsApp." : "Conoce tus opciones. Escríbenos por WhatsApp."));
+    form.set("closingText", chosenVariant?.closing || (language === "en-US" ? "Message us on WhatsApp." : "Hablemos por WhatsApp."));
     if (musicFile) {
       form.set("music", musicFile);
       form.set("musicVolume", String(musicVolume / 100));
@@ -300,6 +301,20 @@ export default function VideoAdStudio() {
       const blob = await response.blob();
       if (!blob.size) throw new Error("El servidor devolvió un video vacío.");
       const url = URL.createObjectURL(blob);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const video = document.createElement("video");
+          const cleanup = () => { clearTimeout(timer); video.removeAttribute("src"); video.load(); };
+          const timer = setTimeout(() => { cleanup(); reject(new Error("No se pudo verificar la duración del MP4.")); }, 15000);
+          video.onloadedmetadata = () => {
+            const valid = Number.isFinite(video.duration) && Math.abs(video.duration - duration) <= 1 / 24 + 0.001;
+            cleanup();
+            if (valid) resolve(); else reject(new Error(`El MP4 no dura los ${duration} s seleccionados. Actualiza el servidor y vuelve a exportar.`));
+          };
+          video.onerror = () => { cleanup(); reject(new Error("No se pudo verificar el MP4.")); };
+          video.src = url;
+        });
+      } catch (error) { URL.revokeObjectURL(url); throw error; }
       renderedRef.current = url;
       setRenderedUrl(url);
     } catch (failure) {

@@ -35,6 +35,7 @@ export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
 
 
 const genericCopy = [
+  /advanced digital tools|herramientas digitales avanzadas/i,
   /advanced (?:digital )?(?:technology|planning)/i,
   /personalized approach|natural[- ]looking finish|quality materials/i,
   /tecnolog[ií]a avanzada|dise[nñ]o personalizado|materiales de (?:alta )?calidad|resultados precisos/i,

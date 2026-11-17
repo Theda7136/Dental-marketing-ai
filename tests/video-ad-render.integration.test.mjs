@@ -17,7 +17,7 @@ test("FFmpeg renders an actual branded vertical MP4 from one real PNG", { timeou
     filename: "test.png",
     bytes: png,
     kind: "image",
-    seconds: 1,
+    seconds: 2,
     heading: "Conoce nuestra clínica",
   }], {
     clinicName: "Clinica piloto",
@@ -37,8 +37,8 @@ test("FFmpeg renders an opening, branded closing and two selected styles", { tim
     create: { width: 260, height: 420, channels: 3, background: "#e7ccbd" },
   }).png().toBuffer();
   const scenes = [
-    { filename: "opening.png", bytes: first, kind: "image", seconds: 1, heading: "Una sonrisa empieza aquí" },
-    { filename: "closing.png", bytes: second, kind: "image", seconds: 1, heading: "Agenda tu valoración" },
+    { filename: "opening.png", bytes: first, kind: "image", seconds: 2, heading: "Una sonrisa empieza aquí" },
+    { filename: "closing.png", bytes: second, kind: "image", seconds: 2, heading: "Agenda tu valoración" },
   ];
   const brand = { clinicName: "Clínica de prueba", primaryColor: "#116D60", logoDataUrl: null };
 
@@ -80,38 +80,15 @@ test("15-second target survives 6.79-second narration, scene/CTA boundaries, mus
         { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "Bring your questions to your consultation." : "Trae tus preguntas a la consulta." },
       ];
       const pcm = pcmTone(6.79);
-      const overlays = [];
-      const localizedRenderer = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url), {
-        sharp: (...args) => {
-          if (Buffer.isBuffer(args[0]) && args[0].toString("utf8", 0, 4) === "<svg") overlays.push(args[0].toString());
-          const instance = sharp(...args);
-          const composite = instance.composite;
-          instance.composite = function(layers) {
-            for (const layer of layers) {
-              if (Buffer.isBuffer(layer.input) && layer.input.toString("utf8", 0, 4) === "<svg") overlays.push(layer.input.toString());
-            }
-            return composite.call(this, layers);
-          };
-          return instance;
-        },
-      });
+      const localizedRenderer = { renderVideoAd };
       const mp4 = await localizedRenderer.renderVideoAd(scenes, brand, "premium", { pcm, starts: [0, 2.1, 4.3] },
         language === "en-US" ? { bytes: await readFile(music), extension: "wav", volume: 0.18 } : undefined,
-        "georgia", { text: language === "en-US" ? "Explore your options. Message us on WhatsApp." : "Conoce tus opciones. Escríbenos por WhatsApp." }, language, 15);
-      const text = overlays.join(" ");
-      if (language === "en-US") {
-        assert.match(text, /Book a consultation/);
-        assert.match(text, /Information · Professional consultation/);
-        assert.doesNotMatch(text, /Agenda tu|valoración|Contáctanos|Escríbenos|Contenido informativo/);
-      } else {
-        assert.match(text, /Agenda tu valoración/);
-        assert.doesNotMatch(text, /Book a consultation|Professional consultation|Message us/);
-      }
+        "georgia", { text: language === "en-US" ? "Message us on WhatsApp." : "Hablemos por WhatsApp." }, language, 15);
       const output = path.join(directory, `${language}.mp4`);
       await writeFile(output, mp4);
       const decoded = ff(["-i", output, "-vn", "-ar", "24000", "-ac", "1", "-f", "s16le", "pipe:1"]);
       assert.ok(Math.abs(decoded.length / 48000 - 15) < 0.1, "audio must fill the selected 15 seconds");
-      const plan = loadTs(new URL("../src/services/videoAdTimeline.ts", import.meta.url)).planAdTimeline([5, 5, 6], 15, { pcm, starts: [0, 2.1, 4.3] });
+      const plan = loadTs(new URL("../src/services/videoAdTimeline.ts", import.meta.url)).planAdTimeline([5, 5, 6], 15, { pcm, starts: [0, 2.1, 4.3] }, [...scenes.map(scene => Math.max(2, scene.heading.split(/\s+/).length / 2.5)), 3]);
       // Speech is audible at each new scene, while the inserted visual holds are quiet.
       for (const start of plan.narration.starts) {
         const offset = Math.round((start + 0.1) * 24000) * 2;
@@ -198,5 +175,18 @@ test("silent export also keeps exactly 15 seconds including its closing", { time
     const inspection = spawnSync(ffmpeg, ["-hide_banner", "-i", output], { windowsHide: true }).stderr.toString();
     assert.match(inspection, /Duration: 00:00:15\.00/);
     assert.doesNotMatch(inspection, /Audio:/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+
+test("final-file verification refuses an actual 8.25-second MP4 for a 15-second target", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "duration-rejection-"));
+  try {
+    const filename = path.join(directory, "short.mp4");
+    ff(["-f", "lavfi", "-i", "color=c=white:size=1080x1920:rate=24", "-t", "8.25", "-c:v", "libx264", "-preset", "ultrafast", filename]);
+    const { verifyRenderedAd } = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url));
+    await assert.rejects(verifyRenderedAd(filename, 15), /no cumple la duración/);
+    const result = await verifyRenderedAd(filename, 8.25);
+    assert.equal(result.frames, 198);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

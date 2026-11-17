@@ -5,7 +5,8 @@ import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { renderVideoAd, validateAdScenes, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
 import { GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
 import { generateVideoAdNarration } from "@/services/videoAdNarration";
-import { validateCommercialText } from "@/services/videoAdCopy";
+import { layoutAdCaption, validateClosingCopy } from "@/services/videoAdLayout";
+import { validateCommercialText, validateVisualNarrative } from "@/services/videoAdCopy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,14 +111,25 @@ export async function POST(request: Request) {
     const submittedClosing = form.get("closingText");
     const closingText = typeof submittedClosing === "string" && submittedClosing.trim()
       ? submittedClosing.trim() : language === "en-US"
-        ? "Explore your options. Message our Medellín clinic on WhatsApp."
-        : "Conoce tus opciones. Escríbenos por WhatsApp.";
+        ? "Message us on WhatsApp."
+        : "Hablemos por WhatsApp.";
     if (closingText.length > 150) return NextResponse.json({ error: "El cierre comercial es demasiado largo." }, { status: 400 });
     if (includeClosing) {
       clinicalGuardrails.validate(closingText);
       validateCommercialText(closingText, language);
     }
     validateAdScenes(records);
+    const observations = form.get("visualDescriptions");
+    if (typeof observations === "string") {
+      const descriptions: unknown = JSON.parse(observations);
+      if (!Array.isArray(descriptions) || descriptions.length !== records.length || descriptions.some(value => typeof value !== "string" || value.length > 240)) throw new Error("Las observaciones no coinciden con las escenas.");
+      validateVisualNarrative(records.map(scene => scene.heading), descriptions);
+    }
+    for (const scene of records) await layoutAdCaption(scene.heading, captionFont as CaptionFont);
+    if (includeClosing) {
+      validateClosingCopy(closingText);
+      await layoutAdCaption(closingText, captionFont as CaptionFont, 76);
+    }
     const requestedDuration = form.get("duration");
     const targetSeconds = requestedDuration === null
       ? records.reduce((sum, scene) => sum + scene.seconds, 0) + (includeClosing ? 6 : 0)
@@ -158,6 +170,8 @@ export async function POST(request: Request) {
         "Content-Disposition": 'attachment; filename="video-publicitario.mp4"',
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
+        "X-Video-Ad-Renderer": "verified-timeline-v2",
+        "X-Video-Ad-Duration": String(targetSeconds),
       },
     });
   } catch (error) {

@@ -175,3 +175,11 @@ test("rushed or overlong provider speech is rejected instead of accelerated", as
   await assert.rejects(generateVideoAdNarration(["One two three four five six seven eight nine ten."], "elevenlabs", "Kore", "en-US", 15), /demasiado rápida/);
   await assert.rejects(generateVideoAdNarration(["Hello."], "elevenlabs", "Kore", "en-US", 2), /más tiempo/);
 });
+
+
+test("timeline reserves readable scene and closing holds without discarding voice samples", () => {
+  const plan = timeline.planAdTimeline([1, 1, 1], 15, { pcm: tone(8.25), starts: [0, 2.5, 5] }, [3, 3, 4]);
+  assert.equal(Math.round(plan.durations.reduce((a, b) => a + b) * 24), 360);
+  assert.ok(plan.durations[0] >= 3 && plan.durations[1] >= 3 && plan.durations[2] >= 4);
+  assert.throws(() => timeline.planAdTimeline([1, 1, 1], 8, undefined, [3, 3, 4]), /no cabe/);
+});

@@ -71,17 +71,18 @@ export function pcmWave(pcm: Buffer): Buffer {
 
 // Allocate whole frames, keeping every speech sample at its original sample rate.
 // Extra time is held after each phrase, never by stretching or speeding up speech.
-export function planAdTimeline(weights: number[], targetSeconds: number, track?: NarrationTrack) {
+export function planAdTimeline(weights: number[], targetSeconds: number, track?: NarrationTrack, minimumSeconds?: number[]) {
   const fps = 24;
   if (!weights.length || weights.some(value => !Number.isFinite(value) || value <= 0) ||
       !Number.isInteger(targetSeconds) || targetSeconds < 1 || targetSeconds > 60) {
     throw new Error("La duración objetivo debe estar entre 1 y 60 segundos.");
   }
+  if (minimumSeconds && (minimumSeconds.length !== weights.length || minimumSeconds.some(value => !Number.isFinite(value) || value < 0))) throw new Error("Tiempos de lectura inválidos.");
   if (track) narrationDurations(track, weights.length);
-  const cuts = track ? [...track.starts.map(time => Math.round(time * RATE)), track.pcm.length / 2] : [];
-  const minimum = weights.map((_, i) => track
+  const cuts = track ? [...track.starts.map((time, index) => index === 0 ? 0 : Math.round(time * RATE)), track.pcm.length / 2] : [];
+  const minimum = weights.map((_, i) => Math.max(Math.ceil((minimumSeconds?.[i] ?? 1) * fps), track
     ? Math.ceil((cuts[i + 1] - cuts[i]) / RATE * fps) + 6
-    : fps);
+    : fps));
   const remaining = targetSeconds * fps - minimum.reduce((a, b) => a + b, 0);
   if (remaining < 0) throw new Error("La narración no cabe con pausas naturales. Acorta el guion o elige una duración mayor; no se acelerará la voz.");
   const totalWeight = weights.reduce((a, b) => a + b, 0);

@@ -1,3 +1,4 @@
+import { layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { normalizeVideoAdCopy, validateCommercialText, validateVisualNarrative } from "./videoAdCopy";
 import {
@@ -292,7 +293,7 @@ export async function generateVideoAdDrafts(input: {
     'Genera UNA única variante comercial con tone="comercial". No generes alternativas educativas ni emocionales.',
     "Si la observación visual es limitada, escribe un mensaje prudente sobre la consulta y las opciones disponibles; nunca rechaces el anuncio por falta de evidencia visual.",
     "Habla a una persona real: utiliza frases fluidas, verbos concretos, detalles visuales relevantes y un beneficio prudente. Evita lenguaje corporativo y lugares comunes.",
-    "El cierre debe ser una invitación clara a contactar a la clínica por WhatsApp, sin inventar el número ni prometer resultados.",
+    "El cierre debe ser UNA invitación breve de 4 a 6 palabras a WhatsApp, sin repetir otra llamada a la acción, sin inventar el número ni prometer resultados.",
     "No uses diagnósticos, promesas de resultados, urgencias artificiales, precios inventados ni testimonios.",
     "El procedimiento declarado NO demuestra que se haya realizado ni que aparezca en las fotos.",
     "No presumas detalles visuales, pacientes, instalaciones, resultados ni credenciales.",
@@ -312,7 +313,7 @@ export async function generateVideoAdDrafts(input: {
     "Prioriza el elemento visible principal de cada escena; evita explicaciones abstractas que no se relacionen con la fotografía.",
     "Si se observa una comparación de dos sonrisas, describe de forma neutral la comparación visual sin asegurar que sea un antes y después, ni atribuir un resultado clínico.",
     "Si la imagen muestra una sonrisa o una boca, no hables de anatomía, estructura dental o diagnósticos salvo que el objetivo y el contexto editorial lo justifiquen explícitamente.",
-    "Mantén los subtítulos breves, idealmente entre 5 y 11 palabras por escena, para que puedan leerse en un video vertical.",
+    "Mantén los subtítulos breves, entre 4 y 8 palabras por escena, para que puedan leerse en un video vertical.",
     "Si una escena muestra instalaciones, habla de la experiencia de atención sin atribuir equipos, certificaciones o capacidades no verificadas.",
     "Si una escena muestra una sonrisa, no afirmes que es un resultado de tratamiento sin confirmación editorial.",
     "Evita expresiones genéricas como «instalaciones equipadas para ti», «análisis clínico profesional» o «consulta opciones de diseño dental» cuando no aporten a la historia.",
@@ -386,7 +387,12 @@ export async function generateVideoAdDrafts(input: {
     try {
       const drafts = validateVideoAdDrafts(parsed, input.sceneCount, language);
       for (const draft of drafts) {
-        try { validateVisualNarrative(draft.scenes, input.visualDescriptions!); }
+        try {
+          validateVisualNarrative(draft.scenes, input.visualDescriptions!);
+          for (const caption of draft.scenes) await layoutAdCaption(caption);
+          validateClosingCopy(draft.closing);
+          await layoutAdCaption(draft.closing, "arial", 76);
+        }
         catch (error) { throw new AIProviderError((error as Error).message, 502); }
         if ([...draft.scenes, draft.closing].join(" ").split(/\s+/).length > Math.floor((input.duration - 2) * 2)) {
           throw new AIProviderError("El guion supera el presupuesto de palabras para la duración solicitada.", 502);

@@ -3,24 +3,24 @@
 ## Behavior
 
 - One TTS request reads all scene captions and the optional closing, in order. The text is limited to 2,400 characters; the resulting narration must fit within 60 seconds.
-- ElevenLabs uses `/with-timestamps`, validates character alignment and maps it through PCM silence removal. Gemini TTS returns PCM; an audio-capable Gemini model then aligns each exact caption against that generated track. Invalid, missing, overlapping or out-of-range timings stop the render. There is no character-count timing fallback.
-- The PCM processor removes leading/trailing padding and caps quiet runs longer than 300 ms at 200 ms, keeping short breaths. Detection uses 10 ms RMS windows at approximately -50 dBFS. This removes dead air, not all natural pauses.
-- Spoken scene boundaries are rounded to the nearest 24 fps frame; the last frame rounds up, adding at most 42 ms. Narrated scenes use clean cuts so crossfades cannot shorten the voice or overlap captions. Without narration, the existing timed scenes, music and style-based transitions remain available.
-- Photographs and clips retain their full field of view and aspect ratio, inside a solid brand canvas. No clinical crop, zoom, blurred duplicate, retouch or color adjustment is applied. Resizing and MP4 encoding still occur. A short clip holds its last frame if its narration is longer.
-- The selected ad language controls generated copy, TTS, informational footer, default closing and contact label. Clinic names remain unchanged. The editor itself retains its Spanish interface.
-- The closing is a separate typographic brand card with the complete CTA, selected caption font, brand accent and optional logo. No sentence splitting or truncation discards part of the spoken closing.
+- ElevenLabs uses `/with-timestamps`, validates character alignment and maps it through leading/trailing PCM padding removal. Gemini TTS returns PCM; an audio-capable Gemini model then aligns each exact caption against that generated track. Invalid, missing, overlapping or out-of-range timings stop the render. There is no character-count timing fallback.
+- The PCM processor trims provider padding only at the beginning and end. Internal breaths and pauses remain intact.
+- Scene slots use whole 24 fps frames. Minimum holds allow reading at 2.5 words per second (at least two seconds per scene and three seconds for the closing). Extra time is distributed across slots. Both narrated and silent exports use cuts, never overlapping fades that reduce the duration.
+- Photographs and clips retain their full field of view and aspect ratio, inside a light neutral canvas. No clinical crop, zoom, blurred duplicate, retouch or color adjustment is applied. Resizing and MP4 encoding still occur. A short clip holds its last frame if its narration is longer.
+- The selected ad language controls generated copy, TTS and the default closing. Clinic names remain unchanged. The editor itself retains its Spanish interface.
+- The closing is a separate typographic brand card with one complete WhatsApp CTA, selected caption font and a large optional logo. It has no simulated button, secondary CTA, footer or decorative rules. No sentence splitting or truncation discards part of the spoken closing.
 
 ## Script validation
 
 Gemini Vision observations are required for each scene. Generation uses a word budget, continuity instructions and a separate closing. The single commercial variant passes deterministic checks for generic slogans, risky/unverified claims, duplicated scenes, production directions and common mixed-language CTAs. Rejected drafts are repaired using the prior response, original observations and specific validation issue (at most three attempts total). Every repaired response must pass the same validation.
 
-The semantic audit and Gemini audio alignment are model-based checks, not a guarantee of factual accuracy or word-perfect forced alignment. Review a real generated advertisement before campaign use. User notes and visible objects do not establish material composition, credentials, clinical results or diagnoses. No external publishing was added.
+Visual specificity checks are limited heuristics and Gemini audio alignment is model-based; these are not a guarantee of factual accuracy or word-perfect forced alignment. Review a real generated advertisement before campaign use. User notes and visible objects do not establish material composition, credentials, clinical results or diagnoses. No external publishing was added.
 
 ## Configuration
 
 Existing `GEMINI_API_KEY`, `GEMINI_TTS_MODEL`, `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` are retained. Optional `GEMINI_ALIGNMENT_MODEL` defaults to `GEMINI_MODEL`, then `gemini-3.1-flash-lite`; it must accept audio input. Gemini alignment uses the same Gemini key and only sends generated narration, not clinical imagery. ElevenLabs narration does not require an additional Gemini request or key.
 
-Scripts allow up to 180 seconds for bounded generation/audit attempts. Rendering allows up to 300 seconds; configure the deployment's request timeout accordingly. Existing clinic permissions, consent flow, upload limits, no-store responses and download-only behavior remain in place.
+Scripts allow up to 180 seconds for bounded generation/repair attempts. Rendering allows up to 300 seconds; configure the deployment's request timeout accordingly. Existing clinic permissions, consent flow, upload limits, no-store responses and download-only behavior remain in place.
 
 ## Verification
 
@@ -53,8 +53,8 @@ ni se trunca. Una locución superior a 165 palabras/minuto se rechaza para regen
 El presupuesto de guion reserva dos segundos de aire y usa dos palabras/segundo.
 La validación comprueba detalles visuales conocidos, frases repetidas y fórmulas
 vacías; no constituye una garantía semántica de coherencia ni de hechos clínicos.
-Las fuentes clínicas se ajustan completas y los subtítulos se colocan después de
-la imagen visible, sin cubrirla ni recortarla.
+Las fuentes clínicas se ajustan completas; los subtítulos se colocan arriba del
+material horizontal o debajo del vertical, sin cubrirlo ni recortarlo.
 
 
 ### Guion comercial único y reparación
@@ -68,3 +68,22 @@ de duración. No se rellenan escenas con detalles clínicos inventados. Si persi
 el error, se informa y no se acepta un guion parcial.
 La selección de ElevenLabs solo controla la voz durante el renderizado: el análisis
 visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
+
+
+### Controles de exportación y composición
+
+- `videoAdLayout.ts` mide los glifos de la fuente real: subtítulos de 68 px y cierre
+  de 76 px, máximo dos líneas, dentro de 936 px. No se comprimen letras, no se
+  reduce su tamaño y no se descartan palabras. El texto que no cabe se rechaza.
+- Las validaciones de texto y cierre ocurren antes de solicitar voz. Gemini también
+  recibe estas restricciones y puede reparar un guion que no quepa.
+- Cada escena se codifica con un número explícito de fotogramas. Antes de devolver
+  el MP4, se decodifica la pista de video y se comprueban el total de fotogramas,
+  la duración temporal, la duración del contenedor y la resolución 1080 × 1920.
+- El navegador comprueba además los metadatos del archivo recibido. Un archivo corto
+  no queda disponible para descarga. Las cabeceras `X-Video-Ad-Renderer` y
+  `X-Video-Ad-Duration` permiten identificar el renderizador desplegado.
+- Conservar una fuente horizontal completa limita su altura en un lienzo vertical:
+  se usa el ancho completo sin recortar detalles ni generar extensiones ficticias.
+- Regresión real: un archivo de 8,25 s se rechaza cuando se solicitan 15 s; una
+  exportación de 15 s contiene exactamente 360 fotogramas a 24 fps.
