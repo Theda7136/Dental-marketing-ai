@@ -33,7 +33,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Descripciones visuales inválidas." }, { status: 400 });
     }
 
+    if (form.language !== undefined && form.language !== "es-CO" && form.language !== "en-US") {
+      return NextResponse.json({ error: "Idioma no permitido." }, { status: 400 });
+    }
+
     const variants = await generateVideoAdDrafts({
+      language: (form.language ?? "es-CO") as "es-CO" | "en-US",
       procedure: form.procedure,
       goal: form.goal,
       duration: form.duration,
