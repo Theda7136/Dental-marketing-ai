@@ -120,7 +120,7 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
     : `[0:v]split=2[back][front];` +
       `[back]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},boxblur=24:2,eq=brightness=-0.10[blur];` +
       `[front]scale=968:1460:force_original_aspect_ratio=decrease,setsar=1[subject];` +
-      `[blur][subject]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=${FRAME_RATE},format=yuv420p[background];`;
+      `[blur][subject]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=${FRAME_RATE},tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
 
   const captionFade = style === "dinamico" ? 0.18 : style === "educativo" ? 0.55 : 0.4;
   const captionDuration = Math.min(captionFade, seconds / 5);
@@ -257,7 +257,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
 
 export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
   validateAdScenes(scenes);
-  if (narration && narration.length !== timedScenes.length) {
+  if (narration && narration.length !== scenes.length) {
     throw new Error("La narración no coincide con las escenas del anuncio.");
   }
 
