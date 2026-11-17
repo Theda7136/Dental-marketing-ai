@@ -202,7 +202,7 @@ async function captionOverlay(
   </svg>`);
 
   const layers: sharp.OverlayOptions[] = [{ input: svg }];
-  if (isClosing) {
+  if (false && isClosing) {
     const button = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="92">
       <rect width="600" height="92" rx="18" fill="#116D60"/>
       <text x="300" y="59" text-anchor="middle" fill="#FFFFFF" font-size="40"
@@ -329,7 +329,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         <circle cx="540" cy="775" r="330" fill="${accent}" opacity=".13"/>
         <text x="540" y="340" text-anchor="middle" fill="#c5ded8" font-size="40" font-family="Arial, sans-serif">${clinic}</text>
         ${headlineSvg}
-        <rect x="100" y="970" width="880" height="${Math.max(145, actionLines.length * 54 + 65)}" rx="30" fill="${accent}"/>
+        <rect x="100" y="970" width="880" height="${Math.max(145, actionLines.length * 54 + 65)}" rx="30" fill="#116D60" stroke="#d2e9e0" stroke-width="3"/>
         ${actionSvg}
         <text x="540" y="1300" text-anchor="middle" fill="#d4e8e2" font-size="39" font-family="Arial, sans-serif">${contact}</text>
       </svg>`);
