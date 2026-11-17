@@ -80,8 +80,8 @@ async function prepareVideoFrame(file: File): Promise<Blob> {
 
 export default function VideoAdStudio() {
   const [treatment, setTreatment] = useState(treatments[0]);
-  const [goal, setGoal] = useState<AdGoal>("whatsapp");
-  const [style, setStyle] = useState<AdStyle>("premium");
+  const goal: AdGoal = "whatsapp";
+  const style: AdStyle = "premium";
   const [duration, setDuration] = useState(30);
   const [assets, setAssets] = useState<SourceAsset[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -213,7 +213,7 @@ export default function VideoAdStudio() {
         throw new Error(payload.error ?? "No se pudieron generar los guiones.");
       }
       setVariants(payload.variants);
-      const preferred = payload.variants.find(variant => variant.tone === "educativa") ?? payload.variants[0];
+      const preferred = payload.variants.find(variant => variant.tone === "comercial") ?? payload.variants[0];
       if (preferred) useVariant(preferred);
       else {
         setSelectedTone(null);
@@ -402,7 +402,6 @@ export default function VideoAdStudio() {
         <aside className="ad-studio-settings">
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
-          <label className="ad-studio-field">Objetivo<select value={goal} onChange={event => { setGoal(event.target.value as AdGoal); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="whatsapp">Consultas por WhatsApp</option><option value="confianza">Transmitir confianza</option><option value="educacion">Educación del paciente</option></select></label>
           <label className="ad-studio-field">Fuente de subtítulos
             <select value={captionFont} onChange={event => { setCaptionFont(event.target.value); clearRender(); }}>
               <option value="arial">Arial · Moderna</option>
@@ -411,7 +410,6 @@ export default function VideoAdStudio() {
               <option value="trebuchet">Trebuchet · Cercana</option>
             </select>
           </label>
-          <div className="ad-studio-field"><span>Estilo visual</span><div className="ad-studio-choices">{(["premium", "educativo", "dinamico"] as const).map(value => <button key={value} type="button" aria-pressed={style === value} onClick={() => { setStyle(value); clearRender(); }}>{value === "dinamico" ? "Dinámico" : value === "educativo" ? "Educativo" : "Premium"}</button>)}</div></div>
           <div className="ad-studio-field">
             <span>Música de fondo (opcional)</span>
             <label htmlFor="ad-music-file" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", alignSelf: "flex-start", padding: "11px 16px", border: "1px solid #91c5b4", borderRadius: 10, color: "#116d60", fontWeight: 700, cursor: "pointer" }}>Seleccionar música MP3, WAV o M4A</label>
@@ -454,22 +452,13 @@ export default function VideoAdStudio() {
               </select>
             </label>}
 
-            <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Consultando Gemini..." : "Generar 3 guiones con IA"}</button>
-            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando tres variantes y sus subtítulos por fotografía.</p>}
-            {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p> }
-            {variants.length > 0 && (
-              <div className="ad-studio-variants" aria-label="Versiones creativas">
-                {variants.map(variant => (
-                  <button type="button" key={variant.tone} aria-pressed={selectedTone === variant.tone} onClick={() => useVariant(variant)}>
-                    <strong>{variant.tone === "educativa" ? "Educativa" : variant.tone === "emocional" ? "Emocional" : "Comercial"}</strong>
-                    <span>{variant.title}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {variants.length === 0 && <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Preparando anuncio..." : "Generar guion publicitario con IA"}</button>}
+            {generatingScripts && <p role="status" className="ad-studio-hint">Analizando el material y preparando el guion comercial.</p>}
+            {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p>}
+            {variants.length > 0 && <div className="ad-studio-hint"><strong>Guion comercial listo.</strong> Puedes editar los textos en «Guion por escenas» antes de generar el video.</div>}
           </div>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
-          <p className="ad-studio-hint">El estilo Premium, Dinámico o Educativo se aplica al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
+          <p className="ad-studio-hint">El estilo publicitario se aplica automáticamente al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
         </aside>
       </div>
     </section>
