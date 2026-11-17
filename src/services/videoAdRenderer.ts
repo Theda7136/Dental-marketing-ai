@@ -256,7 +256,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial"): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { narration?: Buffer; whatsapp?: string }): Promise<Buffer> {
   validateAdScenes(scenes);
   if (narration && narration.length !== scenes.length) {
     throw new Error("La narración no coincide con las escenas del anuncio.");
@@ -272,6 +272,9 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     }
     return { ...scene, seconds };
   });
+  if (closing && timedScenes.reduce((total, scene) => total + scene.seconds, 0) + 6 > MAX_SECONDS) {
+    throw new Error("Reserva seis segundos para el cierre comercial. Reduce la duración de las escenas.");
+  }
   const directory = await mkdtemp(path.join(tmpdir(), "dental-video-ad-"));
 
   try {
@@ -302,6 +305,40 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         "-pix_fmt", "yuv420p", "-r", String(FRAME_RATE), "-movflags", "+faststart", output,
       ]);
       rendered.push(output);
+    }
+
+    if (closing) {
+      const closingSeconds = 6;
+      const closingPath = path.join(directory, "closing.png");
+      const closingVideo = path.join(directory, "closing.mp4");
+      const accent = safeColor(brand.primaryColor);
+      const clinic = escapeXml(brand.clinicName.slice(0, 40));
+      const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : "Agenda tu valoración";
+      const closingSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
+        <rect width="1080" height="1920" fill="#081e1b"/>
+        <rect x="0" y="0" width="1080" height="18" fill="${accent}"/>
+        <circle cx="540" cy="775" r="330" fill="${accent}" opacity=".13"/>
+        <text x="540" y="340" text-anchor="middle" fill="#c5ded8" font-size="40" font-family="Arial, sans-serif">${clinic}</text>
+        <text x="540" y="810" text-anchor="middle" fill="white" font-size="76" font-weight="700" font-family="Arial, sans-serif">Transforma tu sonrisa.</text>
+        <rect x="100" y="1000" width="880" height="154" rx="38" fill="${accent}"/>
+        <text x="540" y="1097" text-anchor="middle" fill="white" font-size="49" font-weight="700" font-family="Arial, sans-serif">Contáctanos por WhatsApp</text>
+        <text x="540" y="1230" text-anchor="middle" fill="#d4e8e2" font-size="39" font-family="Arial, sans-serif">${contact}</text>
+      </svg>`);
+      const closingLayers: sharp.OverlayOptions[] = [{ input: closingSvg }];
+      if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
+        const logoBytes = Buffer.from(brand.logoDataUrl.slice("data:image/png;base64,".length), "base64");
+        if (logoBytes.length && logoBytes.length <= 500_000) {
+          const logo = await sharp(logoBytes).resize({ width: 220, height: 120, fit: "inside" }).png().toBuffer();
+          closingLayers.push({ input: logo, top: 135, left: 430 });
+        }
+      }
+      await writeFile(closingPath, await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: "#081e1b" } }).composite(closingLayers).png().toBuffer());
+      await runFfmpeg(["-loop", "1", "-framerate", String(FRAME_RATE), "-i", closingPath,
+        "-t", String(closingSeconds), "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+        "-pix_fmt", "yuv420p", "-r", String(FRAME_RATE), closingVideo]);
+      rendered.push(closingVideo);
+      timedScenes.push({ filename: "closing.png", bytes: Buffer.from([1]), kind: "image", seconds: closingSeconds, heading: "" });
+      if (narration) narration = [...narration, closing.narration ?? Buffer.alloc(0)];
     }
 
     const joined = path.join(directory, "advertisement.mp4");
