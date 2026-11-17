@@ -92,6 +92,7 @@ export default function VideoAdStudio() {
   const [rendering, setRendering] = useState(false);
   const [narrationEnabled, setNarrationEnabled] = useState(false);
   const [narrationVoice, setNarrationVoice] = useState("Kore");
+  const [narrationProvider, setNarrationProvider] = useState<"gemini" | "elevenlabs">("elevenlabs");
   const [captionFont, setCaptionFont] = useState("arial");
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(18);
@@ -254,6 +255,7 @@ export default function VideoAdStudio() {
     form.set("authorized", "true");
     form.set("style", style);
     form.set("voice", narrationVoice);
+    form.set("narrationProvider", narrationProvider);
     form.set("captionFont", captionFont);
     form.set("narration", String(narrationEnabled));
     if (musicFile) {
@@ -432,8 +434,14 @@ export default function VideoAdStudio() {
             <p>Gemini analizará fotografías y un fotograma representativo de cada video para adaptar los subtítulos. No incluyas datos personales en las notas.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para analizar con Gemini las fotografías y fotogramas de los videos, y para utilizarlos en publicidad.</span></label>
-            <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con Gemini (voz en español). La voz leerá el guion de las escenas; requiere conexión y puede consumir cuota de Gemini.</span></label>
-            {narrationEnabled && <label className="ad-studio-field">Voz de la narración
+            <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con IA. ElevenLabs ofrece voces más naturales; requiere una cuenta y créditos disponibles.</span></label>
+            {narrationEnabled && <label className="ad-studio-field">Motor de narración
+              <select value={narrationProvider} onChange={event => { setNarrationProvider(event.target.value as "gemini" | "elevenlabs"); clearRender(); }}>
+                <option value="elevenlabs">ElevenLabs · Voz natural</option>
+                <option value="gemini">Gemini · Voz alternativa</option>
+              </select>
+            </label>}
+            {narrationEnabled && narrationProvider === "gemini" && <label className="ad-studio-field">Voz de la narración
               <select value={narrationVoice} onChange={event => { setNarrationVoice(event.target.value); clearRender(); }}>
                 <option value="Kore">Kore · Serena</option>
                 <option value="Puck">Puck · Animada</option>
