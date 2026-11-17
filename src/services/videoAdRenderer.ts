@@ -256,7 +256,7 @@ async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
     .png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { narration?: Buffer; whatsapp?: string }): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: Buffer[], music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { narration?: Buffer; text?: string; whatsapp?: string }): Promise<Buffer> {
   validateAdScenes(scenes);
   if (narration && narration.length !== scenes.length) {
     throw new Error("La narración no coincide con las escenas del anuncio.");
@@ -314,15 +314,24 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const accent = safeColor(brand.primaryColor);
       const clinic = escapeXml(brand.clinicName.slice(0, 40));
       const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : "Agenda tu valoración";
+      const callToAction = (closing.text ?? "Transforma tu sonrisa. Contáctanos por WhatsApp.").trim();
+      const headline = callToAction.split(/[.!?]/)[0]?.trim() || "Transforma tu sonrisa";
+      const action = callToAction.slice(headline.length).replace(/^[.!?\\s]+/, "").trim() || "Contáctanos por WhatsApp";
+      const headlineLines = wrapCaption(headline, 23).slice(0, 3);
+      const actionLines = wrapCaption(action, 24).slice(0, 3);
+      const headlineSize = headlineLines.length > 1 ? 60 : 68;
+      const actionSize = actionLines.length > 1 ? 40 : 45;
+      const headlineSvg = headlineLines.map((line, index) => `<text x="540" y="${735 + index * 76}" text-anchor="middle" fill="#ffffff" font-size="${headlineSize}" font-weight="700" font-family="Arial, sans-serif">${escapeXml(line)}</text>`).join("");
+      const actionSvg = actionLines.map((line, index) => `<text x="540" y="${1062 + index * 54}" text-anchor="middle" fill="#ffffff" font-size="${actionSize}" font-weight="700" font-family="Arial, sans-serif">${escapeXml(line)}</text>`).join("");
       const closingSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
         <rect width="1080" height="1920" fill="#081e1b"/>
         <rect x="0" y="0" width="1080" height="18" fill="${accent}"/>
         <circle cx="540" cy="775" r="330" fill="${accent}" opacity=".13"/>
         <text x="540" y="340" text-anchor="middle" fill="#c5ded8" font-size="40" font-family="Arial, sans-serif">${clinic}</text>
-        <text x="540" y="810" text-anchor="middle" fill="white" font-size="76" font-weight="700" font-family="Arial, sans-serif">Transforma tu sonrisa.</text>
-        <rect x="100" y="1000" width="880" height="154" rx="38" fill="${accent}"/>
-        <text x="540" y="1097" text-anchor="middle" fill="white" font-size="49" font-weight="700" font-family="Arial, sans-serif">Contáctanos por WhatsApp</text>
-        <text x="540" y="1230" text-anchor="middle" fill="#d4e8e2" font-size="39" font-family="Arial, sans-serif">${contact}</text>
+        ${headlineSvg}
+        <rect x="100" y="970" width="880" height="${Math.max(145, actionLines.length * 54 + 65)}" rx="30" fill="${accent}"/>
+        ${actionSvg}
+        <text x="540" y="1300" text-anchor="middle" fill="#d4e8e2" font-size="39" font-family="Arial, sans-serif">${contact}</text>
       </svg>`);
       const closingLayers: sharp.OverlayOptions[] = [{ input: closingSvg }];
       if (brand.logoDataUrl?.startsWith("data:image/png;base64,")) {
