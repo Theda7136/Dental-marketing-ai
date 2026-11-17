@@ -83,6 +83,7 @@ export default function VideoAdStudio() {
   const goal: AdGoal = "whatsapp";
   const style: AdStyle = "premium";
   const [duration, setDuration] = useState(30);
+  const [language, setLanguage] = useState<"es-CO" | "en-US">("es-CO");
   const [assets, setAssets] = useState<SourceAsset[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -205,7 +206,7 @@ export default function VideoAdStudio() {
         signal: AbortSignal.timeout(32000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          procedure: treatment, goal, duration, sceneCount: assets.length, clinicContext, visualDescriptions: observations,
+          procedure: treatment, goal, duration, language, sceneCount: assets.length, clinicContext, visualDescriptions: observations,
         }),
       });
       const payload = await response.json() as { variants?: AdVariant[]; error?: string };
@@ -257,12 +258,13 @@ export default function VideoAdStudio() {
     form.set("authorized", "true");
     form.set("style", style);
     form.set("voice", narrationVoice);
+    form.set("language", language);
     form.set("narrationProvider", narrationProvider);
     form.set("captionFont", captionFont);
     form.set("narration", String(narrationEnabled));
     form.set("includeClosing", "true");
     const chosenVariant = variants.find(variant => variant.tone === selectedTone);
-    form.set("closingText", chosenVariant?.closing || (goal === "whatsapp" ? "Transforma tu sonrisa. Contáctanos por WhatsApp." : "Agenda una valoración y conoce tus opciones."));
+    form.set("closingText", chosenVariant?.closing || (language === "en-US" ? "Explore your options. Message our clinic in Medellín on WhatsApp." : "Conoce tus opciones. Escríbenos por WhatsApp."));
     if (musicFile) {
       form.set("music", musicFile);
       form.set("musicVolume", String(musicVolume / 100));
@@ -401,6 +403,7 @@ export default function VideoAdStudio() {
 
         <aside className="ad-studio-settings">
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
+          <label className="ad-studio-field">Idioma del anuncio<select value={language} onChange={event => { setLanguage(event.target.value as "es-CO" | "en-US"); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="es-CO">Español · Colombia</option><option value="en-US">English · United States</option></select></label>
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
           <label className="ad-studio-field">Fuente de subtítulos
             <select value={captionFont} onChange={event => { setCaptionFont(event.target.value); clearRender(); }}>
