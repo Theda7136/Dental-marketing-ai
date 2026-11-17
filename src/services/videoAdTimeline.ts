@@ -1,7 +1,7 @@
 export type NarrationTrack = { pcm: Buffer; starts: number[] };
 const RATE = 24000;
 
-// Keep natural breaths, but remove provider padding and long dead air. PCM is
+// Preserve all internal pauses; only trim provider padding at the edges. PCM is
 // mono signed 16-bit little endian at 24 kHz throughout the pipeline.
 export function compactNarration(pcm: Buffer) {
   if (!pcm.length || pcm.length % 2 || pcm.length > RATE * 2 * 90) {
@@ -24,7 +24,7 @@ export function compactNarration(pcm: Buffer) {
     let end = i + 1;
     while (end < active.length && active[end] === active[i]) end++;
     end = Math.min(end, last + 6);
-    const count = !active[i] && end - i > 30 ? 20 : end - i;
+    const count = end - i;
     const from = i * window * 2;
     const to = Math.min(pcm.length, (i + count) * window * 2);
     keep.push({ from, to, output });
@@ -67,4 +67,38 @@ export function pcmWave(pcm: Buffer): Buffer {
   header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
   header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([header, pcm]);
+}
+
+// Allocate whole frames, keeping every speech sample at its original sample rate.
+// Extra time is held after each phrase, never by stretching or speeding up speech.
+export function planAdTimeline(weights: number[], targetSeconds: number, track?: NarrationTrack) {
+  const fps = 24;
+  if (!weights.length || weights.some(value => !Number.isFinite(value) || value <= 0) ||
+      !Number.isInteger(targetSeconds) || targetSeconds < 1 || targetSeconds > 60) {
+    throw new Error("La duración objetivo debe estar entre 1 y 60 segundos.");
+  }
+  if (track) narrationDurations(track, weights.length);
+  const cuts = track ? [...track.starts.map(time => Math.round(time * RATE)), track.pcm.length / 2] : [];
+  const minimum = weights.map((_, i) => track
+    ? Math.ceil((cuts[i + 1] - cuts[i]) / RATE * fps) + 6
+    : fps);
+  const remaining = targetSeconds * fps - minimum.reduce((a, b) => a + b, 0);
+  if (remaining < 0) throw new Error("La narración no cabe con pausas naturales. Acorta el guion o elige una duración mayor; no se acelerará la voz.");
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const shares = weights.map(weight => remaining * weight / totalWeight);
+  const frames = minimum.map((value, i) => value + Math.floor(shares[i]));
+  let extra = targetSeconds * fps - frames.reduce((a, b) => a + b, 0);
+  const order = shares.map((value, i) => ({ i, fraction: value % 1 })).sort((a, b) => b.fraction - a.fraction);
+  for (const { i } of order) if (extra-- > 0) frames[i]++;
+  const durations = frames.map(value => value / fps);
+  if (!track) return { durations, narration: undefined };
+  const pcm = Buffer.alloc(targetSeconds * RATE * 2);
+  const starts: number[] = [];
+  let frame = 0;
+  frames.forEach((length, i) => {
+    starts.push(frame / fps);
+    track.pcm.copy(pcm, frame * (RATE / fps) * 2, cuts[i] * 2, cuts[i + 1] * 2);
+    frame += length;
+  });
+  return { durations, narration: { pcm, starts } };
 }

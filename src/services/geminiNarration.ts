@@ -13,7 +13,7 @@ export async function generateGeminiNarration(script: string, voice: GeminiVoice
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `${language === "en-US" ? "Read the following dental advertisement in natural American English with a warm, clear and conversational voice." : "Lee el siguiente anuncio en español de Colombia, con voz natural, clara, cercana y ritmo publicitario pausado."} Speak exactly the provided text, without adding words:\n\n${text}` }] }],
+      contents: [{ parts: [{ text: `${language === "en-US" ? "Read the following dental advertisement in natural American English with a warm, clear and conversational voice." : "Lee el siguiente anuncio en español de Colombia, con voz natural, clara, cercana y ritmo publicitario pausado."} Use a relaxed conversational pace around 115–135 words per minute. Preserve sentence pauses and take a short breath between paragraphs. Never rush to fit a time limit. Speak exactly the provided text, without adding words:\n\n${text}` }] }],
       generationConfig: {
         responseModalities: ["AUDIO"],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },

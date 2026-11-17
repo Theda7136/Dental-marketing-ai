@@ -1,5 +1,5 @@
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
-import { normalizeVideoAdCopy, validateCommercialText } from "./videoAdCopy";
+import { normalizeVideoAdCopy, validateCommercialText, validateVisualNarrative } from "./videoAdCopy";
 import {
   generateDentalVariants as generateWithGrok,
   type DentalPost,
@@ -302,6 +302,9 @@ export async function generateVideoAdDrafts(input: {
     "Cada variante debe contener exactamente el número de strings de scenes solicitado.",
     "title máximo 60 caracteres; opening, message, closing máximo 140; cada escena máximo 100.",
     "Construye una sola historia publicitaria por variante: apertura que despierte interés, desarrollo conectado con las imágenes y cierre que continúe naturalmente la idea.",
+    "Escribe scenes + closing como un único párrafo hablado antes de dividirlo. El primer detalle abre una pregunta; el siguiente amplía esa misma pregunta con su propio objeto visible. No reinicies el discurso en cada escena.",
+    "Evita las fórmulas vacías 'Digital mapping allows us to review your options' y 'Physical models help us discuss your preferences'. Explica qué detalle se observa y qué pregunta permite conversar, sin atribuir capacidades clínicas.",
+    "Reserva tiempo para respirar, observar cada imagen y leer el cierre: 115–135 palabras por minuto, sin llenar toda la duración con voz.",
     "Cada texto en scenes debe continuar la idea del anterior. No escribas tres eslóganes independientes ni repitas el mismo concepto.",
     "Ajusta cada frase a la observación visual de su escena, respetando exactamente el orden de las fotografías.",
     "Prioriza el elemento visible principal de cada escena; evita explicaciones abstractas que no se relacionen con la fotografía.",
@@ -321,7 +324,7 @@ export async function generateVideoAdDrafts(input: {
     "Ejemplo basado en observaciones de un modelo dental digital y una pieza sobre una mesa: ‘En este modelo digital se puede ver la forma de cada diente.’ ‘¿Qué se evalúa antes de elegir una opción? Hablemos en consulta.’ No uses este ejemplo si esas observaciones no están presentes.",
     "No atribuyas calidad, precisión, composición de materiales, beneficios clínicos, rapidez ni resultados a objetos visibles. Un modelo digital no prueba que se haya realizado un tratamiento.",
     "El campo closing se narra DESPUÉS de todas las escenas en una tarjeta independiente. No repitas ese CTA en la última escena.",
-    `Presupuesto máximo de palabras para scenes + closing: ${Math.floor(input.duration * 2.1)}.`,
+    `Presupuesto máximo de palabras para scenes + closing: ${Math.floor((input.duration - 2) * 2)}.`,
     "Evita describir instrucciones en opening, message, closing y title; son solo textos publicitarios para pacientes.",
     "El cierre debe concordar con el objetivo indicado; si el objetivo es WhatsApp, invita a escribir, sin afirmar que el icono aparecerá en el video.",
     "Para un único archivo, escribe una frase comercial concreta vinculada a su observación visual; closing aporta la invitación final.",
@@ -368,7 +371,9 @@ export async function generateVideoAdDrafts(input: {
     try {
       const drafts = validateVideoAdDrafts(parsed, input.sceneCount, language);
       for (const draft of drafts) {
-        if ([...draft.scenes, draft.closing].join(" ").split(/\s+/).length > Math.floor(input.duration * 2.1)) {
+        try { validateVisualNarrative(draft.scenes, input.visualDescriptions!); }
+        catch (error) { throw new AIProviderError((error as Error).message, 502); }
+        if ([...draft.scenes, draft.closing].join(" ").split(/\s+/).length > Math.floor((input.duration - 2) * 2)) {
           throw new AIProviderError("El guion supera el presupuesto de palabras para la duración solicitada.", 502);
         }
       }

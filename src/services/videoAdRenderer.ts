@@ -1,4 +1,4 @@
-import { narrationDurations, type NarrationTrack } from "./videoAdTimeline";
+import { planAdTimeline, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -125,8 +125,8 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
   // Fit the entire clinical source, without zoom, crop, retouching or a blurred duplicate.
   const source = kind === "image"
     ? `[0:v]setsar=1,format=yuv420p[background];`
-    : `[0:v]scale=${WIDTH}:1260:force_original_aspect_ratio=decrease,setsar=1,` +
-      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:210+(1260-ih)/2:color=0x081e1b,fps=${FRAME_RATE},` +
+    : `[0:v]scale=${WIDTH}:1380:force_original_aspect_ratio=decrease,setsar=1,` +
+      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:200+(1380-ih)*0.2:color=0x081e1b,fps=${FRAME_RATE},` +
       `tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
   return source + "[1:v]format=rgba[captions];" +
     "[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]";
@@ -155,16 +155,16 @@ function wrapCaption(text: string, limit = 24): string[] {
 }
 
 async function captionOverlay(
-  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont, language: AdLanguage,
+  heading: string, brand: AdBrand, style: VideoAdStyle, index: number, total: number, font: CaptionFont, language: AdLanguage, mediaBottom: number = 1580,
 ): Promise<Buffer> {
   const accent = safeColor(brand.primaryColor);
   const hasLogo = brand.logoDataUrl?.startsWith("data:image/png;base64,") ?? false;
   const title = escapeXml(brand.clinicName.slice(0, hasLogo ? 25 : 33));
   const lines = wrapCaption(heading, 34);
   const baseSize = style === "dinamico" ? 68 : style === "educativo" ? 58 : 64;
-  const fontSize = Math.max(26, Math.min(baseSize, Math.floor(860 / (Math.max(...lines.map(line => line.length), 1) * 0.7)), Math.floor(250 / Math.max(1, lines.length)) - 8));
+  const fontSize = Math.max(12, Math.min(baseSize, Math.floor(860 / (Math.max(...lines.map(line => line.length), 1) * 0.7)), Math.floor(180 / Math.max(1, lines.length)) - 8));
   const lineHeight = fontSize + 8;
-  const textBottom = 1720;
+  const textBottom = Math.min(1780, mediaBottom + 75 + lines.length * lineHeight);
   const textTop = textBottom - (lines.length - 1) * lineHeight;
   const textNodes = lines.map((line, number) => {
     const estimatedWidth = line.length * fontSize * 0.62;
@@ -172,7 +172,7 @@ async function captionOverlay(
     return `<text x="96" y="${textTop + number * lineHeight}" font-size="${fontSize}" font-weight="700" fill="#fff" font-family="${captionFamilies[font]}" textLength="${width}" lengthAdjust="spacingAndGlyphs">${escapeXml(line)}</text>`;
   }).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
-    <rect x="0" y="1480" width="${WIDTH}" height="440" fill="#081e1b"/>
+    <rect x="0" y="${mediaBottom}" width="${WIDTH}" height="${HEIGHT - mediaBottom}" fill="#081e1b"/>
     <rect x="70" y="92" rx="22" width="940" height="100" fill="#061916" fill-opacity=".64"/>
     <rect x="88" y="111" rx="4" width="5" height="62" fill="${accent}"/>
     ${hasLogo ? '<rect x="108" y="102" rx="13" width="140" height="80" fill="#fff"/>' : ""}
@@ -202,16 +202,19 @@ async function captionOverlay(
 
 export async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
   const foreground = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 })
-    .rotate().resize(WIDTH, 1260, { fit: "inside", withoutEnlargement: false }).png().toBuffer();
+    .rotate().resize(WIDTH, 1380, { fit: "inside", withoutEnlargement: false }).png().toBuffer();
   const dimensions = await sharp(foreground).metadata();
   return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: "#081e1b" } })
     .composite([{ input: foreground, left: Math.round((WIDTH - dimensions.width!) / 2),
-      top: 210 + Math.round((1260 - dimensions.height!) / 2) }]).png().toBuffer();
+      top: 200 + Math.round((1380 - dimensions.height!) * 0.2) }]).png().toBuffer();
 }
 
-export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: NarrationTrack, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { text?: string; whatsapp?: string }, language: AdLanguage = "es-CO"): Promise<Buffer> {
+export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: VideoAdStyle = "premium", narration?: NarrationTrack, music?: { bytes: Buffer; extension: "mp3" | "wav" | "m4a"; volume: number }, captionFont: CaptionFont = "arial", closing?: { text?: string; whatsapp?: string }, language: AdLanguage = "es-CO", targetSeconds?: number): Promise<Buffer> {
   validateAdScenes(scenes);
-  const durations = narration ? narrationDurations(narration, scenes.length + (closing ? 1 : 0)) : undefined;
+  const weights = [...scenes.map(scene => scene.seconds), ...(closing ? [6] : [])];
+  const plan = planAdTimeline(weights, targetSeconds ?? weights.reduce((a, b) => a + b, 0), narration);
+  const durations = plan.durations;
+  narration = plan.narration;
   const timedScenes = scenes.map((scene, index) => ({ ...scene, seconds: durations?.[index] ?? scene.seconds }));
   const closingSeconds = closing ? (durations?.[scenes.length] ?? 6) : 0;
   if (timedScenes.reduce((total, scene) => total + scene.seconds, 0) + closingSeconds > MAX_SECONDS + 1 / FRAME_RATE) {
@@ -232,7 +235,19 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const overlay = path.join(directory, `overlay-${index}.png`);
       const output = path.join(directory, `scene-${index}.mp4`);
       await writeFile(source, scene.kind === "image" ? await preparePhotoScene(scene.bytes) : scene.bytes);
-      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont, language));
+      // Read the oriented source dimensions so captions follow the actual picture,
+      // including landscape clips, instead of leaving a fixed empty subtitle band.
+      let dimensions;
+      if (scene.kind === "image") {
+        dimensions = (await sharp(scene.bytes, { limitInputPixels: 30_000_000 }).rotate().toBuffer({ resolveWithObject: true })).info;
+      } else {
+        const preview = path.join(directory, `dimensions-${index}.png`);
+        await runFfmpeg(["-i", source, "-frames:v", "1", "-vf", "scale=1080:1380:force_original_aspect_ratio=decrease,setsar=1", preview]);
+        dimensions = await sharp(preview).metadata();
+      }
+      const fittedHeight = Math.round(Math.min(1380, WIDTH * dimensions.height! / dimensions.width!));
+      const mediaBottom = 200 + Math.round((1380 - fittedHeight) * 0.2) + fittedHeight;
+      await writeFile(overlay, await captionOverlay(scene.heading, brand, style, index, timedScenes.length, captionFont, language, mediaBottom));
 
       const duration = String(scene.seconds);
       const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1);
@@ -253,20 +268,23 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
       const closingPath = path.join(directory, "closing.png");
       const closingVideo = path.join(directory, "closing.mp4");
       const accent = safeColor(brand.primaryColor);
+      const rgb = accent.slice(1).match(/../g)!.map(value => parseInt(value, 16) / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      const contactColor = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 0.179 ? "#081e1b" : "#ffffff";
       const clinic = escapeXml(brand.clinicName.slice(0, 40));
       const contact = closing.whatsapp ? escapeXml(closing.whatsapp) : adLabels[language].contact;
       const callToAction = (closing.text ?? adLabels[language].cta).trim();
       const headlineLines = wrapCaption(callToAction, 25);
       const headlineSize = Math.min(headlineLines.length > 5 ? 48 : 60, Math.floor(880 / (Math.max(...headlineLines.map(line => line.length), 1) * 0.8)));
-      const headlineSvg = headlineLines.map((line, index) => `<text x="100" y="${700 + index * 78}" fill="#ffffff" font-size="${headlineSize}" font-weight="500" font-family="${captionFamilies[captionFont]}">${escapeXml(line)}</text>`).join("");
+      const headlineSvg = headlineLines.map((line, index) => `<text x="100" y="${700 + index * 78}" fill="#ffffff" font-size="${headlineSize}" font-weight="700" font-family="${captionFamilies[captionFont]}">${escapeXml(line)}</text>`).join("");
       const closingSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}">
         <rect width="1080" height="1920" fill="#081e1b"/>
         <rect x="0" y="0" width="1080" height="18" fill="${accent}"/>
         <path d="M100 550 H300" stroke="${accent}" stroke-width="6"/>
-        <text x="540" y="340" text-anchor="middle" fill="#c5ded8" font-size="40" font-family="Arial, sans-serif">${clinic}</text>
+        <text x="540" y="440" text-anchor="middle" fill="#c5ded8" font-size="48" font-family="Arial, sans-serif">${clinic}</text>
         ${headlineSvg}
-        <path d="M100 1390 H980" stroke="#c5ded8" stroke-opacity=".35"/>
-        <text x="100" y="1470" fill="#d4e8e2" font-size="36" font-family="Arial, sans-serif">${contact}</text>
+        <rect x="80" y="1385" width="920" height="135" rx="24" fill="${accent}"/>
+        <text x="100" y="1470" fill="${contactColor}" font-size="36" font-family="Arial, sans-serif">${contact}</text>
         <text x="100" y="1790" fill="#c5ded8" font-size="26" font-family="Arial, sans-serif">${adLabels[language].footer}</text>
       </svg>`);
       const closingLayers: sharp.OverlayOptions[] = [{ input: closingSvg }];
@@ -286,23 +304,14 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
     }
 
     const joined = path.join(directory, "advertisement.mp4");
-    const transition = style === "dinamico" ? 0.2 : style === "educativo" ? 0.45 : 0.35;
+    // Cuts retain every planned frame; overlapping fades shorten the selected duration.
     const filters = rendered.map((_, index) =>
       `[${index}:v:0]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[v${index}]`
     );
-    let previous = "v0";
-    let elapsed = timedScenes[0].seconds;
-
-    for (let index = 1; index < rendered.length; index++) {
-      const overlap = narration ? 0 : Math.min(transition, timedScenes[index - 1].seconds / 4, timedScenes[index].seconds / 4);
-      const offset = Math.max(0, elapsed - overlap);
-      const output = `mix${index}`;
-      filters.push(narration
-        ? `[${previous}][v${index}]concat=n=2:v=1:a=0[${output}]`
-        : `[${previous}][v${index}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${output}]`);
-      previous = output;
-      elapsed = offset + timedScenes[index].seconds;
-    }
+    const previous = "joined";
+    const elapsed = timedScenes.reduce((sum, scene) => sum + scene.seconds, 0);
+    filters.push(rendered.map((_, index) => `[v${index}]`).join("") +
+      `concat=n=${rendered.length}:v=1:a=0[${previous}]`);
 
     await runFfmpeg([
       ...rendered.flatMap(file => ["-i", file]),

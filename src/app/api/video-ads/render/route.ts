@@ -118,6 +118,13 @@ export async function POST(request: Request) {
       validateCommercialText(closingText, language);
     }
     validateAdScenes(records);
+    const requestedDuration = form.get("duration");
+    const targetSeconds = requestedDuration === null
+      ? records.reduce((sum, scene) => sum + scene.seconds, 0) + (includeClosing ? 6 : 0)
+      : Number(requestedDuration);
+    if (!Number.isInteger(targetSeconds) || targetSeconds < 1 || targetSeconds > 60) {
+      return NextResponse.json({ error: "La duración objetivo debe estar entre 1 y 60 segundos." }, { status: 400 });
+    }
     if (narrationEnabled && records.some(scene => scene.heading.length > 180)) {
       return NextResponse.json({ error: "Revisa la longitud de los subtítulos." }, { status: 400 });
     }
@@ -135,12 +142,12 @@ export async function POST(request: Request) {
     try {
       const segments = [...records.map(scene => scene.heading.trim()), ...(includeClosing ? [closingText] : [])];
       const narration = narrationEnabled
-        ? await generateVideoAdNarration(segments, provider, voice as GeminiVoice, language)
+        ? await generateVideoAdNarration(segments, provider, voice as GeminiVoice, language, targetSeconds)
         : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
       }, style as VideoAdStyle, narration, music, captionFont as CaptionFont,
-      includeClosing ? { text: closingText } : undefined, language);
+      includeClosing ? { text: closingText } : undefined, language, targetSeconds);
     } finally {
       renderInProgress = false;
     }

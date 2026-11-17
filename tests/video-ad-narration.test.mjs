@@ -10,13 +10,13 @@ function tone(seconds) {
   return pcm;
 }
 
-test("long dead air is removed while speech samples and short breaths survive", () => {
+test("provider padding is trimmed while internal pauses and speech survive", () => {
   const speech = tone(0.4);
   const input = Buffer.concat([Buffer.alloc(48000), speech, Buffer.alloc(48000), speech, Buffer.alloc(48000)]);
   const result = timeline.compactNarration(input);
-  assert.ok(result.pcm.length / 48000 < 1.2);
+  assert.ok(result.pcm.length / 48000 > 1.8 && result.pcm.length / 48000 < 1.9);
   assert.ok(result.pcm.includes(speech));
-  assert.ok(Math.abs(result.mapTime(2.4) - 0.63) < 0.02);
+  assert.ok(Math.abs(result.mapTime(2.4) - 1.43) < 0.02);
   const natural = Buffer.concat([speech, Buffer.alloc(4800), speech]);
   assert.deepEqual(timeline.compactNarration(natural).pcm, natural);
   assert.throws(() => timeline.compactNarration(Buffer.alloc(48000)), /silenciosa/);
@@ -104,14 +104,15 @@ test("render endpoint sends one full narration and language to the renderer; inv
   const { POST } = loadTs(new URL("../src/app/api/video-ads/render/route.ts", import.meta.url), mocks);
   function request(seconds = 2) {
     const form = new FormData();
-    for (const [key, value] of Object.entries({ manifest: JSON.stringify([{ heading: "This model shows each tooth.", seconds, kind: "image" }]), style: "premium", authorized: "true", language: "en-US", narrationProvider: "gemini", narration: "true", includeClosing: "true", closingText: "Message us on WhatsApp." })) form.set(key, value);
+    for (const [key, value] of Object.entries({ manifest: JSON.stringify([{ heading: "This model shows each tooth.", seconds, kind: "image" }]), duration: "15", style: "premium", authorized: "true", language: "en-US", narrationProvider: "gemini", narration: "true", includeClosing: "true", closingText: "Message us on WhatsApp." })) form.set(key, value);
     form.set("file-0", new Blob([Buffer.from("image")], { type: "image/png" }), "test.png");
     return new Request("http://localhost/api/video-ads/render", { method: "POST", body: form });
   }
   assert.equal((await POST(request())).status, 200);
   assert.equal(calls, 1);
-  assert.deepEqual(spoken, [["This model shows each tooth.", "Message us on WhatsApp."], "gemini", "Kore", "en-US"]);
+  assert.deepEqual(spoken, [["This model shows each tooth.", "Message us on WhatsApp."], "gemini", "Kore", "en-US", 15]);
   assert.equal(rendered[7], "en-US");
+  assert.equal(rendered[8], 15);
   assert.deepEqual(rendered[6], { text: "Message us on WhatsApp." });
   assert.equal((await POST(request(0))).status, 400);
   assert.equal(calls, 1);
@@ -135,4 +136,42 @@ test("script generation repairs rejected slogans without blocking on an inconclu
   assert.match(requests[1].systemInstruction.parts[0].text, /No afirmes|No atribuyas/);
   await assert.rejects(generateVideoAdDrafts({ procedure: "x", goal: "whatsapp", sceneCount: 1, duration: 15, clinicContext: "" }), /descripciones visuales/);
   delete process.env.GEMINI_API_KEY;
+});
+
+test("6.79 seconds of narration becomes exactly 15 seconds without changing speech samples", () => {
+  const pcm = tone(6.79);
+  const starts = [0, 2.1, 4.3];
+  const plan = timeline.planAdTimeline([5, 4, 6], 15, { pcm, starts });
+  assert.equal(plan.durations.reduce((a, b) => a + b), 15);
+  assert.equal(plan.narration.pcm.length, 15 * 48000);
+  const cuts = [...starts.map(time => Math.round(time * 24000)), pcm.length / 2];
+  for (let i = 0; i < 3; i++) {
+    const original = pcm.subarray(cuts[i] * 2, cuts[i + 1] * 2);
+    const offset = Math.round(plan.narration.starts[i] * 24000) * 2;
+    assert.deepEqual(plan.narration.pcm.subarray(offset, offset + original.length), original);
+    assert.ok(plan.durations[i] >= original.length / 48000 + 0.25);
+  }
+  assert.throws(() => timeline.planAdTimeline([5, 4, 6], 6, { pcm, starts }), /no cabe/);
+  for (const target of [NaN, 0, 15.5, 61]) assert.throws(() => timeline.planAdTimeline([1], target));
+  for (const target of [15, 30, 60]) {
+    assert.equal(Math.round(timeline.planAdTimeline([1, 2, 6], target).durations.reduce((a, b) => a + b) * 24), target * 24);
+  }
+});
+
+test("visual copy rejects the reported generic pair, missing anchors and repeated scenes", () => {
+  const { validateVisualNarrative } = loadTs(new URL("../src/services/videoAdCopy.ts", import.meta.url));
+  const observations = ["Modelo dental digital en pantalla", "Modelo físico de dientes"];
+  assert.throws(() => validateVisualNarrative(["Digital mapping allows us to review your options.", "Physical models help us discuss your preferences."], observations), /genéricas/);
+  assert.throws(() => validateVisualNarrative(["Physical models help us discuss your preferences."], [observations[1]]), /genéricas/);
+  assert.throws(() => validateVisualNarrative(["Ask about your options.", "Ask about your options."], observations), /repiten/);
+  assert.throws(() => validateVisualNarrative(["Bring your questions.", "This physical model shows tooth shapes."], observations), /detalle visual/);
+  assert.doesNotThrow(() => validateVisualNarrative(["Notice each tooth's outline on this digital model.", "Now explore those shapes on a physical model."], observations));
+});
+
+test("rushed or overlong provider speech is rejected instead of accelerated", async () => {
+  const { generateVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
+    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => ({ pcm: tone(2), starts: [0] }) },
+  });
+  await assert.rejects(generateVideoAdNarration(["One two three four five six seven eight nine ten."], "elevenlabs", "Kore", "en-US", 15), /demasiado rápida/);
+  await assert.rejects(generateVideoAdNarration(["Hello."], "elevenlabs", "Kore", "en-US", 2), /más tiempo/);
 });

@@ -38,3 +38,20 @@ The automated suite covers provider failures, full-script requests, language pro
 On the implementation Windows environment, the default Turbopack build hit an internal child-process error. The production Webpack build passed. No live Gemini/ElevenLabs generation was performed because provider keys were not configured in that checkout.
 
 Provider references: [Gemini audio understanding](https://ai.google.dev/gemini-api/docs/audio), [ElevenLabs speech with timing](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps).
+
+
+### Duración y ritmo de exportación
+
+La duración objetivo enviada en `duration` incluye todas las escenas y el cierre.
+Se distribuye en fotogramas a 24 fps; los tiempos del storyboard sirven como pesos.
+Los clientes anteriores que omiten `duration` conservan la suma del storyboard más
+6 segundos de cierre. Las transiciones no restan tiempo al anuncio.
+La voz se genera una sola vez y se alinea con el audio real. Se conservan las pausas
+internas y todas las muestras de voz; el tiempo sobrante se reparte como pausas
+visuales después de cada frase. Una voz que no cabe se rechaza, nunca se acelera
+ni se trunca. Una locución superior a 165 palabras/minuto se rechaza para regenerarla.
+El presupuesto de guion reserva dos segundos de aire y usa dos palabras/segundo.
+La validación comprueba detalles visuales conocidos, frases repetidas y fórmulas
+vacías; no constituye una garantía semántica de coherencia ni de hechos clínicos.
+Las fuentes clínicas se ajustan completas y los subtítulos se colocan después de
+la imagen visible, sin cubrirla ni recortarla.

@@ -269,6 +269,7 @@ export default function VideoAdStudio() {
     const form = new FormData();
     form.set("authorized", "true");
     form.set("style", style);
+    form.set("duration", String(duration));
     form.set("voice", narrationVoice);
     form.set("language", language);
     form.set("narrationProvider", narrationProvider);
@@ -407,7 +408,7 @@ export default function VideoAdStudio() {
                 </div>
               ))}
               {scenes.length === 1 && duration === 60 && <p className="ad-studio-hint">Para 60 segundos añade al menos otra fotografía o un clip; una sola escena no es suficiente.</p>}
-              {assignedSeconds !== duration && <p className="ad-studio-hint">La duración actual es de {assignedSeconds} s; seleccionaste {duration} s.</p>}
+              <p className="ad-studio-hint">Exportación: {duration} s, incluido el cierre. Los tiempos de escena distribuyen las pausas visuales; la voz conserva su ritmo natural.</p>
               <div className="ad-studio-render-actions"><button type="button" className="ad-studio-download" onClick={downloadStoryboard}>Descargar guion</button><button type="button" className="ad-studio-primary" disabled={rendering || !visionConsent || finalSeconds > 60} onClick={renderAd}>{rendering ? "Renderizando video..." : "Generar video MP4"}</button></div>
             </div>
           )}

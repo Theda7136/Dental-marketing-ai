@@ -64,3 +64,23 @@ export function validateCommercialText(text: string, language?: "es-CO" | "en-US
     throw new Error("El guion mezcla idiomas. Usa únicamente el idioma seleccionado.");
   }
 }
+
+export function validateVisualNarrative(scenes: string[], observations: string[]): void {
+  const normalized = scenes.map(text => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim());
+  if (new Set(normalized).size !== scenes.length) throw new Error("Las escenas repiten la misma idea; construye una historia conectada.");
+  const anchors = [
+    { observed: /digital|pantalla|screen|CAD/i, copy: /digital|screen|pantalla/i },
+    { observed: /modelo f[ií]sico|physical model|yeso|plaster|cast/i, copy: /f[ií]sic|physical|model|molde/i },
+  ];
+  scenes.forEach((text, i) => {
+    for (const anchor of anchors) {
+      if (anchor.observed.test(observations[i] ?? "") && !anchor.copy.test(text)) {
+        throw new Error(`La escena ${i + 1} omite su detalle visual principal. Conecta ese detalle con la historia sin inventar resultados.`);
+      }
+    }
+    if (/^(?:digital mapping|physical models?) (?:allows? us|helps? us) (?:to )?(?:review|discuss) your (?:options|preferences)\.?$/i.test(text.trim()) ||
+        /^(?:mapeo digital|modelos? f[ií]sicos?) (?:nos )?permiten? (?:revisar|discutir) tus (?:opciones|preferencias)\.?$/i.test(text.trim())) {
+      throw new Error("El guion contiene frases genéricas sobre herramientas; relaciona un detalle visible con una pregunta concreta del paciente.");
+    }
+  });
+}

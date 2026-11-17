@@ -64,7 +64,7 @@ function pcmTone(seconds, frequency = 220) {
   return pcm;
 }
 
-test("continuous narration survives scene/CTA boundaries, music ducking and both locales", { timeout: 180_000 }, async () => {
+test("15-second target survives 6.79-second narration, scene/CTA boundaries, music and both locales", { timeout: 180_000 }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "video-ad-test-"));
   try {
     const source = path.join(directory, "clip.mp4");
@@ -76,10 +76,10 @@ test("continuous narration survives scene/CTA boundaries, music ducking and both
     const brand = { clinicName: "Clínica Demo", primaryColor: "#b7a479", logoDataUrl: null };
     for (const language of ["en-US", "es-CO"]) {
       const scenes = [
-        { filename: "photo.png", bytes: png, kind: "image", seconds: 10, heading: language === "en-US" ? "A closer look at each tooth." : "Una mirada a la forma de cada diente." },
-        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 10, heading: language === "en-US" ? "Bring your questions to your consultation." : "Trae tus preguntas a la consulta." },
+        { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "A closer look at each tooth." : "Una mirada a la forma de cada diente." },
+        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "Bring your questions to your consultation." : "Trae tus preguntas a la consulta." },
       ];
-      const pcm = pcmTone(3.4);
+      const pcm = pcmTone(6.79);
       const overlays = [];
       const localizedRenderer = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url), {
         sharp: (...args) => {
@@ -95,9 +95,9 @@ test("continuous narration survives scene/CTA boundaries, music ducking and both
           return instance;
         },
       });
-      const mp4 = await localizedRenderer.renderVideoAd(scenes, brand, "premium", { pcm, starts: [0, 1.1, 2.2] },
+      const mp4 = await localizedRenderer.renderVideoAd(scenes, brand, "premium", { pcm, starts: [0, 2.1, 4.3] },
         language === "en-US" ? { bytes: await readFile(music), extension: "wav", volume: 0.18 } : undefined,
-        "georgia", { text: language === "en-US" ? "Explore your options. Message us on WhatsApp." : "Conoce tus opciones. Escríbenos por WhatsApp." }, language);
+        "georgia", { text: language === "en-US" ? "Explore your options. Message us on WhatsApp." : "Conoce tus opciones. Escríbenos por WhatsApp." }, language, 15);
       const text = overlays.join(" ");
       if (language === "en-US") {
         assert.match(text, /Book a consultation/);
@@ -110,20 +110,24 @@ test("continuous narration survives scene/CTA boundaries, music ducking and both
       const output = path.join(directory, `${language}.mp4`);
       await writeFile(output, mp4);
       const decoded = ff(["-i", output, "-vn", "-ar", "24000", "-ac", "1", "-f", "s16le", "pipe:1"]);
-      assert.ok(Math.abs(decoded.length / 48000 - 3.4) < 0.1, "voice duration must replace the 26-second storyboard");
-      // No artificial silent holes at cuts or the CTA; allow the final encoder frame.
-      for (let offset = 0; offset < decoded.length - 4800; offset += 2400) {
+      assert.ok(Math.abs(decoded.length / 48000 - 15) < 0.1, "audio must fill the selected 15 seconds");
+      const plan = loadTs(new URL("../src/services/videoAdTimeline.ts", import.meta.url)).planAdTimeline([5, 5, 6], 15, { pcm, starts: [0, 2.1, 4.3] });
+      // Speech is audible at each new scene, while the inserted visual holds are quiet.
+      for (const start of plan.narration.starts) {
+        const offset = Math.round((start + 0.1) * 24000) * 2;
         let energy = 0;
         for (let i = offset; i < offset + 2400; i += 2) energy += decoded.readInt16LE(i) ** 2;
-        assert.ok(Math.sqrt(energy / 1200) > 500, `silence at ${offset / 48000}s`);
+        assert.ok(Math.sqrt(energy / 1200) > 500);
       }
+      ff(["-i", output, "-map", "0:v:0", "-f", "null", "-"]);
       const inspection = spawnSync(ffmpeg, ["-hide_banner", "-i", output], { windowsHide: true }).stderr.toString();
       assert.match(inspection, /1080x1920/);
+      assert.match(inspection, /Duration: 00:00:15\.00/);
       assert.match(inspection, /Audio: aac/);
       if (process.env.VIDEO_AD_QA_DIR) {
         await mkdir(process.env.VIDEO_AD_QA_DIR, { recursive: true });
         await copyFile(output, path.join(process.env.VIDEO_AD_QA_DIR, `${language}.mp4`));
-        for (const [name, time] of [["photo", 0.5], ["clip", 1.5], ["cta", 2.6]]) {
+        for (const [name, time] of [["photo", 0.5], ["clip", plan.narration.starts[1] + 0.5], ["cta", plan.narration.starts[2] + 0.5]]) {
           ff(["-ss", String(time), "-i", output, "-frames:v", "1", path.join(process.env.VIDEO_AD_QA_DIR, `${language}-${name}.png`)]);
         }
       }
@@ -180,4 +184,19 @@ test("ElevenLabs timestamps survive MP3 decoding and silence compaction", async 
     delete process.env.ELEVENLABS_VOICE_ID;
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+
+test("silent export also keeps exactly 15 seconds including its closing", { timeout: 180_000 }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "silent-ad-test-"));
+  try {
+    const png = await sharp({ create: { width: 400, height: 200, channels: 3, background: "white" } }).png().toBuffer();
+    const result = await renderVideoAd([{ filename: "source.png", bytes: png, kind: "image", seconds: 9, heading: "See the outline of each tooth." }],
+      { clinicName: "Test clinic", primaryColor: "#116D60", logoDataUrl: null }, "educativo", undefined, undefined, "arial", { text: "Message us on WhatsApp." }, "en-US", 15);
+    const output = path.join(directory, "silent.mp4");
+    await writeFile(output, result);
+    const inspection = spawnSync(ffmpeg, ["-hide_banner", "-i", output], { windowsHide: true }).stderr.toString();
+    assert.match(inspection, /Duration: 00:00:15\.00/);
+    assert.doesNotMatch(inspection, /Audio:/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
