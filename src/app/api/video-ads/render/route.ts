@@ -101,6 +101,11 @@ export async function POST(request: Request) {
 
     const narrationEnabled = form.get("narration") === "true";
     const includeClosing = form.get("includeClosing") === "true";
+    const submittedClosing = form.get("closingText");
+    const closingText = typeof submittedClosing === "string" && submittedClosing.trim()
+      ? submittedClosing.trim() : "Transforma tu sonrisa. Contáctanos por WhatsApp.";
+    if (closingText.length > 150) return NextResponse.json({ error: "El cierre comercial es demasiado largo." }, { status: 400 });
+    clinicalGuardrails.validate(closingText);
     if (narrationEnabled && records.some(scene => scene.heading.length > 180)) {
       return NextResponse.json({ error: "Revisa la longitud de los subtítulos." }, { status: 400 });
     }
@@ -123,13 +128,13 @@ export async function POST(request: Request) {
         : undefined;
       const closingNarration = includeClosing && narrationEnabled
         ? await (provider === "elevenlabs"
-          ? generateElevenLabsNarration("Transforma tu sonrisa. Contáctanos por WhatsApp y agenda tu valoración.")
-          : generateGeminiNarration("Transforma tu sonrisa. Contáctanos por WhatsApp y agenda tu valoración.", voice as GeminiVoice))
+          ? generateElevenLabsNarration(closingText)
+          : generateGeminiNarration(closingText, voice as GeminiVoice))
         : undefined;
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
       }, style as VideoAdStyle, narration, music, captionFont as CaptionFont,
-      includeClosing ? { narration: closingNarration } : undefined);
+      includeClosing ? { narration: closingNarration, text: closingText } : undefined);
     } finally {
       renderInProgress = false;
     }
