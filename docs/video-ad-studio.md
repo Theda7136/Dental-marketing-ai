@@ -53,8 +53,8 @@ ni se trunca. Una locución superior a 165 palabras/minuto se rechaza para regen
 El presupuesto de guion reserva dos segundos de aire y usa dos palabras/segundo.
 La validación comprueba detalles visuales conocidos, frases repetidas y fórmulas
 vacías; no constituye una garantía semántica de coherencia ni de hechos clínicos.
-Las fuentes clínicas se ajustan completas; los subtítulos se colocan arriba del
-material horizontal o debajo del vertical, sin cubrirlo ni recortarlo.
+Las fuentes clínicas se ajustan completas; los subtítulos se colocan 40 px debajo del
+material horizontal o vertical, sin cubrirlo ni recortarlo.
 
 
 ### Guion comercial único y reparación
@@ -72,8 +72,8 @@ visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
 
 ### Controles de exportación y composición
 
-- `videoAdLayout.ts` mide los glifos de la fuente real: subtítulos de 68 px y cierre
-  de 76 px, máximo dos líneas, dentro de 936 px. No se comprimen letras, no se
+- `videoAdLayout.ts` mide los glifos de la fuente real: subtítulos y cierre de 88 px,
+  máximo dos líneas, dentro de 900 px. No se comprimen letras, no se
   reduce su tamaño y no se descartan palabras. El texto que no cabe se rechaza.
 - Las validaciones de texto y cierre ocurren antes de solicitar voz. Gemini también
   recibe estas restricciones y puede reparar un guion que no quepa.
@@ -87,3 +87,29 @@ visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
   se usa el ancho completo sin recortar detalles ni generar extensiones ficticias.
 - Regresión real: un archivo de 8,25 s se rechaza cuando se solicitan 15 s; una
   exportación de 15 s contiene exactamente 360 fotogramas a 24 fps.
+
+
+### Corrección de calidad publicitaria (noviembre de 2026)
+
+- Rechaza las frases reportadas “Exploring digital shapes together” y “Reviewing
+  your personalized options”, también en español. Repara el guion con las
+  observaciones originales; exige un detalle dental además del tipo de modelo.
+  Las referencias a modelos digitales/físicos deben estar respaldadas por su
+  escena (o ser una transición explícita desde la anterior).
+- El prompt pide una conversación continua en es-CO/en-US, con un ejemplo
+  condicionado al contenido observado y revisión de continuidad antes de responder.
+  No presenta los objetos como prueba de diagnósticos, resultados o credenciales.
+- Fondo verde profundo y texto marfil con contraste superior a 7:1. La imagen
+  horizontal usa todo el ancho; la vertical puede ocupar 1320 px de altura.
+  El subtítulo queda próximo a la imagen, fuera de su área clínica, y termina
+  antes de y=1800. Dimensiones pares evitan problemas con video YUV420.
+- El logo suministrado es la identidad única: hasta 900 × 360 px en el cierre,
+  sin repetir el nombre de cuenta al lado. Así Dr Daniel Coy no compite con
+  “Dental Studio”. Sin logo, se usa el nombre configurado a 88 px. No se
+  cambia la identidad de otras clínicas ni se introduce una marca fija global.
+- El cierre acepta una sola acción breve dirigida a WhatsApp; rechaza también
+  dos acciones distintas aunque WhatsApp aparezca una sola vez.
+- La línea de tiempo, muestreo de voz, permisos e integraciones se conservan.
+  La regresión real verifica 360 cuadros, 15.00 s, 1080 × 1920 y audio AAC,
+  con pistas sintéticas de 6.79 s, ambos idiomas y mezcla musical opcional.
+  Estas pruebas no evalúan la pronunciación de una voz real de los proveedores.

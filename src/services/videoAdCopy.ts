@@ -35,6 +35,8 @@ export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
 
 
 const genericCopy = [
+  /explor(?:e|ing) digital shapes|review(?:ing)? your personali[sz]ed options/i,
+  /explor(?:ar|ando|emos) formas digitales|revis(?:ar|ando|emos) tus opciones personali[sz]adas/i,
   /advanced digital tools|herramientas digitales avanzadas/i,
   /advanced (?:digital )?(?:technology|planning)/i,
   /personalized approach|natural[- ]looking finish|quality materials/i,
@@ -43,6 +45,8 @@ const genericCopy = [
   /instalaciones equipadas para ti|an[aá]lisis cl[ií]nico profesional/i,
 ];
 const unsupportedClaims = [
+  /\b(?:you have|you suffer from|tienes|padeces)\b.*\b(?:cavit|caries|disease|enfermedad|gingivitis|periodontitis)/i,
+  /\b(?:cures?|corrects?|restores?|eliminates?|cura|corrige|restaura|elimina)\b.*\b(?:teeth|smile|bite|dientes|sonrisa|mordida)/i,
   /guarantee(?:d|s)?|pain[- ]?free|risk[- ]?free|no side effects|permanent results|100\s*%/i,
   /sin dolor|sin riesgos?|sin efectos secundarios|garantizad[oa]s?|resultados permanentes/i,
   /(?:best|finest|superior|highest)[ -](?:quality|materials|results|dentist)|board[- ]certified/i,
@@ -67,13 +71,33 @@ export function validateCommercialText(text: string, language?: "es-CO" | "en-US
 }
 
 export function validateVisualNarrative(scenes: string[], observations: string[]): void {
+  if (observations.length !== scenes.length) throw new Error("Las observaciones no coinciden con las escenas.");
   const normalized = scenes.map(text => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim());
   if (new Set(normalized).size !== scenes.length) throw new Error("Las escenas repiten la misma idea; construye una historia conectada.");
   const anchors = [
-    { observed: /digital|pantalla|screen|CAD/i, copy: /digital|screen|pantalla/i },
-    { observed: /modelo f[ií]sico|physical model|yeso|plaster|cast/i, copy: /f[ií]sic|physical|model|molde/i },
+    { observed: /digital|pantalla|screen|\bCAD\b/i, copy: /digital|screen|pantalla/i },
+    { observed: /modelo f[ií]sico|physical model|yeso|plaster|\bcast\b/i, copy: /f[ií]sic|physical|model|molde/i },
   ];
   scenes.forEach((text, i) => {
+    validateCommercialText(text);
+    if (/\b(?:whatsapp|agenda|reserva|book|contact us|cont[aá]ctanos|message us)\b/i.test(text)) {
+      throw new Error("Reserva la llamada a la acción para el cierre; desarrolla aquí el detalle visible.");
+    }
+    const observation = observations[i] ?? "";
+    if (/digital|pantalla|screen|modelo|model|yeso|plaster|\bcast\b/i.test(observation) &&
+        !/dient|dental|tooth|teeth|arcada|arch|forma|shape|contorno|outline|borde|edge|mordida|bite/i.test(text)) {
+      throw new Error(`La escena ${i + 1} usa frases genéricas: falta el detalle visual dental concreto, no basta hablar de opciones.`);
+    }
+    // A later source must not inherit an object merely mentioned in an earlier one.
+    for (const anchor of anchors) {
+      if (anchor.copy.test(text) && /digital|screen|pantalla|f[ií]sic|physical/i.test(text) &&
+          !anchor.observed.test(observation) &&
+          !(i > 0 && /\b(?:from|del|desde)\b/i.test(text) && anchor.observed.test(observations[i - 1])) &&
+          ((anchor === anchors[0] && /digital|screen|pantalla/i.test(text)) ||
+           (anchor === anchors[1] && /f[ií]sic|physical/i.test(text)))) {
+        throw new Error(`La escena ${i + 1} añade un objeto no respaldado por su observación visual.`);
+      }
+    }
     for (const anchor of anchors) {
       if (anchor.observed.test(observations[i] ?? "") && !anchor.copy.test(text)) {
         throw new Error(`La escena ${i + 1} omite su detalle visual principal. Conecta ese detalle con la historia sin inventar resultados.`);

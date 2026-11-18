@@ -1,4 +1,4 @@
-import { layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
+import { CLOSING_SIZE, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { normalizeVideoAdCopy, validateCommercialText, validateVisualNarrative } from "./videoAdCopy";
 import {
@@ -324,7 +324,10 @@ export async function generateVideoAdDrafts(input: {
     "NO uses frases como «imagen de», «mostrar», «profesional revisando», «ícono de WhatsApp», «llamado a la acción» ni «fachada de la clínica».",
     "Recibirás observaciones visuales no diagnósticas por escena cuando estén disponibles. Úsalas para adaptar cada subtítulo al material correspondiente, sin copiarlas literalmente.",
     "Las observaciones visuales no confirman tratamientos, resultados, identidades ni diagnósticos. No inventes detalles que no estén descritos.",
-    "Ejemplo basado en observaciones de un modelo dental digital y una pieza sobre una mesa: ‘En este modelo digital se puede ver la forma de cada diente.’ ‘¿Qué se evalúa antes de elegir una opción? Hablemos en consulta.’ No uses este ejemplo si esas observaciones no están presentes.",
+    "Antes de redactar, identifica el objeto confirmado de cada observación y un único hilo conductor entre ellos. No conviertas una forma digital en un diagnóstico, resultado o tratamiento realizado. Si no hay detalle confirmado, admite la incertidumbre sin inventar un objeto.",
+    "Ejemplo SOLO si las observaciones confirman dientes en un modelo digital seguido de un modelo físico: es-CO: ['Cada diente en este modelo digital.', 'Su forma en el modelo físico.']; en-US: ['Each tooth in this digital model.', 'Those shapes in a physical model.']. Es un patrón narrativo, no una plantilla para otros archivos. Cada escena debe conservar su propio anclaje visual.",
+    "Prohibido: 'Exploring digital shapes together', 'Reviewing your personalized options' y sus traducciones. No basta mencionar digital: nombra el objeto dental confirmado y continúa la misma idea en la escena siguiente.",
+    "Revisa en silencio el párrafo completo: ¿suena a una conversación colombiana o estadounidense según el idioma? ¿Cada frase aporta algo nuevo de su imagen? ¿Se entiende la conexión sin una explicación adicional? Reescribe hasta que sí.",
     "No atribuyas calidad, precisión, composición de materiales, beneficios clínicos, rapidez ni resultados a objetos visibles. Un modelo digital no prueba que se haya realizado un tratamiento.",
     "El campo closing se narra DESPUÉS de todas las escenas en una tarjeta independiente. No repitas ese CTA en la última escena.",
     `Presupuesto máximo de palabras para scenes + closing: ${Math.floor((input.duration - 2) * 2)}.`,
@@ -391,7 +394,7 @@ export async function generateVideoAdDrafts(input: {
           validateVisualNarrative(draft.scenes, input.visualDescriptions!);
           for (const caption of draft.scenes) await layoutAdCaption(caption);
           validateClosingCopy(draft.closing);
-          await layoutAdCaption(draft.closing, "arial", 76);
+          await layoutAdCaption(draft.closing, "arial", CLOSING_SIZE);
         }
         catch (error) { throw new AIProviderError((error as Error).message, 502); }
         if ([...draft.scenes, draft.closing].join(" ").split(/\s+/).length > Math.floor((input.duration - 2) * 2)) {

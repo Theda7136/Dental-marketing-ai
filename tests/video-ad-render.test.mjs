@@ -58,10 +58,10 @@ test("captions use measured glyphs, at most two lines, without shrinking or losi
   for (const font of ["arial", "georgia", "verdana", "trebuchet"]) {
     const text = "See each tooth in this digital model.";
     const layout = await layoutAdCaption(text, font);
-    assert.equal(layout.fontSize, 68);
+    assert.equal(layout.fontSize, 88);
     assert.ok(layout.lines.length <= 2);
     assert.equal(layout.lines.join(" "), text);
-    assert.ok(layout.images.every(line => line.info.width <= 936));
+    assert.ok(layout.images.every(line => line.info.width <= 900));
   }
   await assert.rejects(layoutAdCaption("A very long caption with many details that cannot fit into two large lines without reducing its size or omitting important words."), /dos líneas/);
 });
@@ -71,9 +71,9 @@ test("clinical image and captions never overlap for landscape, portrait and squa
   for (const [w, h] of [[1920, 1080], [1080, 1920], [1000, 1000], [4000, 1000], [500, 4000]]) {
     const box = clinicalLayout(w, h);
     assert.ok(box.left >= 0 && box.left + box.width <= 1080);
-    assert.ok(box.top + box.height <= 1560);
+    assert.ok(box.top + box.height <= 1540);
     assert.ok(Math.abs(box.width / box.height - w / h) < 0.02);
-    assert.ok(box.captionTop + 176 <= box.top || box.captionTop >= box.top + box.height);
+    assert.ok(box.captionTop + 216 <= box.top || box.captionTop >= box.top + box.height);
   }
 });
 
@@ -87,7 +87,7 @@ test("WhatsApp closing has one invitation and no simulated button, footer or dup
   // The old button region is uninterrupted canvas, not a hidden white rectangle.
   for (let y = 1385; y < 1520; y += 10) for (let x = 80; x < 1000; x += 10) {
     const i = (y * info.width + x) * info.channels;
-    assert.deepEqual([...data.subarray(i, i + 3)], [245, 243, 238]);
+    assert.deepEqual([...data.subarray(i, i + 3)], [16, 46, 41]);
   }
 });
 
@@ -101,4 +101,36 @@ test("a dark transparent logo has a large visible footprint on both layouts", as
     assert.ok(size.width >= (closing ? 500 : 300));
     assert.ok(size.height >= 80);
   }
+});
+
+test("logo is the sole brand identity and closing refuses two different actions", async () => {
+  const { composeAdOverlay, validateClosingCopy, logoLayer } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const sharp = (await import("sharp")).default;
+  for (const text of ["Message us on WhatsApp. Book now.", "Escríbenos por WhatsApp y agenda tu valoración."]) {
+    assert.throws(() => validateClosingCopy(text), /una sola llamada/);
+  }
+  const png = await sharp({ text: { text: "Dr Daniel Coy", font: "Arial 60", rgba: true } }).png().toBuffer();
+  const logoDataUrl = "data:image/png;base64," + png.toString("base64");
+  const [layer] = await logoLayer(logoDataUrl, true);
+  assert.equal((await sharp(layer.input).metadata()).width, 900);
+  const a = await composeAdOverlay("Message us on WhatsApp.", { clinicName: "Dental Studio", logoDataUrl }, "arial", 980, true);
+  const b = await composeAdOverlay("Message us on WhatsApp.", { clinicName: "Dr Daniel Coy", logoDataUrl }, "arial", 980, true);
+  assert.deepEqual(a, b, "account label must not compete with the supplied brand logo");
+});
+
+test("larger portrait content and caption block stay inside the mobile safe area", () => {
+  const { clinicalLayout, CAPTION_SIZE, AD_CANVAS } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const portrait = clinicalLayout(1080, 1920);
+  assert.ok(portrait.height > 1260);
+  for (const [w, h] of [[1080, 1920], [1920, 1080], [1000, 1000], [4000, 1000]]) {
+    const layout = clinicalLayout(w, h);
+    assert.equal(layout.captionTop - layout.top - layout.height, 40);
+    assert.ok(layout.captionTop + 2 * (CAPTION_SIZE + 20) <= 1800);
+    assert.ok(layout.width % 2 === 0 && layout.height % 2 === 0);
+  }
+  const luminance = hex => {
+    const rgb = hex.slice(1).match(/../g).map(v => parseInt(v, 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+    return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+  };
+  assert.ok((luminance(AD_CANVAS.ink) + .05) / (luminance(AD_CANVAS.background) + .05) > 7);
 });

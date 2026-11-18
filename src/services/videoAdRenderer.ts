@@ -1,4 +1,4 @@
-import { AD_CANVAS, clinicalLayout, composeAdOverlay, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
+import { CLOSING_SIZE, AD_CANVAS, clinicalLayout, composeAdOverlay, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
 import { validateCommercialText } from "./videoAdCopy";
 import { planAdTimeline, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
@@ -114,7 +114,7 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
   const source = kind === "image"
     ? `[0:v]setsar=1,format=yuv420p[background];`
     : `[0:v]setpts=PTS-STARTPTS,scale=${layout.width}:${layout.height}:force_original_aspect_ratio=decrease,setsar=1,` +
-      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:${layout.top}:color=0xf5f3ee,fps=${FRAME_RATE},` +
+      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:${layout.top}:color=${AD_CANVAS.background.replace("#", "0x")},fps=${FRAME_RATE},` +
       `tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
   return source + "[1:v]format=rgba[captions];" +
     "[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]";
@@ -141,7 +141,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
   }
   if (closing) {
     validateClosingCopy(closing.text ?? adLabels[language].cta, closing.whatsapp);
-    await layoutAdCaption(closing.text ?? adLabels[language].cta, captionFont, 76);
+    await layoutAdCaption(closing.text ?? adLabels[language].cta, captionFont, CLOSING_SIZE);
   }
   const weights = [...scenes.map(scene => scene.seconds), ...(closing ? [6] : [])];
   const expectedSeconds = targetSeconds ?? weights.reduce((a, b) => a + b, 0);

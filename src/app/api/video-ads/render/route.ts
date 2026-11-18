@@ -5,7 +5,7 @@ import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { renderVideoAd, validateAdScenes, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
 import { GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
 import { generateVideoAdNarration } from "@/services/videoAdNarration";
-import { layoutAdCaption, validateClosingCopy } from "@/services/videoAdLayout";
+import { CLOSING_SIZE, layoutAdCaption, validateClosingCopy } from "@/services/videoAdLayout";
 import { validateCommercialText, validateVisualNarrative } from "@/services/videoAdCopy";
 
 export const runtime = "nodejs";
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     for (const scene of records) await layoutAdCaption(scene.heading, captionFont as CaptionFont);
     if (includeClosing) {
       validateClosingCopy(closingText);
-      await layoutAdCaption(closingText, captionFont as CaptionFont, 76);
+      await layoutAdCaption(closingText, captionFont as CaptionFont, CLOSING_SIZE);
     }
     const requestedDuration = form.get("duration");
     const targetSeconds = requestedDuration === null

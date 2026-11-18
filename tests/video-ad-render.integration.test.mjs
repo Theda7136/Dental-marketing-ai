@@ -73,11 +73,11 @@ test("15-second target survives 6.79-second narration, scene/CTA boundaries, mus
     const png = await sharp({ create: { width: 360, height: 640, channels: 3, background: "#c5ded8" } }).png().toBuffer();
     const music = path.join(directory, "music.wav");
     ff(["-f", "lavfi", "-i", "sine=frequency=440:duration=1", music]);
-    const brand = { clinicName: "Clínica Demo", primaryColor: "#b7a479", logoDataUrl: null };
+    const brand = { clinicName: "Dr Daniel Coy", primaryColor: "#b7a479", logoDataUrl: null };
     for (const language of ["en-US", "es-CO"]) {
       const scenes = [
-        { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "A closer look at each tooth." : "Una mirada a la forma de cada diente." },
-        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "Bring your questions to your consultation." : "Trae tus preguntas a la consulta." },
+        { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "A closer look at each tooth." : "La forma de cada diente." },
+        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "Bring those questions to us." : "Trae tus preguntas a la consulta." },
       ];
       const pcm = pcmTone(6.79);
       const localizedRenderer = { renderVideoAd };
@@ -101,6 +101,11 @@ test("15-second target survives 6.79-second narration, scene/CTA boundaries, mus
       assert.match(inspection, /1080x1920/);
       assert.match(inspection, /Duration: 00:00:15\.00/);
       assert.match(inspection, /Audio: aac/);
+      const { verifyRenderedAd } = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url));
+      const verified = await verifyRenderedAd(output, 15);
+      assert.equal(verified.frames, 360);
+      // FFmpeg reports microseconds; 1/24 s has a repeating decimal expansion.
+      assert.ok(Math.abs(verified.seconds - 15) < 0.000001);
       if (process.env.VIDEO_AD_QA_DIR) {
         await mkdir(process.env.VIDEO_AD_QA_DIR, { recursive: true });
         await copyFile(output, path.join(process.env.VIDEO_AD_QA_DIR, `${language}.mp4`));

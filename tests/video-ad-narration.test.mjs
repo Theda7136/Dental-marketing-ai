@@ -41,7 +41,7 @@ test("English and Spanish generic slogans, clinical claims and mixed CTAs are re
   }
   assert.throws(() => validateCommercialText("Agenda tu valoración", "en-US"), /idiomas/);
   assert.throws(() => validateCommercialText("Book your consultation", "es-CO"), /idiomas/);
-  assert.doesNotThrow(() => validateCommercialText("This digital model shows the shape of each tooth.", "en-US"));
+  assert.doesNotThrow(() => validateCommercialText("Each tooth in this digital model.", "en-US"));
   assert.doesNotThrow(() => validateCommercialText("En este modelo digital se ve la forma de cada diente.", "es-CO"));
 });
 
@@ -122,7 +122,7 @@ test("script generation repairs rejected slogans without blocking on an inconclu
   process.env.GEMINI_API_KEY = "test-key";
   let requests = [];
   const tones = ["comercial"];
-  function drafts(generic) { return { variants: tones.map(tone => ({ tone, title: "A closer look", opening: "See each tooth on this digital model.", message: "Bring your questions to a consultation.", closing: "Message us on WhatsApp.", scenes: [generic ? "Advanced digital planning for a personalized approach" : "This digital model shows the shape of each tooth."] })) }; }
+  function drafts(generic) { return { variants: tones.map(tone => ({ tone, title: "A closer look", opening: "See each tooth on this digital model.", message: "Bring your questions to a consultation.", closing: "Message us on WhatsApp.", scenes: [generic ? "Advanced digital planning for a personalized approach" : "Each tooth in this digital model."] })) }; }
   t.mock.method(globalThis, "fetch", async (_url, options) => {
     requests.push(JSON.parse(options.body));
     const answer = requests.length === 1 ? drafts(true) : drafts(false);
