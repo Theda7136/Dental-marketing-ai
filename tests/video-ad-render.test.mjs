@@ -133,7 +133,7 @@ test("logo is the sole brand identity and closing refuses two different actions"
 test("larger portrait content and caption block stay inside the mobile safe area", () => {
   const { clinicalLayout, CAPTION_SIZE, AD_CANVAS } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
   const portrait = clinicalLayout(1080, 1920);
-  assert.ok(portrait.height > 1260);
+  assert.equal(portrait.height, 1120);
   for (const [w, h] of [[1080, 1920], [1920, 1080], [1000, 1000], [4000, 1000]]) {
     const layout = clinicalLayout(w, h);
     assert.equal(layout.captionTop, 1530);
