@@ -20,8 +20,12 @@ export async function generateVideoAdNarration(
     return track;
   };
   if (provider === "elevenlabs") {
-    const track = await generateElevenLabsTimedNarration(segments, language);
+    let track = await generateElevenLabsTimedNarration(segments, language);
     narrationDurations(track, segments.length);
+    if (targetSeconds !== undefined && text.split(/\\s+/).length / (track.pcm.length / 48000) * 60 > 165) {
+      track = await generateElevenLabsTimedNarration(segments, language, 0.8);
+      narrationDurations(track, segments.length);
+    }
     return checkPace(track);
   }
   const { pcm } = compactNarration(await generateGeminiNarration(text, voice, language));
