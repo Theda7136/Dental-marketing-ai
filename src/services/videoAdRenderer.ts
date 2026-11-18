@@ -114,7 +114,7 @@ function sceneFilter(kind: AdScene["kind"], seconds: number, index: number, styl
   const source = kind === "image"
     ? `[0:v]setsar=1,format=yuv420p[background];`
     : `[0:v]setpts=PTS-STARTPTS,scale=${layout.width}:${layout.height}:force_original_aspect_ratio=decrease,setsar=1,` +
-      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:${layout.top}:color=0x10243A,fps=${FRAME_RATE},` +
+      `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:${layout.top}:color=0xFAFAF8,fps=${FRAME_RATE},` +
       `tpad=stop_mode=clone:stop_duration=${seconds},format=yuv420p[background];`;
   return source + "[1:v]format=rgba[captions];" +
     "[background][captions]overlay=0:0:shortest=1,format=yuv420p[out]";
@@ -129,7 +129,7 @@ export async function preparePhotoScene(bytes: Buffer): Promise<Buffer> {
   const oriented = await sharp(bytes, { failOn: "error", limitInputPixels: 30_000_000 }).rotate().toBuffer({ resolveWithObject: true });
   const layout = clinicalLayout(oriented.info.width, oriented.info.height);
   const foreground = await sharp(oriented.data).resize(layout.width, layout.height, { fit: "inside" }).png().toBuffer();
-  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: AD_CANVAS.ink } })
+  return sharp({ create: { width: WIDTH, height: HEIGHT, channels: 3, background: AD_CANVAS.background } })
     .composite([{ input: foreground, left: layout.left, top: layout.top }]).png().toBuffer();
 }
 
