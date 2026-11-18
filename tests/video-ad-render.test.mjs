@@ -89,6 +89,19 @@ test("landscape, portrait and square media share stable editorial zones", () => 
   }
 });
 
+test("editorial framing follows media bounds without touching the clinical image", async () => {
+  const { clinicalLayout, composeAdOverlay } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const sharp = (await import("sharp")).default;
+  const box = clinicalLayout(1920, 1080);
+  const overlay = await composeAdOverlay("Every detail matters.", { clinicName: "Dental Studio", logoDataUrl: null }, "arial", box.captionTop, false, undefined, box);
+  const { data, info } = await sharp(overlay).raw().toBuffer({ resolveWithObject: true });
+  const pixel = (x, y) => [...data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 4)];
+  assert.equal(info.width, 1080);
+  assert.equal(info.height, 1920);
+  assert.equal(pixel(540, Math.round(box.top + box.height / 2))[3], 0);
+  assert.ok(pixel(72, 1477)[3] > 0);
+});
+
 test("WhatsApp closing has one invitation and no simulated button, footer or duplicate CTA", async () => {
   const { validateClosingCopy, composeAdOverlay } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
   assert.throws(() => validateClosingCopy("Message us on WhatsApp. Message us on WhatsApp."), /una sola vez/);
