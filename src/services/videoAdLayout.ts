@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-export const AD_CANVAS = { width: 1080, height: 1920, background: "#102e29", ink: "#fff9ed" };
+export const AD_CANVAS = { width: 1080, height: 1920, background: "#F7F6F2", ink: "#10243A" };
 export const CAPTION_SIZE = 88;
 export const CLOSING_SIZE = 88;
 export type AdFont = "arial" | "georgia" | "verdana" | "trebuchet";
@@ -60,9 +60,9 @@ export async function logoLayer(data: string | null, closing = false): Promise<s
   const bytes = Buffer.from(data.slice("data:image/png;base64,".length), "base64");
   if (!bytes.length || bytes.length > 500000) throw new Error("El logotipo está vacío o supera 500 KB.");
   // Give the original logo a light matte so dark transparent lettering remains visible.
-  const { data: logo, info } = await sharp(bytes, { limitInputPixels: 8000000 }).flatten({ background: "#f5f3ee" })
-    .trim({ threshold: 10 }).resize({ width: closing ? 900 : 420, height: closing ? 360 : 150, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
-  return [{ input: logo, top: (closing ? 530 : 60) + Math.round(((closing ? 360 : 150) - info.height) / 2),
+  const { data: logo, info } = await sharp(bytes, { limitInputPixels: 8000000 }).flatten({ background: AD_CANVAS.background })
+    .trim({ threshold: 10 }).resize({ width: closing ? 760 : 420, height: closing ? 300 : 150, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
+  return [{ input: logo, top: (closing ? 580 : 60) + Math.round(((closing ? 300 : 150) - info.height) / 2),
     left: closing ? Math.round((1080 - info.width) / 2) : 72 }];
 }
 
