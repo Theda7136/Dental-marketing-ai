@@ -215,6 +215,11 @@ test("30-second narrated export verifies decoded audio and refuses five-second s
     assert.equal(verified.frames, 720);
     assert.ok(verified.audio.activeSeconds >= 25.5);
     assert.ok(verified.audio.longestSilence <= 2.05);
+    if (process.env.VIDEO_AD_QA_DIR) {
+      await mkdir(process.env.VIDEO_AD_QA_DIR, { recursive: true });
+      await copyFile(output, path.join(process.env.VIDEO_AD_QA_DIR, "30-seconds-tone-test.mp4"));
+      await writeFile(path.join(process.env.VIDEO_AD_QA_DIR, "30-seconds-tone-metrics.json"), JSON.stringify(verified, null, 2));
+    }
     const bad = path.join(directory, "silent-tail.mp4");
     ff(["-i", output, "-af", "volume=enable='gte(t,5)':volume=0", "-c:v", "copy", "-c:a", "aac", bad]);
     await assert.rejects(verifyRenderedAd(bad, 30, true), /demasiado breve/);

@@ -1,6 +1,24 @@
 import { generateGeminiNarration, type GeminiVoice } from "./geminiNarration";
 import { generateElevenLabsTimedNarration } from "./elevenLabsNarration";
-import { compactNarration, narrationDurations, pcmWave, validateNarrationCoverage, type NarrationTrack } from "./videoAdTimeline";
+import { compactNarration, narrationDurations, pcmWave, validateNarrationCoverage, ShortNarrationError, type NarrationTrack } from "./videoAdTimeline";
+
+// One measured repair only. Provider, alignment and clinical failures never trigger
+// another paid synthesis. A failed repair is not exported as a padded success.
+export async function generateMeasuredVideoAdNarration(
+  segments: string[], provider: "gemini" | "elevenlabs", voice: GeminiVoice, language: "en-US" | "es-CO", targetSeconds: number,
+  rewrite: (segments: string[], measuredSeconds: number) => Promise<string[]>,
+): Promise<NarrationTrack & { segments: string[] }> {
+  try {
+    return { ...await generateVideoAdNarration(segments, provider, voice, language, targetSeconds), segments };
+  } catch (error) {
+    if (!(error instanceof ShortNarrationError) || error.seconds >= targetSeconds * 0.8) throw error;
+    const revised = await rewrite([...segments], error.seconds);
+    if (revised.length !== segments.length || revised.some(text => !text.trim()) || revised.join("\n") === segments.join("\n")) {
+      throw new Error("La reescritura no amplió el guion completo.");
+    }
+    return { ...await generateVideoAdNarration(revised, provider, voice, language, targetSeconds), segments: revised };
+  }
+}
 
 export async function generateVideoAdNarration(
   segments: string[], provider: "gemini" | "elevenlabs", voice: GeminiVoice, language: "en-US" | "es-CO", targetSeconds?: number,
@@ -8,12 +26,12 @@ export async function generateVideoAdNarration(
   segments = segments.map(segment => segment.trim());
   const text = segments.join("\n");
   if (!segments.length || segments.length > 13 || segments.some(segment => !segment.trim()) || text.length > 2400) {
-    throw new Error("Completa todos los subtítulos y limita la narración a 2400 caracteres.");
+    throw new Error("Completa la locución de todas las escenas y limita la narración a 2400 caracteres.");
   }
   const checkDuration = (track: NarrationTrack) => {
     if (targetSeconds !== undefined) {
       const seconds = track.pcm.length / 48000;
-      if (seconds > targetSeconds - segments.length * 0.25) {
+      if (seconds > Math.min(targetSeconds * 0.9, targetSeconds - segments.length * 0.25)) {
         throw new Error("Acorta el guion: la voz necesita más tiempo y no se acelerará.");
       }
       validateNarrationCoverage(track.pcm, targetSeconds);

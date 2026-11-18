@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
 import { renderVideoAd, validateAdScenes, type AdScene, type VideoAdStyle, type CaptionFont } from "@/services/videoAdRenderer";
 import { GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
-import { generateVideoAdNarration } from "@/services/videoAdNarration";
+import { generateMeasuredVideoAdNarration } from "@/services/videoAdNarration";
+import { expandMeasuredAdNarration } from "@/services/aiProvider";
 import { CLOSING_SIZE, layoutAdCaption, validateClosingCopy } from "@/services/videoAdLayout";
 import { validateCommercialText, validateVisualNarrative, validateNarrationScript } from "@/services/videoAdCopy";
 
@@ -157,11 +158,15 @@ export async function POST(request: Request) {
 
     renderInProgress = true;
     let video: Buffer;
+    let spokenSegments: string[] = [];
     try {
       const segments = [...records.map(scene => scene.narration!), ...(includeClosing ? [closingText] : [])];
       const narration = narrationEnabled
-        ? await generateVideoAdNarration(segments, provider, voice as GeminiVoice, language, targetSeconds)
+        ? await generateMeasuredVideoAdNarration(segments, provider, voice as GeminiVoice, language, targetSeconds,
+          (original, measured) => expandMeasuredAdNarration(original, measured, targetSeconds, language, includeClosing))
         : undefined;
+      spokenSegments = narration?.segments ?? [];
+      if (narration) records.forEach((scene, index) => { scene.narration = narration.segments[index]; });
       video = await renderVideoAd(records, brand ?? {
         clinicName: access.clinic.name, primaryColor: "#116D60", logoDataUrl: null,
       }, style as VideoAdStyle, narration, music, captionFont as CaptionFont,
@@ -178,6 +183,7 @@ export async function POST(request: Request) {
         "X-Content-Type-Options": "nosniff",
         "X-Video-Ad-Renderer": "verified-voice-coverage-v3",
         "X-Video-Ad-Duration": String(targetSeconds),
+        "X-Video-Ad-Narration": encodeURIComponent(JSON.stringify(spokenSegments)),
       },
     });
   } catch (error) {

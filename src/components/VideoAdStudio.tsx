@@ -317,6 +317,13 @@ export default function VideoAdStudio() {
         });
       } catch (error) { URL.revokeObjectURL(url); throw error; }
       renderedRef.current = url;
+      const spokenHeader = response.headers.get("X-Video-Ad-Narration");
+      if (spokenHeader) {
+        const spoken: unknown = JSON.parse(decodeURIComponent(spokenHeader));
+        if (Array.isArray(spoken) && spoken.length >= scenes.length && spoken.every(text => typeof text === "string")) {
+          setScenes(previous => previous.map((scene, index) => ({ ...scene, narration: spoken[index] })));
+        }
+      }
       setRenderedUrl(url);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "No fue posible crear el video.");
@@ -470,6 +477,7 @@ export default function VideoAdStudio() {
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para analizar con Gemini las fotografías y fotogramas de los videos, y para utilizarlos en publicidad.</span></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con IA. ElevenLabs ofrece voces más naturales; requiere una cuenta y créditos disponibles.</span></label>
+            {narrationEnabled && <p>La voz se mide antes de exportar. Si queda corta, se amplía el guion y se sintetiza una vez más; puede consumir créditos adicionales. El editor mostrará la locución utilizada.</p>}
             {narrationEnabled && <label className="ad-studio-field">Motor de narración
               <select value={narrationProvider} onChange={event => { setNarrationProvider(event.target.value as "gemini" | "elevenlabs"); clearRender(); }}>
                 <option value="elevenlabs">ElevenLabs · Voz natural</option>

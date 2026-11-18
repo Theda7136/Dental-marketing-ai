@@ -98,7 +98,7 @@ test("render endpoint sends one full narration and language to the renderer; inv
   const mocks = {
     "@/lib/studioAccess": { getStudioAccess: async () => ({ clinic: { id: "test-clinic", name: "Clinic" } }) },
     "@/lib/prisma": { prisma: { brandProfile: { findUnique: async () => null } } },
-    "@/services/videoAdNarration": { generateVideoAdNarration: async (...args) => { calls++; spoken = args; return { pcm: tone(2), starts: [0, 1] }; } },
+    "@/services/videoAdNarration": { generateMeasuredVideoAdNarration: async (...args) => { calls++; spoken = args.slice(0, 5); return { pcm: tone(2), starts: [0, 1], segments: args[0] }; } },
     "@/services/videoAdRenderer": { validateAdScenes: scenes => { if (scenes[0].seconds < 1) throw new Error("duración inválida"); }, renderVideoAd: async (...args) => { rendered = args; return Buffer.from("mp4"); } },
   };
   const { POST } = loadTs(new URL("../src/app/api/video-ads/render/route.ts", import.meta.url), mocks);
@@ -211,6 +211,8 @@ test("speech holds are balanced independently of storyboard weights", () => {
 });
 
 test("voice coverage rejects the reported five seconds in a thirty-second video", () => {
+  assert.throws(() => timeline.validateNarrationCoverage(tone(23.9), 30), /demasiado breve/);
+  assert.doesNotThrow(() => timeline.validateNarrationCoverage(tone(24), 30));
   assert.throws(() => timeline.validateNarrationCoverage(tone(5), 30), /demasiado breve/);
   const padded = Buffer.concat([tone(5), Buffer.alloc(25 * 48000)]);
   assert.equal(timeline.measureNarration(padded).seconds, 30);
@@ -218,6 +220,55 @@ test("voice coverage rejects the reported five seconds in a thirty-second video"
   const interrupted = Buffer.concat([tone(11), Buffer.alloc(3 * 48000), tone(11)]);
   assert.throws(() => timeline.validateNarrationCoverage(interrupted, 30), /silencios prolongados/);
   assert.doesNotThrow(() => timeline.validateNarrationCoverage(tone(25), 30));
+});
+
+test("measured short voice is rewritten once, resynthesized and aligned to the new transcript", async () => {
+  const original = ["Short scene.", "Message us on WhatsApp."];
+  const revised = ["Expanded scene with questions for the consultation.", original[1]];
+  let calls = 0, repairs = 0;
+  const { generateMeasuredVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
+    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async segments => {
+      calls++;
+      assert.deepEqual(segments, calls === 1 ? original : revised);
+      return { pcm: tone(calls === 1 ? 5 : 25), starts: [0, calls === 1 ? 3 : 23] };
+    } },
+  });
+  const result = await generateMeasuredVideoAdNarration(original, "elevenlabs", "Kore", "en-US", 30, async (segments, seconds) => {
+    repairs++;
+    assert.deepEqual(segments, original);
+    assert.equal(seconds, 5);
+    return revised;
+  });
+  assert.equal(calls, 2);
+  assert.equal(repairs, 1);
+  assert.deepEqual(result.starts, [0, 23]);
+  assert.deepEqual(result.segments, revised);
+  assert.equal(result.pcm.length / 48000, 25);
+});
+
+test("persistent five-second voice cannot loop or produce an export after repair", async () => {
+  let calls = 0, repairs = 0;
+  const { generateMeasuredVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
+    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => { calls++; return { pcm: tone(5), starts: [0] }; } },
+  });
+  await assert.rejects(generateMeasuredVideoAdNarration(["Short."], "elevenlabs", "Kore", "en-US", 30, async () => {
+    repairs++; return ["A longer revised narration."];
+  }), /demasiado breve/);
+  assert.equal(calls, 2);
+  assert.equal(repairs, 1);
+});
+
+test("measured rewrite keeps the CTA and rejects clinical promises before resynthesis", async t => {
+  process.env.GEMINI_API_KEY = "test-key";
+  const safe = "Your questions about restoration options deserve time in a consultation. Discuss your expectations with a professional before deciding.";
+  let generated = safe;
+  t.mock.method(globalThis, "fetch", async () => Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ narration: [generated] }) }] } }] }));
+  const { expandMeasuredAdNarration } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  try {
+    assert.deepEqual(await expandMeasuredAdNarration(["Short.", "Message us on WhatsApp."], 5, 15, "en-US", true), [safe, "Message us on WhatsApp."]);
+    generated = "Guaranteed pain-free results. " + safe;
+    await assert.rejects(expandMeasuredAdNarration(["Short."], 5, 15, "en-US", false), /afirmaciones|prohibid/i);
+  } finally { delete process.env.GEMINI_API_KEY; }
 });
 
 test("proportional narration keeps 15, 30 and 60 second speech in the matching scene", () => {

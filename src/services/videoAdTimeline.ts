@@ -1,4 +1,9 @@
 export type NarrationTrack = { pcm: Buffer; starts: number[] };
+export class ShortNarrationError extends Error {
+  constructor(readonly seconds: number, readonly targetSeconds: number) {
+    super(`La voz es demasiado breve para ${targetSeconds} s (${seconds.toFixed(1)} s). Amplía la narración; no se rellenará con silencio.`);
+  }
+}
 const RATE = 24000;
 
 // RMS windows measure audible coverage; container length alone counts silence as voice.
@@ -18,8 +23,8 @@ export function measureNarration(pcm: Buffer) {
 
 export function validateNarrationCoverage(pcm: Buffer, targetSeconds: number, planned = false) {
   const metrics = measureNarration(pcm);
-  if (metrics.seconds < targetSeconds * 0.72 || metrics.activeSeconds < targetSeconds * 0.55) {
-    throw new Error(`La voz es demasiado breve para ${targetSeconds} s (${metrics.seconds.toFixed(1)} s de audio, ${metrics.activeSeconds.toFixed(1)} s audibles). Amplía la narración o reduce la duración; no se rellenará con silencio.`);
+  if (metrics.seconds < targetSeconds * 0.8 || metrics.activeSeconds < targetSeconds * 0.55) {
+    throw new ShortNarrationError(metrics.seconds, targetSeconds);
   }
   if (metrics.longestSilence > 2.05 || (planned && Math.abs(metrics.seconds - targetSeconds) > 0.1)) {
     throw new Error("La narración deja silencios prolongados o no coincide con la duración. Amplía el texto de las escenas o reduce la duración.");
