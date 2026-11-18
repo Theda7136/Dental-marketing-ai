@@ -71,9 +71,21 @@ test("clinical image and captions never overlap for landscape, portrait and squa
   for (const [w, h] of [[1920, 1080], [1080, 1920], [1000, 1000], [4000, 1000], [500, 4000]]) {
     const box = clinicalLayout(w, h);
     assert.ok(box.left >= 0 && box.left + box.width <= 1080);
-    assert.ok(box.top + box.height <= 1540);
+    assert.ok(box.top >= 310 && box.top + box.height <= 1430);
     assert.ok(Math.abs(box.width / box.height - w / h) < 0.02);
     assert.ok(box.captionTop + 216 <= box.top || box.captionTop >= box.top + box.height);
+  }
+});
+
+test("landscape, portrait and square media share stable editorial zones", () => {
+  const { clinicalLayout, AD_ZONES } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const layouts = [[1920, 1080], [1080, 1920], [1000, 1000]].map(([width, height]) => clinicalLayout(width, height));
+  for (const layout of layouts) {
+    assert.equal(layout.captionTop, AD_ZONES.caption.top);
+    assert.ok(layout.top >= AD_ZONES.media.top);
+    assert.ok(layout.top + layout.height <= AD_ZONES.media.bottom);
+    assert.ok(Math.abs(layout.left + layout.width / 2 - 540) <= 1);
+    assert.ok(Math.abs(layout.top + layout.height / 2 - (AD_ZONES.media.top + AD_ZONES.media.bottom) / 2) <= 1);
   }
 });
 
@@ -124,7 +136,8 @@ test("larger portrait content and caption block stay inside the mobile safe area
   assert.ok(portrait.height > 1260);
   for (const [w, h] of [[1080, 1920], [1920, 1080], [1000, 1000], [4000, 1000]]) {
     const layout = clinicalLayout(w, h);
-    assert.equal(layout.captionTop - layout.top - layout.height, 40);
+    assert.equal(layout.captionTop, 1530);
+    assert.ok(layout.top + layout.height <= 1430);
     assert.ok(layout.captionTop + 2 * (CAPTION_SIZE + 20) <= 1800);
     assert.ok(layout.width % 2 === 0 && layout.height % 2 === 0);
   }
