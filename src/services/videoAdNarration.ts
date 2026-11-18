@@ -10,27 +10,23 @@ export async function generateVideoAdNarration(
   if (!segments.length || segments.length > 13 || segments.some(segment => !segment.trim()) || text.length > 2400) {
     throw new Error("Completa todos los subtítulos y limita la narración a 2400 caracteres.");
   }
-  const checkPace = (track: NarrationTrack) => {
+  const checkDuration = (track: NarrationTrack) => {
     if (targetSeconds !== undefined) {
       const seconds = track.pcm.length / 48000;
-      const words = text.split(/\s+/).length;
-      if (seconds > targetSeconds - segments.length * 0.25) throw new Error("Acorta el guion: la voz necesita más tiempo y no se acelerará.");
-      if (words / seconds * 60 > 165) throw new Error("La locución es demasiado rápida. Vuelve a generar la voz con un guion más breve y pausado.");
+      if (seconds > targetSeconds - segments.length * 0.25) {
+        throw new Error("Acorta el guion: la voz necesita más tiempo y no se acelerará.");
+      }
     }
     return track;
   };
   if (provider === "elevenlabs") {
-    let track = await generateElevenLabsTimedNarration(segments, language);
+    const track = await generateElevenLabsTimedNarration(segments, language);
     narrationDurations(track, segments.length);
-    if (targetSeconds !== undefined && text.split(/\\s+/).length / (track.pcm.length / 48000) * 60 > 165) {
-      track = await generateElevenLabsTimedNarration(segments, language, 0.8);
-      narrationDurations(track, segments.length);
-    }
-    return checkPace(track);
+    return checkDuration(track);
   }
   const { pcm } = compactNarration(await generateGeminiNarration(text, voice, language));
   if (pcm.length / 48000 > 60) throw new Error("Acorta el guion: la narración supera 60 segundos.");
-  if (segments.length === 1) return checkPace({ pcm, starts: [0] });
+  if (segments.length === 1) return checkDuration({ pcm, starts: [0] });
   // Gemini TTS does not return alignment. Analyze the actual generated audio,
   // never estimate scene boundaries from character counts or requested duration.
   const model = process.env.GEMINI_ALIGNMENT_MODEL || process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
@@ -61,5 +57,5 @@ export async function generateVideoAdNarration(
   }
   const track = { pcm, starts: aligned.map((item, i) => i === 0 ? 0 : item.start) };
   narrationDurations(track, segments.length);
-  return checkPace(track);
+  return checkDuration(track);
 }
