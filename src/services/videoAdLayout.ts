@@ -1,10 +1,10 @@
 import sharp from "sharp";
 
-export const AD_CANVAS = { width: 1080, height: 1920, background: "#F7F6F2", ink: "#10243A" };
+export const AD_CANVAS = { width: 1080, height: 1920, background: "#FAFAF8", ink: "#171717" };
 export const CAPTION_SIZE = 76;
 export const CLOSING_SIZE = 88;
 export type AdFont = "arial" | "georgia" | "verdana" | "trebuchet";
-const fonts: Record<AdFont, string> = { arial: "Arial", georgia: "Georgia", verdana: "Verdana", trebuchet: "Trebuchet MS" };
+const fonts: Record<AdFont, string> = { arial: "Inter", georgia: "DM Sans", verdana: "Inter", trebuchet: "DM Sans" };
 const escape = (text: string) => text.replace(/[&<>]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!);
 
 async function lineImage(text: string, font: AdFont, size: number, color = AD_CANVAS.ink) {
@@ -77,7 +77,7 @@ export async function logoLayer(data: string | null, closing = false): Promise<s
   // Give the original logo a light matte so dark transparent lettering remains visible.
   const { data: logo, info } = await sharp(bytes, { limitInputPixels: 8000000 }).flatten({ background: AD_CANVAS.background })
     .trim({ threshold: 10 }).resize({ width: closing ? 760 : 420, height: closing ? 300 : 150, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
-  return [{ input: logo, top: (closing ? 570 : 60) + Math.round(((closing ? 300 : 150) - info.height) / 2),
+  return [{ input: logo, top: (closing ? 580 : 60) + Math.round(((closing ? 300 : 150) - info.height) / 2),
     left: closing ? Math.round((1080 - info.width) / 2) : 72 }];
 }
 
@@ -86,12 +86,12 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
   const caption = await layoutAdCaption(text, font, closing ? CLOSING_SIZE : CAPTION_SIZE);
   const layers = await logoLayer(brand.logoDataUrl, closing);
   if (!closing && mediaBox) {
-    const stage = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="264" fill="#F7F6F2"/><rect y="1450" width="1080" height="470" fill="#F7F6F2"/><rect x="72" y="1490" width="90" height="7" rx="3" fill="#10243A"/><path d="M72 1800 H1008" stroke="#10243A" stroke-width="2" opacity=".22"/><path d="M72 285 H1008 M72 1425 H1008" stroke="#F7F6F2" stroke-width="2" opacity=".45"/></svg>');
-    layers.push({ input: stage, left: 0, top: 0 });
+    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="264" fill="#FAFAF8"/><rect y="1450" width="1080" height="470" fill="#FAFAF8"/><path d="M72 264 H1008 M72 1810 H1008" stroke="#171717" stroke-width="2" opacity=".2"/><rect x="72" y="1490" width="52" height="6" fill="#171717"/></svg>');
+    layers.push({ input: grid, left: 0, top: 0 });
   }
   if (closing) {
-    const panel = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="420" width="1080" height="1100" fill="#10243A"/><path d="M100 480 H980 M100 1460 H980" stroke="#F7F6F2" opacity=".4" stroke-width="2"/></svg>');
-    layers.unshift({ input: panel, left: 0, top: 0 });
+    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><path d="M72 390 H1008 M72 1530 H1008" stroke="#171717" stroke-width="2" opacity=".22"/><rect x="72" y="475" width="54" height="7" fill="#171717"/></svg>');
+    layers.unshift({ input: grid, left: 0, top: 0 });
   }
   // A supplied logo is the primary brand identity, not a secondary decoration
   // next to a competing account name such as "Dental Studio".
@@ -99,24 +99,20 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
     const clinic = await layoutAdCaption(brand.clinicName, "arial", closing ? 88 : 40);
     for (const [i, line] of clinic.images.entries()) {
       layers.push({ input: line.data, left: closing ? Math.round((1080 - line.info.width) / 2) : 72,
-        top: (closing ? 730 : 100) + i * clinic.lineHeight });
+        top: (closing ? 770 : 100) + i * clinic.lineHeight });
     }
   }
-  if (closing) {
-    const rule = Buffer.from('<svg width="96" height="4"><rect width="96" height="4" rx="2" fill="#F7F6F2" opacity=".7"/></svg>');
-    layers.push({ input: rule, left: 492, top: 940 });
-  }
   const captionHeight = caption.images.reduce((height, line, i) => height + (i ? 20 : 0) + line.info.height, 0);
-  const captionStart = closing ? 1030 : Math.max(AD_ZONES.caption.top, Math.round((AD_ZONES.caption.top + AD_ZONES.caption.bottom - captionHeight) / 2));
+  const captionStart = closing ? 1080 : Math.max(AD_ZONES.caption.top, Math.round((AD_ZONES.caption.top + AD_ZONES.caption.bottom - captionHeight) / 2));
   let lineTop = captionStart;
-  const visibleCaption = closing ? await Promise.all(caption.lines.map(line => lineImage(line, font, caption.fontSize, "#F7F6F2"))) : caption.images;
+  const visibleCaption = caption.images;
   visibleCaption.forEach(line => {
-    layers.push({ input: line.data, left: Math.round((1080 - line.info.width) / 2), top: lineTop });
+    layers.push({ input: line.data, left: 72, top: lineTop });
     lineTop += line.info.height + 20;
   });
   if (phone) {
-    const contact = await lineImage(phone, "arial", 48, closing ? "#F7F6F2" : AD_CANVAS.ink);
-    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1320 });
+    const contact = await lineImage(phone, "arial", 48);
+    layers.push({ input: contact.data, left: 72, top: 1360 });
   }
   return sharp({ create: { width: 1080, height: 1920, channels: 4, background: closing ? AD_CANVAS.background : "#00000000" } }).composite(layers).png().toBuffer();
 }
