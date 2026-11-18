@@ -81,10 +81,22 @@ export async function logoLayer(data: string | null, closing = false): Promise<s
     left: closing ? Math.round((1080 - info.width) / 2) : 72 }];
 }
 
-export async function composeAdOverlay(text: string, brand: { clinicName: string; logoDataUrl: string | null }, font: AdFont, captionTop: number, closing = false, phone?: string) {
+export async function composeAdOverlay(text: string, brand: { clinicName: string; logoDataUrl: string | null }, font: AdFont, captionTop: number, closing = false, phone?: string, mediaBox?: ReturnType<typeof clinicalLayout>) {
   if (closing) validateClosingCopy(text, phone);
   const caption = await layoutAdCaption(text, font, closing ? CLOSING_SIZE : CAPTION_SIZE);
   const layers = await logoLayer(brand.logoDataUrl, closing);
+  if (!closing && mediaBox) {
+    const frameLeft = Math.max(32, mediaBox.left - 14);
+    const frameRight = Math.min(1048, mediaBox.left + mediaBox.width + 14);
+    const frameTop = mediaBox.top - 14;
+    const frameBottom = mediaBox.top + mediaBox.height + 14;
+    const frame = Buffer.from(`<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
+      <path d="M${frameLeft} ${frameTop + 52} V${frameTop} H${frameLeft + 52} M${frameRight - 52} ${frameTop} H${frameRight} V${frameTop + 52} M${frameLeft} ${frameBottom - 52} V${frameBottom} H${frameLeft + 52} M${frameRight - 52} ${frameBottom} H${frameRight} V${frameBottom - 52}" stroke="#10243A" stroke-width="4" fill="none" opacity=".72"/>
+      <rect x="72" y="1475" width="72" height="5" rx="2" fill="#10243A"/>
+      <path d="M72 1805 H1008" stroke="#10243A" stroke-width="2" opacity=".18"/>
+    </svg>`);
+    layers.push({ input: frame, left: 0, top: 0 });
+  }
   // A supplied logo is the primary brand identity, not a secondary decoration
   // next to a competing account name such as "Dental Studio".
   if (!brand.logoDataUrl) {
