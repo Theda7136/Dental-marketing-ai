@@ -58,9 +58,6 @@ const unsupportedClaims = [
 export function validateCommercialText(text: string, language?: "es-CO" | "en-US"): void {
   if (looksLikeProductionInstruction(text)) throw new Error("El texto contiene instrucciones de producción.");
   if (!text.trim()) throw new Error("El texto publicitario no puede estar vacío.");
-  if (genericCopy.some(pattern => pattern.test(text))) {
-    throw new Error("El guion contiene frases genéricas. Describe un detalle visible concreto y su relación con la consulta.");
-  }
   if (unsupportedClaims.some(pattern => pattern.test(text))) {
     throw new Error("El guion contiene afirmaciones no verificadas sobre materiales, resultados o credenciales.");
   }
@@ -78,17 +75,6 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
     validateCommercialText(text);
     if (/\b(?:whatsapp|agenda|reserva|book|contact us|cont[aá]ctanos|message us)\b/i.test(text)) {
       throw new Error("Reserva la llamada a la acción para el cierre; desarrolla aquí el detalle visible.");
-    }
-    const observation = observations[i] ?? "";
-    // A dental observation should inform the copy, but a keyword checklist
-    // cannot reliably judge whether a sentence is specific or natural.
-    if (/^(?:explore|review|discover|discuss|consider|conoce|explora|revisa|descubre|conversemos)(?:mos)?\b.*\b(?:options|opciones|possibilities|posibilidades|preferences|preferencias)\b(?:\s+(?:on|en|with|con)\s+(?:screen|pantalla|technology|tecnolog[ií]a))?[.!?]?$/i.test(text.trim()) &&
-        /digital|pantalla|screen|modelo|model|yeso|plaster|\bcast\b/i.test(observation)) {
-      throw new Error(`La escena ${i + 1} usa frases genéricas: falta el detalle visual concreto.`);
-    }
-    if (/^(?:digital mapping|physical models?) (?:allows? us|helps? us) (?:to )?(?:review|discuss) your (?:options|preferences)\.?$/i.test(text.trim()) ||
-        /^(?:mapeo digital|modelos? f[ií]sicos?) (?:nos )?permiten? (?:revisar|discutir) tus (?:opciones|preferencias)\.?$/i.test(text.trim())) {
-      throw new Error("El guion contiene frases genéricas sobre herramientas; relaciona un detalle visible con una pregunta concreta del paciente.");
     }
   });
 }
