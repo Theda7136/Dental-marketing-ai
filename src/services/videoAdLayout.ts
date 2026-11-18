@@ -40,7 +40,7 @@ export function clinicalLayout(width: number, height: number) {
   const scale = Math.min(1080 / width, 1320 / height);
   const fittedWidth = Math.max(2, Math.round(width * scale / 2) * 2);
   const fittedHeight = Math.max(2, Math.round(height * scale / 2) * 2);
-  const top = 220 + Math.round((1320 - fittedHeight) / 2);
+  const top = 150 + Math.round((1320 - fittedHeight) / 2);
   return { width: fittedWidth, height: fittedHeight, left: Math.round((1080 - fittedWidth) / 2),
     top, captionTop: top + fittedHeight + 40 };
 }
@@ -62,7 +62,7 @@ export async function logoLayer(data: string | null, closing = false): Promise<s
   // Give the original logo a light matte so dark transparent lettering remains visible.
   const { data: logo, info } = await sharp(bytes, { limitInputPixels: 8000000 }).flatten({ background: AD_CANVAS.background })
     .trim({ threshold: 10 }).resize({ width: closing ? 760 : 420, height: closing ? 300 : 150, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
-  return [{ input: logo, top: (closing ? 580 : 60) + Math.round(((closing ? 300 : 150) - info.height) / 2),
+  return [{ input: logo, top: (closing ? 650 : 60) + Math.round(((closing ? 300 : 150) - info.height) / 2),
     left: closing ? Math.round((1080 - info.width) / 2) : 72 }];
 }
 
@@ -76,13 +76,13 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
     const clinic = await layoutAdCaption(brand.clinicName, "arial", closing ? 88 : 40);
     for (const [i, line] of clinic.images.entries()) {
       layers.push({ input: line.data, left: closing ? Math.round((1080 - line.info.width) / 2) : 72,
-        top: (closing ? 720 : 100) + i * clinic.lineHeight });
+        top: (closing ? 800 : 100) + i * clinic.lineHeight });
     }
   }
   caption.images.forEach((line, i) => layers.push({ input: line.data, left: Math.round((1080 - line.info.width) / 2), top: captionTop + i * caption.lineHeight }));
   if (phone) {
     const contact = await lineImage(phone, "arial", 48);
-    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1280 });
+    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1320 });
   }
   return sharp({ create: { width: 1080, height: 1920, channels: 4, background: closing ? AD_CANVAS.background : "#00000000" } }).composite(layers).png().toBuffer();
 }
