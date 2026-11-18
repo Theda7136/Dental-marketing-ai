@@ -109,8 +109,12 @@ test("WhatsApp closing has one invitation and no simulated button, footer or dup
   const png = await composeAdOverlay("Message us on WhatsApp.", { clinicName: "Dental Studio", logoDataUrl: null }, "arial", 980, true);
   const sharp = (await import("sharp")).default;
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
-  // The old button region is uninterrupted canvas, not a hidden white rectangle.
-  for (let y = 1385; y < 1520; y += 10) for (let x = 80; x < 1000; x += 10) {
+  // The CTA stays on the navy panel, with no simulated WhatsApp button.
+  for (let y = 1385; y < 1450; y += 10) for (let x = 120; x < 960; x += 10) {
+    const i = (y * info.width + x) * info.channels;
+    assert.deepEqual([...data.subarray(i, i + 3)], [16, 36, 58]);
+  }
+  for (let y = 1550; y < 1600; y += 10) for (let x = 120; x < 960; x += 10) {
     const i = (y * info.width + x) * info.channels;
     assert.deepEqual([...data.subarray(i, i + 3)], [247, 246, 242]);
   }
