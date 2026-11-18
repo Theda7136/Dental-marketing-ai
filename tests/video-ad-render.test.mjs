@@ -132,5 +132,7 @@ test("larger portrait content and caption block stay inside the mobile safe area
     const rgb = hex.slice(1).match(/../g).map(v => parseInt(v, 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
   };
-  assert.ok((luminance(AD_CANVAS.ink) + .05) / (luminance(AD_CANVAS.background) + .05) > 7);
+  const light = Math.max(luminance(AD_CANVAS.ink), luminance(AD_CANVAS.background));
+  const dark = Math.min(luminance(AD_CANVAS.ink), luminance(AD_CANVAS.background));
+  assert.ok((light + .05) / (dark + .05) > 7);
 });
