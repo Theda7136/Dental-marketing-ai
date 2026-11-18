@@ -33,16 +33,31 @@ export async function layoutAdCaption(text: string, font: AdFont = "arial", size
   return { ...best, fontSize: size, lineHeight: size + 20 };
 }
 
+export const AD_ZONES = {
+  brand: { top: 90, bottom: 270 },
+  media: { top: 310, bottom: 1430 },
+  caption: { top: 1530, bottom: 1770 },
+} as const;
+
 export function clinicalLayout(width: number, height: number) {
-  if (![width, height].every(value => Number.isFinite(value) && value > 0)) throw new Error("Dimensiones clínicas inválidas.");
-  // Full-width landscape sources cannot be made taller without cropping anatomy.
-  // Group picture and caption; give portrait sources the entire available height.
-  const scale = Math.min(1080 / width, 1320 / height);
+  if (![width, height].every(value => Number.isFinite(value) && value > 0)) {
+    throw new Error("Dimensiones clínicas inválidas.");
+  }
+
+  const mediaWidth = 1080;
+  const mediaHeight = AD_ZONES.media.bottom - AD_ZONES.media.top;
+  const scale = Math.min(mediaWidth / width, mediaHeight / height);
   const fittedWidth = Math.max(2, Math.round(width * scale / 2) * 2);
   const fittedHeight = Math.max(2, Math.round(height * scale / 2) * 2);
-  const top = 120 + Math.round((1320 - fittedHeight) / 2);
-  return { width: fittedWidth, height: fittedHeight, left: Math.round((1080 - fittedWidth) / 2),
-    top, captionTop: top + fittedHeight + 40 };
+  const top = AD_ZONES.media.top + Math.round((mediaHeight - fittedHeight) / 2);
+
+  return {
+    width: fittedWidth,
+    height: fittedHeight,
+    left: Math.round((1080 - fittedWidth) / 2),
+    top,
+    captionTop: AD_ZONES.caption.top,
+  };
 }
 
 export function validateClosingCopy(text: string, phone?: string) {
@@ -83,7 +98,13 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
     const rule = Buffer.from('<svg width="96" height="4"><rect width="96" height="4" rx="2" fill="#10243A" opacity=".55"/></svg>');
     layers.push({ input: rule, left: 492, top: 940 });
   }
-  caption.images.forEach((line, i) => layers.push({ input: line.data, left: Math.round((1080 - line.info.width) / 2), top: captionTop + i * caption.lineHeight }));
+  const captionHeight = caption.images.reduce((height, line, i) => height + (i ? 20 : 0) + line.info.height, 0);
+  const captionStart = closing ? captionTop : Math.max(AD_ZONES.caption.top, Math.round((AD_ZONES.caption.top + AD_ZONES.caption.bottom - captionHeight) / 2));
+  let lineTop = captionStart;
+  caption.images.forEach(line => {
+    layers.push({ input: line.data, left: Math.round((1080 - line.info.width) / 2), top: lineTop });
+    lineTop += line.info.height + 20;
+  });
   if (phone) {
     const contact = await lineImage(phone, "arial", 48);
     layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1230 });
