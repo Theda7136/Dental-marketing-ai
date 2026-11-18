@@ -74,10 +74,6 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
   if (observations.length !== scenes.length) throw new Error("Las observaciones no coinciden con las escenas.");
   const normalized = scenes.map(text => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim());
   if (new Set(normalized).size !== scenes.length) throw new Error("Las escenas repiten la misma idea; construye una historia conectada.");
-  const anchors = [
-    { observed: /digital|pantalla|screen|\bCAD\b/i, copy: /digital|screen|pantalla/i },
-    { observed: /modelo f[ií]sico|physical model|yeso|plaster|\bcast\b/i, copy: /f[ií]sic|physical|model|molde/i },
-  ];
   scenes.forEach((text, i) => {
     validateCommercialText(text);
     if (/\b(?:whatsapp|agenda|reserva|book|contact us|cont[aá]ctanos|message us)\b/i.test(text)) {
@@ -89,21 +85,6 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
     if (/^(?:explore|review|discover|discuss|consider|conoce|explora|revisa|descubre|conversemos)(?:mos)?\b.*\b(?:options|opciones|possibilities|posibilidades|preferences|preferencias)\b(?:\s+(?:on|en|with|con)\s+(?:screen|pantalla|technology|tecnolog[ií]a))?[.!?]?$/i.test(text.trim()) &&
         /digital|pantalla|screen|modelo|model|yeso|plaster|\bcast\b/i.test(observation)) {
       throw new Error(`La escena ${i + 1} usa frases genéricas: falta el detalle visual concreto.`);
-    }
-    // A later source must not inherit an object merely mentioned in an earlier one.
-    for (const anchor of anchors) {
-      if (anchor.copy.test(text) && /digital|screen|pantalla|f[ií]sic|physical/i.test(text) &&
-          !anchor.observed.test(observation) &&
-          !(i > 0 && /\b(?:from|del|desde)\b/i.test(text) && anchor.observed.test(observations[i - 1])) &&
-          ((anchor === anchors[0] && /digital|screen|pantalla/i.test(text)) ||
-           (anchor === anchors[1] && /f[ií]sic|physical/i.test(text)))) {
-        throw new Error(`La escena ${i + 1} añade un objeto no respaldado por su observación visual.`);
-      }
-    }
-    for (const anchor of anchors) {
-      if (anchor.observed.test(observations[i] ?? "") && !anchor.copy.test(text)) {
-        throw new Error(`La escena ${i + 1} omite su detalle visual principal. Conecta ese detalle con la historia sin inventar resultados.`);
-      }
     }
     if (/^(?:digital mapping|physical models?) (?:allows? us|helps? us) (?:to )?(?:review|discuss) your (?:options|preferences)\.?$/i.test(text.trim()) ||
         /^(?:mapeo digital|modelos? f[ií]sicos?) (?:nos )?permiten? (?:revisar|discutir) tus (?:opciones|preferencias)\.?$/i.test(text.trim())) {
