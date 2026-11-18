@@ -67,11 +67,11 @@ test("captions use measured glyphs, at most two lines, without shrinking or losi
 });
 
 test("clinical image and captions never overlap for landscape, portrait and square media", () => {
-  const { clinicalLayout } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const { clinicalLayout, AD_ZONES } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
   for (const [w, h] of [[1920, 1080], [1080, 1920], [1000, 1000], [4000, 1000], [500, 4000]]) {
     const box = clinicalLayout(w, h);
     assert.ok(box.left >= 0 && box.left + box.width <= 1080);
-    assert.ok(box.top >= 310 && box.top + box.height <= 1430);
+    assert.ok(box.top >= AD_ZONES.media.top && box.top + box.height <= AD_ZONES.media.bottom);
     assert.ok(Math.abs(box.width / box.height - w / h) < 0.02);
     assert.ok(box.captionTop + 216 <= box.top || box.captionTop >= box.top + box.height);
   }
@@ -99,7 +99,7 @@ test("editorial framing follows media bounds without touching the clinical image
   assert.equal(info.width, 1080);
   assert.equal(info.height, 1920);
   assert.equal(pixel(540, Math.round(box.top + box.height / 2))[3], 0);
-  assert.ok(pixel(72, 1477)[3] > 0);
+  assert.ok(pixel(72, 1542)[3] > 0);
 });
 
 test("WhatsApp closing has one invitation and no simulated button, footer or duplicate CTA", async () => {
@@ -148,14 +148,14 @@ test("logo is the sole brand identity and closing refuses two different actions"
 });
 
 test("larger portrait content and caption block stay inside the mobile safe area", () => {
-  const { clinicalLayout, CAPTION_SIZE, AD_CANVAS } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const { clinicalLayout, CAPTION_SIZE, AD_CANVAS, AD_ZONES } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
   const portrait = clinicalLayout(1080, 1920);
-  assert.equal(portrait.height, 1120);
+  assert.equal(portrait.height, AD_ZONES.media.bottom - AD_ZONES.media.top);
   for (const [w, h] of [[1080, 1920], [1920, 1080], [1000, 1000], [4000, 1000]]) {
     const layout = clinicalLayout(w, h);
-    assert.equal(layout.captionTop, 1530);
-    assert.ok(layout.top + layout.height <= 1430);
-    assert.ok(layout.captionTop + 2 * (CAPTION_SIZE + 20) <= 1800);
+    assert.equal(layout.captionTop, AD_ZONES.caption.top);
+    assert.ok(layout.top + layout.height <= AD_ZONES.media.bottom);
+    assert.ok(layout.captionTop + 2 * (CAPTION_SIZE + 20) <= AD_ZONES.caption.bottom);
     assert.ok(layout.width % 2 === 0 && layout.height % 2 === 0);
   }
   const luminance = hex => {
