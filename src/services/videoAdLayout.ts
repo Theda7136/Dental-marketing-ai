@@ -28,7 +28,8 @@ export async function layoutAdCaption(text: string, font: AdFont = "arial", size
     const score = lines.length === 1 ? 0 : Math.abs(images[0].info.width - images[1].info.width) + 1;
     if (!best || score < best.score) best = { lines, images, score };
   }
-  if (!best) throw new Error("Acorta el subtítulo: debe caber en dos líneas grandes y legibles, sin reducir la tipografía.");
+  if (!best && size > 64) return layoutAdCaption(text, font, size - 8);
+  if (!best) throw new Error("El subtítulo no cabe en dos líneas legibles. Reduce el texto.");
   return { ...best, fontSize: size, lineHeight: size + 20 };
 }
 
