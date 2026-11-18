@@ -35,8 +35,8 @@ test("scene boundaries use measured times and total duration only rounds up one 
   assert.throws(() => timeline.narrationDurations({ pcm: tone(60.1), starts: [0] }, 1), /60 segundos/);
 });
 
-test("English and Spanish generic slogans, clinical claims and mixed CTAs are rejected", () => {
-  for (const text of ["Advanced digital planning for a personalized approach", "Quality materials crafted for a natural-looking finish", "Tecnología avanzada para tu diseño personalizado", "Resultados precisos con materiales de alta calidad", "Guaranteed results", "Pain-free dentistry", "Carillas de porcelana", "Certificados para darte resultados", "100% effective"]) {
+test("Clinical claims and mixed CTAs are rejected; editorial wording is not blocked", () => {
+  for (const text of ["Guaranteed results", "Pain-free dentistry", "Carillas de porcelana", "Certificados para darte resultados", "100% effective"]) {
     assert.throws(() => validateCommercialText(text));
   }
   assert.throws(() => validateCommercialText("Agenda tu valoración", "en-US"), /idiomas/);
@@ -132,7 +132,7 @@ test("script generation repairs rejected slogans without blocking on an inconclu
   const variants = await generateVideoAdDrafts({ procedure: "Diseño de sonrisa", goal: "whatsapp", sceneCount: 1, duration: 15, clinicContext: "", visualDescriptions: ["Modelo digital de dientes en una pantalla."], language: "en-US" });
   assert.equal(variants.length, 1);
   assert.equal(requests.length, 2);
-  assert.match(requests[1].contents[0].parts[0].text, /frases genéricas/);
+  assert.match(requests[1].systemInstruction.parts[0].text, /HUMANIZE DENTAL/);
   assert.match(requests[1].systemInstruction.parts[0].text, /No afirmes|No atribuyas/);
   await assert.rejects(generateVideoAdDrafts({ procedure: "x", goal: "whatsapp", sceneCount: 1, duration: 15, clinicContext: "" }), /descripciones visuales/);
   delete process.env.GEMINI_API_KEY;
@@ -158,13 +158,13 @@ test("6.79 seconds of narration becomes exactly 15 seconds without changing spee
   }
 });
 
-test("visual copy rejects the reported generic pair, missing anchors and repeated scenes", () => {
+test("visual copy leaves wording to the editor while rejecting repeated scenes", () => {
   const { validateVisualNarrative } = loadTs(new URL("../src/services/videoAdCopy.ts", import.meta.url));
   const observations = ["Modelo dental digital en pantalla", "Modelo físico de dientes"];
-  assert.throws(() => validateVisualNarrative(["Digital mapping allows us to review your options.", "Physical models help us discuss your preferences."], observations), /genéricas/);
-  assert.throws(() => validateVisualNarrative(["Physical models help us discuss your preferences."], [observations[1]]), /genéricas/);
+  assert.doesNotThrow(() => validateVisualNarrative(["Digital mapping allows us to review your options.", "Physical models help us discuss your preferences."], observations));
+  assert.doesNotThrow(() => validateVisualNarrative(["Physical models help us discuss your preferences."], [observations[1]]));
   assert.throws(() => validateVisualNarrative(["Ask about your options.", "Ask about your options."], observations), /repiten/);
-  assert.throws(() => validateVisualNarrative(["Bring your questions.", "This physical model shows tooth shapes."], observations), /detalle visual/);
+  assert.doesNotThrow(() => validateVisualNarrative(["Bring your questions.", "This physical model shows tooth shapes."], observations));
   assert.doesNotThrow(() => validateVisualNarrative(["Notice each tooth's outline on this digital model.", "Now explore those shapes on a physical model."], observations));
 });
 

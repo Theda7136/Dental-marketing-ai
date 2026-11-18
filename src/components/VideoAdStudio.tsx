@@ -484,10 +484,10 @@ export default function VideoAdStudio() {
             </label>}
 
             {variants.length === 0 && <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Preparando anuncio..." : "Generar guion publicitario con IA"}</button>}
-            <p className="ad-studio-hint">Gemini genera el guion y analiza las imágenes. ElevenLabs o Gemini generan la voz al crear el video, según el motor seleccionado.</p>
-            {generatingScripts && <p role="status" className="ad-studio-hint">Gemini está preparando un único guion comercial, con una escena por archivo.</p>}
+            <p className="ad-studio-hint">Humanize Dental revisa automáticamente la naturalidad del guion y la conexión entre escenas. Gemini genera el texto y analiza las imágenes. ElevenLabs o Gemini generan la voz al crear el video, según el motor seleccionado.</p>
+            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando el guion y revisándolo con Humanize Dental para que suene natural y conectado.</p>}
             {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p>}
-            {variants.length > 0 && <div className="ad-studio-hint"><strong>Guion comercial listo.</strong> Puedes editar los textos en «Guion por escenas» antes de generar el video.</div>}
+            {variants.length > 0 && <div className="ad-studio-hint"><strong>Guion revisado con Humanize Dental.</strong> Puedes editar los textos en «Guion por escenas» antes de generar el video.</div>}
           </div>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
           <p className="ad-studio-hint">El estilo publicitario se aplica automáticamente al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>

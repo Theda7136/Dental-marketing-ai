@@ -122,3 +122,19 @@ de palabras útiles en lugar de titulares de 4–6. El presupuesto total de voz
 y el cierre breve siguen iguales; con muchas escenas prima la lectura natural.
 Se conserva la medición a 88 px en dos líneas y se repara el texto que no cabe,
 sin acelerar la voz ni ampliar los 15 segundos solicitados.
+
+### Humanize Dental automático
+
+Cada generación válida pasa por una segunda revisión editorial con Gemini antes
+de mostrarse. Humanize Dental mejora fluidez, vocabulario cotidiano y continuidad
+en español colombiano o inglés estadounidense; no altera imágenes ni velocidad de voz.
+Conserva el esquema, el orden de escenas, los detalles visuales, el presupuesto de
+palabras y un solo cierre. Todas las validaciones clínicas, visuales, de dos líneas
+y de duración se ejecutan nuevamente sobre la versión humanizada.
+
+Hay hasta tres solicitudes para generar/reparar el borrador y hasta dos para
+humanizarlo/repararlo, con 25 segundos por solicitud (máximo 125 segundos de espera
+del proveedor, dentro del límite de 175 segundos del cliente). La fase adicional
+consume una solicitud extra normalmente. Si falla, se muestra un error: no se
+entrega silenciosamente el borrador sin revisar como si estuviera humanizado.
+La revisión es editorial y sigue requiriendo criterio clínico humano.

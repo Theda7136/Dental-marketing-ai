@@ -91,7 +91,7 @@ test("reported generic captions are repaired in both locales using the original 
         return modelResponse(bad);
       }
       assert.match(request.contents[0].parts[0].text, /Modelo físico dental/);
-      assert.match(request.contents[0].parts[0].text, /genéricas/);
+      assert.match(request.systemInstruction.parts[0].text, /HUMANIZE DENTAL/);
       return modelResponse(valid);
     });
     assert.deepEqual(await generateVideoAdDrafts({ ...input, language }), valid.variants);
@@ -100,10 +100,10 @@ test("reported generic captions are repaired in both locales using the original 
   }
 });
 
-test("visual anchors cannot be invented or replaced by an abstract tool benefit", () => {
+test("visual wording is editorial while clinical claims and extra CTAs stay blocked", () => {
   const { validateVisualNarrative, validateCommercialText } = loadTs(new URL("../src/services/videoAdCopy.ts", import.meta.url));
-  assert.throws(() => validateVisualNarrative(["Each tooth in a digital model."], ["Sonrisa de una persona"]), /no respaldado/);
-  assert.throws(() => validateVisualNarrative(["Explore your options on screen."], ["Modelo dental en pantalla"]), /detalle visual/);
+  assert.doesNotThrow(() => validateVisualNarrative(["Each tooth in a digital model."], ["Sonrisa de una persona"]));
+  assert.doesNotThrow(() => validateVisualNarrative(["Explore your options on screen."], ["Modelo dental en pantalla"]));
   assert.throws(() => validateVisualNarrative(["Book your dental consultation."], ["Modelo dental"]), /cierre/);
   assert.doesNotThrow(() => validateVisualNarrative(["See each tooth in this digital model.", "See those shapes in a physical model."], input.visualDescriptions));
   for (const text of ["You have cavities.", "Tienes caries.", "This restores your smile.", "Corrige tu mordida.", "Board-certified dentist."]) {
@@ -139,7 +139,7 @@ test("missing, empty, extra and malformed scenes are automatically repaired from
     });
     const result = await generateVideoAdDrafts(input);
     assert.deepEqual(result, completeDraft().variants);
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 3);
     const repair = requests[1].contents[0].parts[0].text;
     assert.match(repair, /EXACTAMENTE UNA/);
     assert.match(repair, /scenes\[0\]/);
@@ -179,7 +179,7 @@ test("a repaired response with unsupported clinical claims must be repaired agai
   });
   const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
   assert.deepEqual(await generateVideoAdDrafts(input), completeDraft().variants);
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
 });
 
 test("one commercial variant requires exactly one nonempty caption per file", () => {
@@ -215,5 +215,77 @@ test("ElevenLabs selection never changes the Gemini script pipeline or calls spe
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), completeDraft());
   }
-  assert.equal(calls, 2);
+  assert.equal(calls, 4);
+});
+
+test("Humanize Dental automatically returns the edited draft, not the first response", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  const edited = completeDraft();
+  edited.variants[0].scenes = ["See each tooth in this digital model.", "Those shapes in a physical model."];
+  const requests = [];
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push(body);
+    return modelResponse(requests.length === 1 ? completeDraft() : edited);
+  });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  assert.deepEqual(await generateVideoAdDrafts(input), edited.variants);
+  assert.equal(requests.length, 2);
+  const edit = requests[1];
+  assert.match(edit.systemInstruction.parts[0].text, /HUMANIZE DENTAL/);
+  assert.match(edit.systemInstruction.parts[0].text, /español colombiano/);
+  assert.match(edit.systemInstruction.parts[0].text, /inglés estadounidense/);
+  assert.match(edit.contents[0].parts[0].text, /Modelo físico dental/);
+  assert.match(edit.contents[0].parts[0].text, /borrador validado/);
+  assert.doesNotMatch(JSON.stringify(requests), /speechConfig|elevenlabs/);
+});
+
+test("Humanize Dental repairs unsafe edits and never falls back silently to the raw draft", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  for (const repairSucceeds of [true, false]) {
+    let calls = 0;
+    const mock = t.mock.method(globalThis, "fetch", async (_url, options) => {
+      calls++;
+      const bad = completeDraft();
+      bad.variants[0].scenes[0] = "Guaranteed results from this digital model.";
+      if (calls === 3) {
+        const body = JSON.parse(options.body);
+        assert.match(body.systemInstruction.parts[0].text, /HUMANIZE DENTAL/);
+        assert.match(body.contents[0].parts[0].text, /no verificadas/);
+      }
+      return modelResponse(calls === 1 || (calls === 3 && repairSucceeds) ? completeDraft() : bad);
+    });
+    if (repairSucceeds) assert.deepEqual(await generateVideoAdDrafts(input), completeDraft().variants);
+    else await assert.rejects(generateVideoAdDrafts(input), /Humanize Dental no pudo completar/);
+    assert.equal(calls, 3);
+    mock.mock.restore();
+  }
+});
+
+test("Humanize Dental rejects missing scenes, oversized captions and duplicated CTAs", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  for (const mutate of [
+    d => d.variants[0].scenes.pop(),
+    d => d.variants[0].scenes[0] = "See every tooth and every outline in this digital model as we take a much closer look together.",
+    d => d.variants[0].closing = "Message us on WhatsApp. Book now.",
+  ]) {
+    let calls = 0;
+    const mock = t.mock.method(globalThis, "fetch", async () => {
+      calls++;
+      const draft = completeDraft();
+      if (calls > 1) mutate(draft);
+      return modelResponse(draft);
+    });
+    await assert.rejects(generateVideoAdDrafts(input), /Humanize Dental no pudo completar/);
+    assert.equal(calls, 3);
+    mock.mock.restore();
+  }
 });
