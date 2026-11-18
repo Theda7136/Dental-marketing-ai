@@ -356,8 +356,7 @@ export async function generateVideoAdDrafts(input: {
   let humanizing = false;
   let validatedDraft = "";
 
-  // Keep a valid draft if the optional editorial pass cannot finish.
-  for (let attempt = 0; attempt < (humanizing ? 1 : 3); attempt++) {
+  for (let attempt = 0; attempt < (humanizing ? 2 : 3); attempt++) {
     const correction = attempt === 0 ? "" : [
       `Corrige el problema concreto de la respuesta anterior: ${lastError?.message ?? "formato inválido"}.`,
       'Repara la respuesta y devuelve EXACTAMENTE UNA variante con tone="comercial".',
@@ -422,6 +421,6 @@ export async function generateVideoAdDrafts(input: {
     }
   }
 
-  if (humanizing && validatedDraft) return validateVideoAdDrafts(JSON.parse(validatedDraft), input.sceneCount, language);
+  if (humanizing) throw new AIProviderError(`Humanize Dental no pudo completar la revisión: ${lastError?.message ?? "respuesta inválida"}`, 502);
   throw lastError ?? new AIProviderError("Gemini no pudo completar los guiones.", 502);
 }
