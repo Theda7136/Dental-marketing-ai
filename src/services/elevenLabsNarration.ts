@@ -7,7 +7,7 @@ import ffmpegStatic from "ffmpeg-static";
 
 const API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
-async function synthesize(script: string, language: "es-CO" | "en-US", timed: boolean): Promise<{ pcm: Buffer; alignment?: CharacterAlignment }> {
+async function synthesize(script: string, language: "es-CO" | "en-US", timed: boolean, speed = 1): Promise<{ pcm: Buffer; alignment?: CharacterAlignment }> {
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
   if (!apiKey || !voiceId) {
@@ -30,7 +30,7 @@ async function synthesize(script: string, language: "es-CO" | "en-US", timed: bo
       text,
       language_code: language === "en-US" ? "en" : "es",
       model_id: "eleven_multilingual_v2",
-      voice_settings: { stability: 0.55, similarity_boost: 0.78, style: 0.18, use_speaker_boost: true },
+      voice_settings: { stability: 0.55, similarity_boost: 0.78, style: 0.18, speed, use_speaker_boost: true },
     }),
     signal: AbortSignal.timeout(60_000),
   });
@@ -88,9 +88,9 @@ export async function generateElevenLabsNarration(script: string, language: "es-
   return (await synthesize(script, language, false)).pcm;
 }
 
-export async function generateElevenLabsTimedNarration(segments: string[], language: "es-CO" | "en-US"): Promise<NarrationTrack> {
+export async function generateElevenLabsTimedNarration(segments: string[], language: "es-CO" | "en-US", speed = 1): Promise<NarrationTrack> {
   const text = segments.map(segment => segment.trim()).join("\n");
-  const { pcm, alignment } = await synthesize(text, language, true);
+  const { pcm, alignment } = await synthesize(text, language, true, speed);
   const chars = Array.from(text);
   if (!alignment || !Array.isArray(alignment.characters) || alignment.characters.join("") !== text ||
       alignment.character_start_times_seconds?.length !== chars.length || alignment.character_end_times_seconds?.length !== chars.length ||
