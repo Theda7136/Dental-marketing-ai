@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type SourceAsset = { id: string; file: File; url: string; kind: "image" | "video" };
 type AdStyle = "premium" | "educativo" | "dinamico";
 type AdGoal = "whatsapp" | "confianza" | "educacion";
-type Scene = { assetId: string; heading: string; seconds: number };
-type AdVariant = { tone: "comercial"; title: string; opening: string; message: string; closing: string; scenes: string[] };
+type Scene = { assetId: string; heading: string; narration: string; seconds: number };
+type AdVariant = { tone: "comercial"; title: string; opening: string; message: string; closing: string; scenes: string[]; narration: string[] };
 
 const treatments = ["Diseño de sonrisa", "Implantes dentales", "Ortodoncia", "Blanqueamiento", "Rehabilitación oral", "Presentación de la clínica"];
 const maxFiles = 12;
@@ -252,6 +252,7 @@ export default function VideoAdStudio() {
       setScenes(assets.map((asset, index) => ({
         assetId: asset.id,
         heading: variant.scenes[index],
+        narration: variant.narration?.[index] ?? "",
         seconds: base + (index < remainder ? 1 : 0),
       })));
     } else {
@@ -285,7 +286,7 @@ export default function VideoAdStudio() {
     }
     form.set("manifest", JSON.stringify(scenes.map(scene => {
       const asset = assets.find(source => source.id === scene.assetId)!;
-      return { seconds: scene.seconds, heading: scene.heading, kind: asset.kind };
+      return { seconds: scene.seconds, heading: scene.heading, narration: scene.narration, kind: asset.kind };
     })));
     scenes.forEach((scene, index) => {
       const asset = assets.find(source => source.id === scene.assetId)!;
@@ -338,7 +339,7 @@ export default function VideoAdStudio() {
       "",
       ...scenes.map((scene, index) => {
         const source = assets.find(asset => asset.id === scene.assetId);
-        return `Escena ${index + 1} — ${scene.seconds} s — ${source?.file.name ?? "Sin archivo"}\n${scene.heading}`;
+        return `Escena ${index + 1} — ${scene.seconds} s — ${source?.file.name ?? "Sin archivo"}\nSubtítulo: ${scene.heading}\nNarración: ${scene.narration}`;
       }),
       "",
       "Borrador de planificación, no video generado.",
@@ -411,19 +412,19 @@ export default function VideoAdStudio() {
 
           {scenes.length > 0 && (
             <div className="ad-studio-storyboard">
-              <div className="ad-studio-panel-heading"><div><h3>Guion por escenas</h3><p>{assignedSeconds} segundos distribuidos entre {scenes.length} escenas</p></div></div>
+              <div className="ad-studio-panel-heading"><div><h3>Guion por escenas</h3><p>{assignedSeconds} segundos previstos entre {scenes.length} escenas; la voz real ajustará los tiempos. Subtítulos breves y narración independiente.</p></div></div>
               {scenes.map((scene, index) => (
                 <div className="ad-studio-scene" key={scene.assetId}>
                   <span className="ad-studio-scene-number">{String(index + 1).padStart(2, "0")}</span>
                   <div>
                     <strong>{assets.find(asset => asset.id === scene.assetId)?.file.name}</strong>
-                    <textarea aria-label={`Texto de escena ${index + 1}`} rows={2} value={scene.heading} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, heading: event.target.value } : entry)); }} />
+                    <label>Subtítulo en pantalla<textarea aria-label={`Texto de escena ${index + 1}`} rows={2} value={scene.heading} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, heading: event.target.value } : entry)); }} /></label>
+                    <label>Narración de la escena<textarea aria-label={`Narración de escena ${index + 1}`} rows={4} value={scene.narration} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, narration: event.target.value } : entry)); }} /></label>
                   </div>
                   <label className="ad-studio-scene-duration">Seg.<input type="number" min={1} max={60} value={scene.seconds} onChange={event => { clearRender(); setScenes(previous => previous.map((entry, position) => position === index ? { ...entry, seconds: Math.max(1, Math.min(60, Number(event.target.value) || 1)) } : entry)); }} /></label>
                 </div>
               ))}
-              {scenes.length === 1 && duration === 60 && <p className="ad-studio-hint">Para 60 segundos añade al menos otra fotografía o un clip; una sola escena no es suficiente.</p>}
-              <p className="ad-studio-hint">Exportación: {duration} s, incluido el cierre. Los tiempos de escena distribuyen las pausas visuales; la voz conserva su ritmo natural.</p>
+              <p className="ad-studio-hint">Exportación: {duration} s, incluido el cierre. Con narración, las escenas siguen la voz real y las pausas son breves. Sin narración se usan los tiempos previstos.</p>
               <div className="ad-studio-render-actions"><button type="button" className="ad-studio-download" onClick={downloadStoryboard}>Descargar guion</button><button type="button" className="ad-studio-primary" disabled={rendering || !visionConsent || finalSeconds > 60} onClick={renderAd}>{rendering ? "Renderizando video..." : "Generar video MP4"}</button></div>
             </div>
           )}

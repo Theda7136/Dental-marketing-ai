@@ -1,6 +1,6 @@
 import { CLOSING_SIZE, AD_CANVAS, clinicalLayout, composeAdOverlay, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
 import { validateCommercialText } from "./videoAdCopy";
-import { planAdTimeline, type NarrationTrack } from "./videoAdTimeline";
+import { planAdTimeline, validateNarrationCoverage, type NarrationTrack } from "./videoAdTimeline";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -30,6 +30,7 @@ export type AdScene = {
   kind: "image" | "video";
   seconds: number;
   heading: string;
+  narration?: string;
 };
 
 export type AdBrand = {
@@ -146,9 +147,11 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
   const weights = [...scenes.map(scene => scene.seconds), ...(closing ? [6] : [])];
   const expectedSeconds = targetSeconds ?? weights.reduce((a, b) => a + b, 0);
   const readingTimes = [...scenes.map(scene => Math.max(2, scene.heading.trim().split(/\s+/).length / 2.5)), ...(closing ? [Math.max(3, (closing.text ?? adLabels[language].cta).trim().split(/\s+/).length / 2.5)] : [])];
+  if (narration) validateNarrationCoverage(narration.pcm, expectedSeconds);
   const plan = planAdTimeline(weights, expectedSeconds, narration, readingTimes);
   const durations = plan.durations;
   narration = plan.narration;
+  if (narration) validateNarrationCoverage(narration.pcm, expectedSeconds, true);
   const timedScenes = scenes.map((scene, index) => ({ ...scene, seconds: durations?.[index] ?? scene.seconds }));
   const closingSeconds = closing ? (durations?.[scenes.length] ?? 6) : 0;
   if (timedScenes.reduce((total, scene) => total + scene.seconds, 0) + closingSeconds > MAX_SECONDS + 1 / FRAME_RATE) {
@@ -259,7 +262,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         "-c:a", "aac", "-b:a", "160k", "-t", String(elapsed),
         "-movflags", "+faststart", output,
       ]);
-      await verifyRenderedAd(output, expectedSeconds);
+      await verifyRenderedAd(output, expectedSeconds, Boolean(narration));
       return await readFile(output);
     }
     await verifyRenderedAd(joined, expectedSeconds);
@@ -270,7 +273,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
 }
 
 
-export async function verifyRenderedAd(filename: string, expectedSeconds: number) {
+export async function verifyRenderedAd(filename: string, expectedSeconds: number, requireVoice = false) {
   const result = await runFfmpeg(["-loglevel", "info", "-i", filename, "-map", "0:v:0", "-an", "-progress", "pipe:1", "-f", "null", "-"], 120000);
   const frames = Number([...result.stdout.matchAll(/^frame=(\d+)/gm)].at(-1)?.[1]);
   const seconds = Number([...result.stdout.matchAll(/^out_time_us=(\d+)/gm)].at(-1)?.[1]) / 1000000 + 1 / FRAME_RATE;
@@ -279,5 +282,13 @@ export async function verifyRenderedAd(filename: string, expectedSeconds: number
   if (!Number.isFinite(containerSeconds) || Math.abs(containerSeconds - expectedSeconds) > 0.05 || frames !== Math.round(expectedSeconds * FRAME_RATE) || !Number.isFinite(seconds) || Math.abs(seconds - expectedSeconds) > 0.001 || !/1080x1920/.test(result.stderr)) {
     throw new Error(`El MP4 exportado no cumple la duración solicitada (${expectedSeconds} s) o el formato vertical. No se entregará este archivo.`);
   }
-  return { frames, seconds };
+  let audio;
+  if (requireVoice) {
+    const decoded = `${filename}.verified.pcm`;
+    try {
+      await runFfmpeg(["-i", filename, "-map", "0:a:0", "-vn", "-ar", "24000", "-ac", "1", "-f", "s16le", decoded]);
+      audio = validateNarrationCoverage(await readFile(decoded), expectedSeconds, true);
+    } finally { await rm(decoded, { force: true }); }
+  }
+  return { frames, seconds, audio };
 }

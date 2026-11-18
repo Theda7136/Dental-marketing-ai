@@ -111,7 +111,7 @@ visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
   dos acciones distintas aunque WhatsApp aparezca una sola vez.
 - La línea de tiempo, muestreo de voz, permisos e integraciones se conservan.
   La regresión real verifica 360 cuadros, 15.00 s, 1080 × 1920 y audio AAC,
-  con pistas sintéticas de 6.79 s, ambos idiomas y mezcla musical opcional.
+  con pistas sintéticas proporcionales, ambos idiomas y mezcla musical opcional.
   Estas pruebas no evalúan la pronunciación de una voz real de los proveedores.
 
 
@@ -138,3 +138,37 @@ del proveedor, dentro del límite de 175 segundos del cliente). La fase adiciona
 consume una solicitud extra normalmente. Si falla, se muestra un error: no se
 entrega silenciosamente el borrador sin revisar como si estuviera humanizado.
 La revisión es editorial y sigue requiriendo criterio clínico humano.
+
+
+### Narración independiente y cobertura audible
+
+`scenes` contiene los subtítulos breves y `narration` una explicación hablada por
+archivo, en el mismo orden. El editor permite modificar ambos campos por separado;
+el manifiesto envía `heading` y `narration`. Los borradores antiguos sin narración
+necesitan regenerarse antes de exportar con voz. El cierre se habla una sola vez.
+
+La generación y Humanize Dental mantienen un presupuesto independiente de
+1.45–2 palabras por segundo de video (44–60 palabras para 30 s, incluido el cierre).
+La explicación desarrolla el procedimiento declarado, preguntas para la consulta y
+valoración individual sin inferir diagnósticos, materiales, resultados o identidad
+compartida entre archivos. Ambos textos pasan por las protecciones clínicas.
+
+El audio PCM real, no el número de caracteres, determina los tiempos. Se exige
+una duración de voz de al menos 72 % del video, cobertura audible RMS de al menos
+55 % y ninguna pausa mayor de 2.05 s (tolerancia de medición incluida). La medición
+usa ventanas de 10 ms y umbral RMS 0.003; es una comprobación de energía, no un
+reconocedor de palabras. El objetivo editorial es aproximadamente 75–90 % de voz.
+Si la voz es demasiado corta o deja pausas largas, se rechaza con una indicación de
+ampliar la narración o reducir la duración. No hay reintentos de voz de pago ocultos,
+no se acelera la voz y no se entrega un MP4 completado con silencio prolongado.
+
+Las escenas respetan los tiempos reales de cada segmento y la lectura mínima.
+Antes de mezclar música se valida la voz aislada y la pista ajustada; la música no
+puede ocultar una narración insuficiente. Después de codificar se decodifica el
+audio del MP4 y se vuelve a comprobar duración, cobertura y pausas, además de
+los cuadros y dimensiones. Los anuncios expresamente sin narración siguen permitidos.
+
+Pruebas: `npx tsc --noEmit`, `npm test`, `npm run test:video-render`.
+La integración de 30 s verifica 720 cuadros, audio decodificado y rechazo de un
+MP4 con cinco segundos de voz y 25 segundos restantes en silencio. Las pruebas
+con proveedores usan respuestas simuladas; no prueban su pronunciación en vivo.

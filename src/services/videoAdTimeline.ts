@@ -1,6 +1,32 @@
 export type NarrationTrack = { pcm: Buffer; starts: number[] };
 const RATE = 24000;
 
+// RMS windows measure audible coverage; container length alone counts silence as voice.
+export function measureNarration(pcm: Buffer) {
+  if (!pcm.length || pcm.length % 2) throw new Error("Audio PCM inválido.");
+  let activeSeconds = 0, gap = 0, longestSilence = 0;
+  const samples = pcm.length / 2;
+  for (let offset = 0; offset < samples; offset += 240) {
+    const count = Math.min(240, samples - offset);
+    let energy = 0;
+    for (let i = 0; i < count; i++) energy += (pcm.readInt16LE((offset + i) * 2) / 32768) ** 2;
+    if (Math.sqrt(energy / count) > 0.003) { activeSeconds += count / RATE; gap = 0; }
+    else { gap += count / RATE; longestSilence = Math.max(longestSilence, gap); }
+  }
+  return { seconds: samples / RATE, activeSeconds, longestSilence };
+}
+
+export function validateNarrationCoverage(pcm: Buffer, targetSeconds: number, planned = false) {
+  const metrics = measureNarration(pcm);
+  if (metrics.seconds < targetSeconds * 0.72 || metrics.activeSeconds < targetSeconds * 0.55) {
+    throw new Error(`La voz es demasiado breve para ${targetSeconds} s (${metrics.seconds.toFixed(1)} s de audio, ${metrics.activeSeconds.toFixed(1)} s audibles). Amplía la narración o reduce la duración; no se rellenará con silencio.`);
+  }
+  if (metrics.longestSilence > 2.05 || (planned && Math.abs(metrics.seconds - targetSeconds) > 0.1)) {
+    throw new Error("La narración deja silencios prolongados o no coincide con la duración. Amplía el texto de las escenas o reduce la duración.");
+  }
+  return metrics;
+}
+
 // Preserve all internal pauses; only trim provider padding at the edges. PCM is
 // mono signed 16-bit little endian at 24 kHz throughout the pipeline.
 export function compactNarration(pcm: Buffer) {

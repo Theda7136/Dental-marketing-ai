@@ -1,6 +1,6 @@
 import { generateGeminiNarration, type GeminiVoice } from "./geminiNarration";
 import { generateElevenLabsTimedNarration } from "./elevenLabsNarration";
-import { compactNarration, narrationDurations, pcmWave, type NarrationTrack } from "./videoAdTimeline";
+import { compactNarration, narrationDurations, pcmWave, validateNarrationCoverage, type NarrationTrack } from "./videoAdTimeline";
 
 export async function generateVideoAdNarration(
   segments: string[], provider: "gemini" | "elevenlabs", voice: GeminiVoice, language: "en-US" | "es-CO", targetSeconds?: number,
@@ -16,6 +16,7 @@ export async function generateVideoAdNarration(
       if (seconds > targetSeconds - segments.length * 0.25) {
         throw new Error("Acorta el guion: la voz necesita más tiempo y no se acelerará.");
       }
+      validateNarrationCoverage(track.pcm, targetSeconds);
     }
     return track;
   };

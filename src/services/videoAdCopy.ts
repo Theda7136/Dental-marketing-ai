@@ -91,3 +91,21 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
     }
   });
 }
+
+export function narrationWordBudget(seconds: number) {
+  return { minimum: Math.ceil(seconds * 1.45), maximum: Math.floor(seconds * 2) };
+}
+
+export function validateNarrationScript(segments: unknown, count: number, closing: string, seconds: number, language?: "es-CO" | "en-US"): asserts segments is string[] {
+  if (!Array.isArray(segments) || segments.length !== count || segments.some(text => typeof text !== "string" || !text.trim() || text.length > 1800)) {
+    throw new Error("Completa una narración independiente por escena; los subtítulos no sustituyen la explicación hablada.");
+  }
+  segments.forEach(text => validateCommercialText(text, language));
+  validateVisualNarrative(segments, segments.map(() => ""));
+  const text = [...segments, closing].join(" ").trim();
+  const words = text.split(/\s+/).length;
+  const budget = narrationWordBudget(seconds);
+  if (text.length > 2400 || words < budget.minimum || words > budget.maximum) {
+    throw new Error(`La narración para ${seconds} segundos necesita entre ${budget.minimum} y ${budget.maximum} palabras, incluido el cierre; recibimos ${words}. Amplía la explicación contextual sin inventar hechos clínicos o ajusta la duración.`);
+  }
+}

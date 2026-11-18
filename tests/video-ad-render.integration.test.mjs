@@ -64,7 +64,7 @@ function pcmTone(seconds, frequency = 220) {
   return pcm;
 }
 
-test("15-second target survives 6.79-second narration, scene/CTA boundaries, music and both locales", { timeout: 180_000 }, async () => {
+test("15-second target preserves proportional narration, scene/CTA boundaries, music and both locales", { timeout: 180_000 }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "video-ad-test-"));
   try {
     const source = path.join(directory, "clip.mp4");
@@ -79,16 +79,16 @@ test("15-second target survives 6.79-second narration, scene/CTA boundaries, mus
         { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "See each tooth in this digital model." : "Mira cada diente en este modelo digital." },
         { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "See those shapes in a physical model." : "Y su forma en este modelo físico." },
       ];
-      const pcm = pcmTone(6.79);
+      const pcm = pcmTone(12);
       const localizedRenderer = { renderVideoAd };
-      const mp4 = await localizedRenderer.renderVideoAd(scenes, brand, "premium", { pcm, starts: [0, 2.1, 4.3] },
+      const mp4 = await localizedRenderer.renderVideoAd(scenes, brand, "premium", { pcm, starts: [0, 4, 8] },
         language === "en-US" ? { bytes: await readFile(music), extension: "wav", volume: 0.18 } : undefined,
         "georgia", { text: language === "en-US" ? "Message us on WhatsApp." : "Hablemos por WhatsApp." }, language, 15);
       const output = path.join(directory, `${language}.mp4`);
       await writeFile(output, mp4);
       const decoded = ff(["-i", output, "-vn", "-ar", "24000", "-ac", "1", "-f", "s16le", "pipe:1"]);
       assert.ok(Math.abs(decoded.length / 48000 - 15) < 0.1, "audio must fill the selected 15 seconds");
-      const plan = loadTs(new URL("../src/services/videoAdTimeline.ts", import.meta.url)).planAdTimeline([5, 5, 6], 15, { pcm, starts: [0, 2.1, 4.3] }, [...scenes.map(scene => Math.max(2, scene.heading.split(/\s+/).length / 2.5)), 3]);
+      const plan = loadTs(new URL("../src/services/videoAdTimeline.ts", import.meta.url)).planAdTimeline([5, 5, 6], 15, { pcm, starts: [0, 4, 8] }, [...scenes.map(scene => Math.max(2, scene.heading.split(/\s+/).length / 2.5)), 3]);
       // Speech is audible at each new scene, while the inserted visual holds are quiet.
       for (const start of plan.narration.starts) {
         const offset = Math.round((start + 0.1) * 24000) * 2;
@@ -193,5 +193,30 @@ test("final-file verification refuses an actual 8.25-second MP4 for a 15-second 
     await assert.rejects(verifyRenderedAd(filename, 15), /no cumple la duración/);
     const result = await verifyRenderedAd(filename, 8.25);
     assert.equal(result.frames, 198);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("30-second narrated export verifies decoded audio and refuses five-second speech", { timeout: 180_000 }, async () => {
+  const { verifyRenderedAd } = loadTs(new URL("../src/services/videoAdRenderer.ts", import.meta.url));
+  const directory = await mkdtemp(path.join(tmpdir(), "video-ad-coverage-"));
+  try {
+    const png = await sharp({ create: { width: 600, height: 900, channels: 3, background: "#d2ebe2" } }).png().toBuffer();
+    const scenes = [
+      { filename: "one.png", bytes: png, kind: "image", seconds: 12, heading: "Your questions about restoration options." },
+      { filename: "two.png", bytes: png, kind: "image", seconds: 12, heading: "Discuss your expectations in a consultation." },
+    ];
+    const brand = { clinicName: "Validation clinic", primaryColor: "#116D60", logoDataUrl: null };
+    const closing = { text: "Message us on WhatsApp." };
+    await assert.rejects(renderVideoAd(scenes, brand, "premium", { pcm: pcmTone(5), starts: [0, 2, 4] }, undefined, "arial", closing, "en-US", 30), /demasiado breve/);
+    const mp4 = await renderVideoAd(scenes, brand, "premium", { pcm: pcmTone(26), starts: [0, 12, 24] }, undefined, "arial", closing, "en-US", 30);
+    const output = path.join(directory, "30-seconds.mp4");
+    await writeFile(output, mp4);
+    const verified = await verifyRenderedAd(output, 30, true);
+    assert.equal(verified.frames, 720);
+    assert.ok(verified.audio.activeSeconds >= 25.5);
+    assert.ok(verified.audio.longestSilence <= 2.05);
+    const bad = path.join(directory, "silent-tail.mp4");
+    ff(["-i", output, "-af", "volume=enable='gte(t,5)':volume=0", "-c:v", "copy", "-c:a", "aac", bad]);
+    await assert.rejects(verifyRenderedAd(bad, 30, true), /demasiado breve/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

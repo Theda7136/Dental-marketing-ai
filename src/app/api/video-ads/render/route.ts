@@ -6,7 +6,7 @@ import { renderVideoAd, validateAdScenes, type AdScene, type VideoAdStyle, type 
 import { GEMINI_VOICES, type GeminiVoice } from "@/services/geminiNarration";
 import { generateVideoAdNarration } from "@/services/videoAdNarration";
 import { CLOSING_SIZE, layoutAdCaption, validateClosingCopy } from "@/services/videoAdLayout";
-import { validateCommercialText, validateVisualNarrative } from "@/services/videoAdCopy";
+import { validateCommercialText, validateVisualNarrative, validateNarrationScript } from "@/services/videoAdCopy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     let uploadedBytes = 0;
     for (const [index, record] of parsed.entries()) {
       if (!record || typeof record !== "object") throw new Error("El guion es inválido.");
-      const scene = record as { seconds?: unknown; heading?: unknown; kind?: unknown };
+      const scene = record as { seconds?: unknown; heading?: unknown; kind?: unknown; narration?: unknown };
       const file = form.get(`file-${index}`);
       if (!(file instanceof File) || file.size === 0 || file.size > 80 * 1024 * 1024 ||
           typeof scene.heading !== "string" || typeof scene.seconds !== "number" ||
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
         bytes: Buffer.from(await file.arrayBuffer()),
         kind: scene.kind,
         heading: scene.heading,
+        narration: typeof scene.narration === "string" ? scene.narration.trim() : undefined,
         seconds: scene.seconds,
       });
     }
@@ -141,6 +142,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Revisa la longitud de los subtítulos." }, { status: 400 });
     }
 
+    if (narrationEnabled) {
+      validateNarrationScript(records.map(scene => scene.narration), records.length, includeClosing ? closingText : "", targetSeconds, language);
+      records.forEach(scene => clinicalGuardrails.validate(scene.narration!));
+    }
+
     const brand = await prisma.brandProfile.findUnique({
       where: { clinicId: access.clinic.id },
       select: { clinicName: true, primaryColor: true, logoDataUrl: true },
@@ -152,7 +158,7 @@ export async function POST(request: Request) {
     renderInProgress = true;
     let video: Buffer;
     try {
-      const segments = [...records.map(scene => scene.heading.trim()), ...(includeClosing ? [closingText] : [])];
+      const segments = [...records.map(scene => scene.narration!), ...(includeClosing ? [closingText] : [])];
       const narration = narrationEnabled
         ? await generateVideoAdNarration(segments, provider, voice as GeminiVoice, language, targetSeconds)
         : undefined;
@@ -170,7 +176,7 @@ export async function POST(request: Request) {
         "Content-Disposition": 'attachment; filename="video-publicitario.mp4"',
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
-        "X-Video-Ad-Renderer": "verified-timeline-v2",
+        "X-Video-Ad-Renderer": "verified-voice-coverage-v3",
         "X-Video-Ad-Duration": String(targetSeconds),
       },
     });

@@ -76,6 +76,7 @@ test("reported generic captions are repaired in both locales using the original 
   for (const language of ["en-US", "es-CO"]) {
     const valid = completeDraft();
     if (language === "es-CO") Object.assign(valid.variants[0], {
+      narration: ["Cada consulta empieza por entender tus preguntas sobre las opciones.", "La valoración individual permite conversar sobre tus expectativas y prioridades."],
       title: "Diente a diente", opening: "Mira la forma de cada diente.", message: "Del modelo a tus preguntas.",
       closing: "Hablemos por WhatsApp.", scenes: ["Mira cada diente en este modelo digital.", "Y su forma en este modelo físico."],
     });
@@ -111,7 +112,7 @@ test("visual wording is editorial while clinical claims and extra CTAs stay bloc
   }
 });
 function completeDraft() {
-  return { variants: [{ tone: "comercial", title: "A closer look", opening: "Look at each tooth.", message: "Bring your questions.", closing: "Message us on WhatsApp.", scenes: ["See each tooth in this digital model.", "See those shapes in a physical model."] }] };
+  return { variants: [{ tone: "comercial", narration: ["Your questions about restoration options deserve time in a consultation.", "Discuss your priorities and expectations with a professional before deciding."], title: "A closer look", opening: "Look at each tooth.", message: "Bring your questions.", closing: "Message us on WhatsApp.", scenes: ["See each tooth in this digital model.", "See those shapes in a physical model."] }] };
 }
 function modelResponse(text) {
   return Response.json({ candidates: [{ content: { parts: [{ text: typeof text === "string" ? text : JSON.stringify(text) }] } }] });
@@ -187,6 +188,7 @@ test("one commercial variant requires exactly one nonempty caption per file", ()
   for (const count of [1, 2, 12]) {
     const draft = completeDraft();
     draft.variants[0].scenes = Array.from({ length: count }, (_, i) => `Bring question number ${i + 1} to your consultation.`);
+    draft.variants[0].narration = draft.variants[0].scenes.map(text => `Consider this question in detail: ${text}`);
     assert.equal(validateVideoAdDrafts(draft, count, "en-US")[0].scenes.length, count);
   }
   const draft = completeDraft();
@@ -300,4 +302,38 @@ test("literal and paraphrased repetitions are rejected without merging distinct 
   ]) assert.throws(() => validateVisualNarrative(scenes, scenes.map(() => "Modelo dental")), /repiten/);
   assert.doesNotThrow(() => validateVisualNarrative(
     ["See each tooth in this digital model.", "See those shapes in a physical model."], input.visualDescriptions));
+});
+
+test("narration has its own word budget and clinical validation", () => {
+  const { validateNarrationScript, narrationWordBudget } = loadTs(new URL("../src/services/videoAdCopy.ts", import.meta.url));
+  assert.deepEqual(narrationWordBudget(30), { minimum: 44, maximum: 60 });
+  const narration = [
+    "When considering dental restoration options, a consultation gives you space to explain your priorities and ask what an individual assessment involves.",
+    "The models shown provide a visual reference for that conversation. They do not establish which option is appropriate for you; discuss your questions with a professional.",
+  ];
+  assert.doesNotThrow(() => validateNarrationScript(narration, 2, "Message us on WhatsApp.", 30, "en-US"));
+  for (const bad of [undefined, [], ["Short headline.", "Another headline."], [...narration, "Extra."]]) {
+    assert.throws(() => validateNarrationScript(bad, 2, "Message us on WhatsApp.", 30, "en-US"));
+  }
+  assert.throws(() => validateNarrationScript([narration[0], "Guaranteed pain-free results."], 2, "Message us on WhatsApp.", 30, "en-US"), /no verificadas/);
+});
+
+test("Gemini repairs short or unsafe narration while retaining short captions", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  for (const narration of [undefined, ["Short.", "Brief."], ["Guaranteed results.", "Ask questions."]]) {
+    let calls = 0;
+    const mock = t.mock.method(globalThis, "fetch", async () => {
+      const draft = completeDraft();
+      if (++calls === 1) draft.variants[0].narration = narration;
+      return modelResponse(draft);
+    });
+    const [draft] = await generateVideoAdDrafts(input);
+    assert.deepEqual(draft.narration, completeDraft().variants[0].narration);
+    assert.notDeepEqual(draft.narration, draft.scenes);
+    assert.equal(calls, 3);
+    mock.mock.restore();
+  }
 });

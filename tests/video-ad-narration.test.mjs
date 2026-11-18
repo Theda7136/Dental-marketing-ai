@@ -102,18 +102,20 @@ test("render endpoint sends one full narration and language to the renderer; inv
     "@/services/videoAdRenderer": { validateAdScenes: scenes => { if (scenes[0].seconds < 1) throw new Error("duración inválida"); }, renderVideoAd: async (...args) => { rendered = args; return Buffer.from("mp4"); } },
   };
   const { POST } = loadTs(new URL("../src/app/api/video-ads/render/route.ts", import.meta.url), mocks);
-  function request(seconds = 2) {
+  function request(seconds = 2, narration = "Your questions about restoration options deserve time in a consultation. Discuss your expectations with a professional before deciding.") {
     const form = new FormData();
-    for (const [key, value] of Object.entries({ manifest: JSON.stringify([{ heading: "This model shows each tooth.", seconds, kind: "image" }]), duration: "15", style: "premium", authorized: "true", language: "en-US", narrationProvider: "gemini", narration: "true", includeClosing: "true", closingText: "Message us on WhatsApp." })) form.set(key, value);
+    for (const [key, value] of Object.entries({ manifest: JSON.stringify([{ heading: "This model shows each tooth.", narration, seconds, kind: "image" }]), duration: "15", style: "premium", authorized: "true", language: "en-US", narrationProvider: "gemini", narration: "true", includeClosing: "true", closingText: "Message us on WhatsApp." })) form.set(key, value);
     form.set("file-0", new Blob([Buffer.from("image")], { type: "image/png" }), "test.png");
     return new Request("http://localhost/api/video-ads/render", { method: "POST", body: form });
   }
   assert.equal((await POST(request())).status, 200);
   assert.equal(calls, 1);
-  assert.deepEqual(spoken, [["This model shows each tooth.", "Message us on WhatsApp."], "gemini", "Kore", "en-US", 15]);
+  assert.deepEqual(spoken, [["Your questions about restoration options deserve time in a consultation. Discuss your expectations with a professional before deciding.", "Message us on WhatsApp."], "gemini", "Kore", "en-US", 15]);
   assert.equal(rendered[7], "en-US");
   assert.equal(rendered[8], 15);
   assert.deepEqual(rendered[6], { text: "Message us on WhatsApp." });
+  assert.equal((await POST(request(2, ""))).status, 400);
+  assert.equal((await POST(request(2, "Guaranteed pain-free results."))).status, 400);
   assert.equal((await POST(request(0))).status, 400);
   assert.equal(calls, 1);
 });
@@ -122,7 +124,7 @@ test("script generation repairs rejected slogans without blocking on an inconclu
   process.env.GEMINI_API_KEY = "test-key";
   let requests = [];
   const tones = ["comercial"];
-  function drafts(generic) { return { variants: tones.map(tone => ({ tone, title: "A closer look", opening: "See each tooth on this digital model.", message: "Bring your questions to a consultation.", closing: "Message us on WhatsApp.", scenes: [generic ? "Advanced digital planning for a personalized approach" : "Each tooth in this digital model."] })) }; }
+  function drafts(generic) { return { variants: tones.map(tone => ({ tone, narration: ["Your questions about restoration options deserve time in a consultation. Discuss your expectations with a professional before deciding."], title: "A closer look", opening: "See each tooth on this digital model.", message: "Bring your questions to a consultation.", closing: "Message us on WhatsApp.", scenes: [generic ? "Advanced digital planning for a personalized approach" : "Each tooth in this digital model."] })) }; }
   t.mock.method(globalThis, "fetch", async (_url, options) => {
     requests.push(JSON.parse(options.body));
     const answer = requests.length === 1 ? drafts(true) : drafts(false);
@@ -168,19 +170,15 @@ test("visual copy leaves wording to the editor while rejecting repeated scenes",
   assert.doesNotThrow(() => validateVisualNarrative(["Notice each tooth's outline on this digital model.", "Now explore those shapes on a physical model."], observations));
 });
 
-test("brief ElevenLabs speech is accepted without retrying or speeding it up", async () => {
+test("brief ElevenLabs speech is rejected instead of filling the video with silence", async () => {
   let calls = 0;
   const original = { pcm: tone(2.4), starts: [0, 1.1, 1.9] };
   const { generateVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
     "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => { calls++; return original; } },
   });
   const segments = ["See your dental structure in 3D detail.", "Compare those shapes in a physical model.", "Message us on WhatsApp."];
-  const track = await generateVideoAdNarration(segments, "elevenlabs", "Kore", "en-US", 15);
+  await assert.rejects(generateVideoAdNarration(segments, "elevenlabs", "Kore", "en-US", 15), /demasiado breve/);
   assert.equal(calls, 1);
-  assert.equal(track, original);
-  const plan = timeline.planAdTimeline([5, 4, 6], 15, track);
-  assert.equal(plan.narration.pcm.length, 15 * 48000);
-  assert.equal(Math.round(plan.durations.reduce((sum, seconds) => sum + seconds, 0) * 24), 360);
 });
 
 test("overlong ElevenLabs speech is rejected without paid retries", async () => {
@@ -209,5 +207,31 @@ test("speech holds are balanced independently of storyboard weights", () => {
     const start = Math.round(plan.narration.starts[i] * 48000);
     const original = track.pcm.subarray(track.starts[i] * 48000, (track.starts[i + 1] ?? 9) * 48000);
     assert.deepEqual(plan.narration.pcm.subarray(start, start + original.length), original);
+  }
+});
+
+test("voice coverage rejects the reported five seconds in a thirty-second video", () => {
+  assert.throws(() => timeline.validateNarrationCoverage(tone(5), 30), /demasiado breve/);
+  const padded = Buffer.concat([tone(5), Buffer.alloc(25 * 48000)]);
+  assert.equal(timeline.measureNarration(padded).seconds, 30);
+  assert.throws(() => timeline.validateNarrationCoverage(padded, 30, true), /demasiado breve/);
+  const interrupted = Buffer.concat([tone(11), Buffer.alloc(3 * 48000), tone(11)]);
+  assert.throws(() => timeline.validateNarrationCoverage(interrupted, 30), /silencios prolongados/);
+  assert.doesNotThrow(() => timeline.validateNarrationCoverage(tone(25), 30));
+});
+
+test("proportional narration keeps 15, 30 and 60 second speech in the matching scene", () => {
+  for (const target of [15, 30, 60]) {
+    const segmentCount = target / 5;
+    const pcm = tone(target * 0.85);
+    const starts = Array.from({ length: segmentCount }, (_, i) => i * 4.25);
+    const plan = timeline.planAdTimeline(starts.map(() => 1), target, { pcm, starts });
+    const measured = timeline.validateNarrationCoverage(plan.narration.pcm, target, true);
+    assert.ok(measured.longestSilence < 1);
+    assert.ok(measured.activeSeconds / target >= 0.84);
+    for (let i = 0; i < segmentCount; i++) {
+      const offset = Math.round(plan.narration.starts[i] * 48000);
+      assert.deepEqual(plan.narration.pcm.subarray(offset, offset + 4.25 * 48000), pcm.subarray(starts[i] * 48000, (starts[i] + 4.25) * 48000));
+    }
   }
 });
