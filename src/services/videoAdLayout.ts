@@ -1,8 +1,8 @@
 import sharp from "sharp";
 
 export const AD_CANVAS = { width: 1080, height: 1920, background: "#FAFAF8", ink: "#171717" };
-export const CAPTION_SIZE = 76;
-export const CLOSING_SIZE = 88;
+export const CAPTION_SIZE = 82;
+export const CLOSING_SIZE = 82;
 export type AdFont = "arial" | "georgia" | "verdana" | "trebuchet";
 const fonts: Record<AdFont, string> = { arial: "Inter", georgia: "DM Sans", verdana: "Inter", trebuchet: "DM Sans" };
 const escape = (text: string) => text.replace(/[&<>]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!);
@@ -24,19 +24,19 @@ export async function layoutAdCaption(text: string, font: AdFont = "arial", size
   let best: { lines: string[]; images: Awaited<ReturnType<typeof lineImage>>[]; score: number } | undefined;
   for (const lines of candidates) {
     const images = await Promise.all(lines.map(measure));
-    if (images.some(image => image.info.width > 900 || image.info.height > size + 24)) continue;
+    if (images.some(image => image.info.width > 936 || image.info.height > size + 24)) continue;
     const score = lines.length === 1 ? 0 : Math.abs(images[0].info.width - images[1].info.width) + 1;
     if (!best || score < best.score) best = { lines, images, score };
   }
-  if (!best && size > 64) return layoutAdCaption(text, font, size - 8);
+  if (!best && size > 64) return layoutAdCaption(text, font, size - 6);
   if (!best) throw new Error("El subtítulo no cabe en dos líneas legibles. Reduce el texto.");
   return { ...best, fontSize: size, lineHeight: size + 20 };
 }
 
 export const AD_ZONES = {
   brand: { top: 90, bottom: 270 },
-  media: { top: 310, bottom: 1430 },
-  caption: { top: 1530, bottom: 1770 },
+  media: { top: 260, bottom: 1500 },
+  caption: { top: 1560, bottom: 1820 },
 } as const;
 
 export function clinicalLayout(width: number, height: number) {
@@ -86,7 +86,7 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
   const caption = await layoutAdCaption(text, font, closing ? CLOSING_SIZE : CAPTION_SIZE);
   const layers = await logoLayer(brand.logoDataUrl, closing);
   if (!closing && mediaBox) {
-    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="264" fill="#FAFAF8"/><rect y="1450" width="1080" height="470" fill="#FAFAF8"/><path d="M72 264 H1008 M72 1810 H1008" stroke="#171717" stroke-width="2" opacity=".2"/><rect x="72" y="1490" width="52" height="6" fill="#171717"/></svg>');
+    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="264" fill="#FAFAF8"/><rect y="1520" width="1080" height="400" fill="#FAFAF8"/><path d="M72 238 H1008 M72 1850 H1008" stroke="#171717" stroke-width="2" opacity=".2"/><rect x="72" y="1540" width="52" height="6" fill="#171717"/></svg>');
     layers.push({ input: grid, left: 0, top: 0 });
   }
   if (closing) {
