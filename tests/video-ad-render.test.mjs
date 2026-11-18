@@ -54,11 +54,11 @@ test("rendering endpoint requires clinic write access and never publishes", () =
 
 
 test("captions use measured glyphs, at most two lines, without shrinking or losing words", async () => {
-  const { layoutAdCaption } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const { layoutAdCaption, CAPTION_SIZE } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
   for (const font of ["arial", "georgia", "verdana", "trebuchet"]) {
     const text = "See each tooth in this digital model.";
     const layout = await layoutAdCaption(text, font);
-    assert.equal(layout.fontSize, 88);
+    assert.equal(layout.fontSize, CAPTION_SIZE);
     assert.ok(layout.lines.length <= 2);
     assert.equal(layout.lines.join(" "), text);
     assert.ok(layout.images.every(line => line.info.width <= 900));
