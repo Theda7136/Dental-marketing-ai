@@ -168,14 +168,29 @@ test("visual copy rejects the reported generic pair, missing anchors and repeate
   assert.doesNotThrow(() => validateVisualNarrative(["Notice each tooth's outline on this digital model.", "Now explore those shapes on a physical model."], observations));
 });
 
-test("rushed or overlong provider speech is rejected instead of accelerated", async () => {
+test("brief ElevenLabs speech is accepted without retrying or speeding it up", async () => {
+  let calls = 0;
+  const original = { pcm: tone(2.4), starts: [0, 1.1, 1.9] };
   const { generateVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
-    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => ({ pcm: tone(2), starts: [0] }) },
+    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => { calls++; return original; } },
   });
-  await assert.rejects(generateVideoAdNarration(["One two three four five six seven eight nine ten."], "elevenlabs", "Kore", "en-US", 15), /demasiado rápida/);
-  await assert.rejects(generateVideoAdNarration(["Hello."], "elevenlabs", "Kore", "en-US", 2), /más tiempo/);
+  const segments = ["See your dental structure in 3D detail.", "Compare those shapes in a physical model.", "Message us on WhatsApp."];
+  const track = await generateVideoAdNarration(segments, "elevenlabs", "Kore", "en-US", 15);
+  assert.equal(calls, 1);
+  assert.equal(track, original);
+  const plan = timeline.planAdTimeline([5, 4, 6], 15, track);
+  assert.equal(plan.narration.pcm.length, 15 * 48000);
+  assert.equal(Math.round(plan.durations.reduce((sum, seconds) => sum + seconds, 0) * 24), 360);
 });
 
+test("overlong ElevenLabs speech is rejected without paid retries", async () => {
+  let calls = 0;
+  const { generateVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
+    "./elevenLabsNarration": { generateElevenLabsTimedNarration: async () => { calls++; return { pcm: tone(14.5), starts: [0, 5, 10] }; } },
+  });
+  await assert.rejects(generateVideoAdNarration(["First.", "Second.", "Message us on WhatsApp."], "elevenlabs", "Kore", "en-US", 15), /más tiempo/);
+  assert.equal(calls, 1);
+});
 
 test("timeline reserves readable scene and closing holds without discarding voice samples", () => {
   const plan = timeline.planAdTimeline([1, 1, 1], 15, { pcm: tone(8.25), starts: [0, 2.5, 5] }, [3, 3, 4]);
