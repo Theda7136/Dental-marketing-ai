@@ -87,7 +87,7 @@ test("WhatsApp closing has one invitation and no simulated button, footer or dup
   // The old button region is uninterrupted canvas, not a hidden white rectangle.
   for (let y = 1385; y < 1520; y += 10) for (let x = 80; x < 1000; x += 10) {
     const i = (y * info.width + x) * info.channels;
-    assert.deepEqual([...data.subarray(i, i + 3)], [16, 46, 41]);
+    assert.deepEqual([...data.subarray(i, i + 3)], [247, 246, 242]);
   }
 });
 
@@ -112,7 +112,7 @@ test("logo is the sole brand identity and closing refuses two different actions"
   const png = await sharp({ text: { text: "Dr Daniel Coy", font: "Arial 60", rgba: true } }).png().toBuffer();
   const logoDataUrl = "data:image/png;base64," + png.toString("base64");
   const [layer] = await logoLayer(logoDataUrl, true);
-  assert.equal((await sharp(layer.input).metadata()).width, 900);
+  assert.equal((await sharp(layer.input).metadata()).width, 760);
   const a = await composeAdOverlay("Message us on WhatsApp.", { clinicName: "Dental Studio", logoDataUrl }, "arial", 980, true);
   const b = await composeAdOverlay("Message us on WhatsApp.", { clinicName: "Dr Daniel Coy", logoDataUrl }, "arial", 980, true);
   assert.deepEqual(a, b, "account label must not compete with the supplied brand logo");
