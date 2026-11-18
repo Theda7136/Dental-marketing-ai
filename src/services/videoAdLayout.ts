@@ -4,14 +4,14 @@ export const AD_CANVAS = { width: 1080, height: 1920, background: "#FAFAF8", ink
 export const CAPTION_SIZE = 82;
 export const CLOSING_SIZE = 82;
 export type AdFont = "arial" | "georgia" | "verdana" | "trebuchet";
-const fonts: Record<AdFont, string> = { arial: "Inter", georgia: "DM Sans", verdana: "Inter", trebuchet: "DM Sans" };
+const fonts: Record<AdFont, string> = { arial: "Inter, Arial, sans-serif", georgia: "DM Sans, Arial, sans-serif", verdana: "Inter, Arial, sans-serif", trebuchet: "DM Sans, Arial, sans-serif" };
 const escape = (text: string) => text.replace(/[&<>]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!);
 
 async function lineImage(text: string, font: AdFont, size: number, color = AD_CANVAS.ink) {
-  return sharp({ text: { text: `<span foreground="${color}">${escape(text)}</span>`, font: `${fonts[font]} ${size}`, dpi: 72, rgba: true } }).png().toBuffer({ resolveWithObject: true });
+  return sharp({ text: { text: `<span foreground="${color}">${escape(text)}</span>`, font: `${fonts[font]} Semi-Bold ${size}`, dpi: 72, rgba: true } }).png().toBuffer({ resolveWithObject: true });
 }
 
-// Measure the actual font raster. Never shrink, truncate or distort patient-facing copy.
+// Measure real glyphs and wrap at word boundaries; preserve all copy at a legible size.
 export async function layoutAdCaption(text: string, font: AdFont = "arial", size = CAPTION_SIZE) {
   const words = text.trim().split(/\s+/);
   if (!text.trim() || text.length > 180) throw new Error("El subtítulo está vacío o es demasiado largo.");
@@ -86,8 +86,8 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
   const caption = await layoutAdCaption(text, font, closing ? CLOSING_SIZE : CAPTION_SIZE);
   const layers = await logoLayer(brand.logoDataUrl, closing);
   if (!closing && mediaBox) {
-    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="264" fill="#FAFAF8"/><rect y="1520" width="1080" height="400" fill="#FAFAF8"/><path d="M72 238 H1008 M72 1850 H1008" stroke="#171717" stroke-width="2" opacity=".2"/><rect x="72" y="1540" width="52" height="6" fill="#171717"/></svg>');
-    layers.push({ input: grid, left: 0, top: 0 });
+    const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><rect width="1080" height="260" fill="#FAFAF8"/><rect y="1520" width="1080" height="400" fill="#FAFAF8"/><path d="M72 238 H1008 M72 1850 H1008" stroke="#171717" stroke-width="2" opacity=".2"/><rect x="72" y="1540" width="52" height="6" fill="#171717"/></svg>');
+    layers.unshift({ input: grid, left: 0, top: 0 });
   }
   if (closing) {
     const grid = Buffer.from('<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg"><path d="M72 390 H1008 M72 1530 H1008" stroke="#171717" stroke-width="2" opacity=".22"/><rect x="72" y="475" width="54" height="7" fill="#171717"/></svg>');
@@ -107,12 +107,12 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
   let lineTop = captionStart;
   const visibleCaption = caption.images;
   visibleCaption.forEach(line => {
-    layers.push({ input: line.data, left: 72, top: lineTop });
+    layers.push({ input: line.data, left: closing ? Math.round((1080 - line.info.width) / 2) : 72, top: lineTop });
     lineTop += line.info.height + 20;
   });
   if (phone) {
     const contact = await lineImage(phone, "arial", 48);
-    layers.push({ input: contact.data, left: 72, top: 1360 });
+    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1360 });
   }
   return sharp({ create: { width: 1080, height: 1920, channels: 4, background: closing ? AD_CANVAS.background : "#00000000" } }).composite(layers).png().toBuffer();
 }

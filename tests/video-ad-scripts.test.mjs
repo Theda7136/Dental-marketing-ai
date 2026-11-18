@@ -289,3 +289,15 @@ test("Humanize Dental rejects missing scenes, oversized captions and duplicated 
     mock.mock.restore();
   }
 });
+
+test("literal and paraphrased repetitions are rejected without merging distinct evidence", () => {
+  const { validateVisualNarrative } = loadTs(new URL("../src/services/videoAdCopy.ts", import.meta.url));
+  for (const scenes of [
+    ["Take a closer look at your restoration options.", "Explore your restoration choices."],
+    ["Conoce tus opciones de restauración.", "Explora las alternativas de restauración."],
+    ["Talk about the smile you want to achieve.", "Discuss the smile you desire."],
+    ["Ask about options.", "A physical model shows shapes.", "Ask about options!"],
+  ]) assert.throws(() => validateVisualNarrative(scenes, scenes.map(() => "Modelo dental")), /repiten/);
+  assert.doesNotThrow(() => validateVisualNarrative(
+    ["See each tooth in this digital model.", "See those shapes in a physical model."], input.visualDescriptions));
+});

@@ -198,3 +198,16 @@ test("timeline reserves readable scene and closing holds without discarding voic
   assert.ok(plan.durations[0] >= 3 && plan.durations[1] >= 3 && plan.durations[2] >= 4);
   assert.throws(() => timeline.planAdTimeline([1, 1, 1], 8, undefined, [3, 3, 4]), /no cabe/);
 });
+
+test("speech holds are balanced independently of storyboard weights", () => {
+  const track = { pcm: tone(9), starts: [0, 2, 6] };
+  const plan = timeline.planAdTimeline([1, 20, 1], 30, track);
+  const holds = plan.durations.map((duration, i) => duration - [2, 4, 3][i]);
+  assert.ok(Math.max(...holds) - Math.min(...holds) <= 1 / 24 + 1e-9);
+  assert.equal(Math.round(plan.durations.reduce((a, b) => a + b) * 24), 720);
+  for (let i = 0; i < 3; i++) {
+    const start = Math.round(plan.narration.starts[i] * 48000);
+    const original = track.pcm.subarray(track.starts[i] * 48000, (track.starts[i + 1] ?? 9) * 48000);
+    assert.deepEqual(plan.narration.pcm.subarray(start, start + original.length), original);
+  }
+});

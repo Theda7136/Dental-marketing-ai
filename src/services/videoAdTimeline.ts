@@ -91,6 +91,19 @@ export function planAdTimeline(weights: number[], targetSeconds: number, track?:
   let extra = targetSeconds * fps - frames.reduce((a, b) => a + b, 0);
   const order = shares.map((value, i) => ({ i, fraction: value % 1 })).sort((a, b) => b.fraction - a.fraction);
   for (const { i } of order) if (extra-- > 0) frames[i]++;
+  if (track) {
+    // Balance holds against actual speech, not arbitrary storyboard weights.
+    // Reading minima remain mandatory; no samples are cut or time-stretched.
+    frames.splice(0, frames.length, ...minimum);
+    const speechFrames = cuts.slice(0, -1).map((cut, i) => (cuts[i + 1] - cut) / RATE * fps);
+    for (let spare = remaining; spare > 0; spare--) {
+      let next = 0;
+      for (let i = 1; i < frames.length; i++) {
+        if (frames[i] - speechFrames[i] < frames[next] - speechFrames[next]) next = i;
+      }
+      frames[next]++;
+    }
+  }
   const durations = frames.map(value => value / fps);
   if (!track) return { durations, narration: undefined };
   const pcm = Buffer.alloc(targetSeconds * RATE * 2);

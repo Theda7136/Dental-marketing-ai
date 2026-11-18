@@ -57,10 +57,33 @@ export function validateCommercialText(text: string, language?: "es-CO" | "en-US
   }
 }
 
+// Conservative editorial fingerprints, not clinical inference or embeddings.
+// Keep concrete objects: digital and physical models can advance the story.
+export function narrativeFingerprint(text: string): Set<string> {
+  const normalized = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/\b(?:take a closer look|look closer|explore|discover|review|learn about|conoce|explora|descubre|revisa)\b/g, " explore ")
+    .replace(/\b(?:choices|alternatives|opciones|alternativas)\b/g, "options")
+    .replace(/\b(?:discuss|talk about|conversa sobre|habla sobre)\b/g, "discuss")
+    .replace(/\b(?:want to achieve|would like|desire|deseas|quieres lograr)\b/g, "want")
+    .replace(/\b(?:sonrisa)\b/g, "smile");
+  const stop = new Set("a an the your you our us to at of in on and with for this that take closer look tus tu sus el la los las de del en un una y con para sobre".split(" "));
+  return new Set((normalized.match(/[\p{L}\p{N}]+/gu) ?? []).filter(word => !stop.has(word)));
+}
+
 export function validateVisualNarrative(scenes: string[], observations: string[]): void {
   if (observations.length !== scenes.length) throw new Error("Las observaciones no coinciden con las escenas.");
   const normalized = scenes.map(text => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim());
   if (new Set(normalized).size !== scenes.length) throw new Error("Las escenas repiten la misma idea; construye una historia conectada.");
+  const fingerprints = scenes.map(narrativeFingerprint);
+  fingerprints.forEach((words, i) => {
+    for (let j = 0; j < i; j++) {
+      const common = [...words].filter(word => fingerprints[j].has(word)).length;
+      const union = new Set([...words, ...fingerprints[j]]).size;
+      if (common >= 2 && common / union >= 0.8) {
+        throw new Error(`Las escenas ${j + 1} y ${i + 1} repiten la misma idea; añade información distinta respaldada por el material confirmado.`);
+      }
+    }
+  });
   scenes.forEach((text, i) => {
     validateCommercialText(text);
     if (/\b(?:whatsapp|agenda|reserva|book|contact us|cont[aá]ctanos|message us)\b/i.test(text)) {

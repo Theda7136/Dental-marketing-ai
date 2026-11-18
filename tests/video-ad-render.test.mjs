@@ -166,3 +166,14 @@ test("larger portrait content and caption block stay inside the mobile safe area
   const dark = Math.min(luminance(AD_CANVAS.ink), luminance(AD_CANVAS.background));
   assert.ok((light + .05) / (dark + .05) > 7);
 });
+
+test("editorial overlay preserves the logo and every clinical pixel", async () => {
+  const sharp = (await import("sharp")).default;
+  const { composeAdOverlay, clinicalLayout } = loadTs(new URL("../src/services/videoAdLayout.ts", import.meta.url));
+  const logo = await sharp({ create: { width: 120, height: 80, channels: 4, background: "#ff0000" } }).png().toBuffer();
+  const overlay = await composeAdOverlay("Your questions matter.", { clinicName: "Clinic", logoDataUrl: `data:image/png;base64,${logo.toString("base64")}` }, "arial", 1560, false, undefined, clinicalLayout(1080, 1240));
+  const { data, info } = await sharp(overlay).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const pixel = (x, y) => [...data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)];
+  assert.deepEqual(pixel(80, 135), [255, 0, 0, 255]);
+  for (const y of [260, 263, 1499]) assert.equal(pixel(540, y)[3], 0);
+});
