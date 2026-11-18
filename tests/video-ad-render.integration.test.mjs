@@ -76,8 +76,8 @@ test("15-second target survives 6.79-second narration, scene/CTA boundaries, mus
     const brand = { clinicName: "Dr Daniel Coy", primaryColor: "#b7a479", logoDataUrl: null };
     for (const language of ["en-US", "es-CO"]) {
       const scenes = [
-        { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "A closer look at each tooth." : "La forma de cada diente." },
-        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "Bring those questions to us." : "Trae tus preguntas a la consulta." },
+        { filename: "photo.png", bytes: png, kind: "image", seconds: 5, heading: language === "en-US" ? "See each tooth in this digital model." : "Mira cada diente en este modelo digital." },
+        { filename: "clip.mp4", bytes: clip, kind: "video", seconds: 5, heading: language === "en-US" ? "See those shapes in a physical model." : "Y su forma en este modelo físico." },
       ];
       const pcm = pcmTone(6.79);
       const localizedRenderer = { renderVideoAd };

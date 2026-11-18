@@ -113,3 +113,12 @@ visual y el guion siguen usando Gemini, sin llamadas a síntesis de voz.
   La regresión real verifica 360 cuadros, 15.00 s, 1080 × 1920 y audio AAC,
   con pistas sintéticas de 6.79 s, ambos idiomas y mezcla musical opcional.
   Estas pruebas no evalúan la pronunciación de una voz real de los proveedores.
+
+
+### Frases algo más completas
+
+El guion busca 6–10 palabras por escena (preferencia 7–9), añadiendo un par
+de palabras útiles en lugar de titulares de 4–6. El presupuesto total de voz
+y el cierre breve siguen iguales; con muchas escenas prima la lectura natural.
+Se conserva la medición a 88 px en dos líneas y se repara el texto que no cabe,
+sin acelerar la voz ni ampliar los 15 segundos solicitados.

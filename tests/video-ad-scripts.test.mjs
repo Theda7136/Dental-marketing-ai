@@ -77,7 +77,7 @@ test("reported generic captions are repaired in both locales using the original 
     const valid = completeDraft();
     if (language === "es-CO") Object.assign(valid.variants[0], {
       title: "Diente a diente", opening: "Mira la forma de cada diente.", message: "Del modelo a tus preguntas.",
-      closing: "Hablemos por WhatsApp.", scenes: ["Cada diente en el modelo digital.", "Su forma en el modelo físico."],
+      closing: "Hablemos por WhatsApp.", scenes: ["Mira cada diente en este modelo digital.", "Y su forma en este modelo físico."],
     });
     let calls = 0;
     const mock = t.mock.method(globalThis, "fetch", async (_url, options) => {
@@ -105,13 +105,13 @@ test("visual anchors cannot be invented or replaced by an abstract tool benefit"
   assert.throws(() => validateVisualNarrative(["Each tooth in a digital model."], ["Sonrisa de una persona"]), /no respaldado/);
   assert.throws(() => validateVisualNarrative(["Explore your options on screen."], ["Modelo dental en pantalla"]), /detalle visual/);
   assert.throws(() => validateVisualNarrative(["Book your dental consultation."], ["Modelo dental"]), /cierre/);
-  assert.doesNotThrow(() => validateVisualNarrative(["Each tooth in this digital model.", "Those shapes in a physical model."], input.visualDescriptions));
+  assert.doesNotThrow(() => validateVisualNarrative(["See each tooth in this digital model.", "See those shapes in a physical model."], input.visualDescriptions));
   for (const text of ["You have cavities.", "Tienes caries.", "This restores your smile.", "Corrige tu mordida.", "Board-certified dentist."]) {
     assert.throws(() => validateCommercialText(text), /no verificadas/);
   }
 });
 function completeDraft() {
-  return { variants: [{ tone: "comercial", title: "A closer look", opening: "Look at each tooth.", message: "Bring your questions.", closing: "Message us on WhatsApp.", scenes: ["Each tooth in this digital model.", "Those shapes in a physical model."] }] };
+  return { variants: [{ tone: "comercial", title: "A closer look", opening: "Look at each tooth.", message: "Bring your questions.", closing: "Message us on WhatsApp.", scenes: ["See each tooth in this digital model.", "See those shapes in a physical model."] }] };
 }
 function modelResponse(text) {
   return Response.json({ candidates: [{ content: { parts: [{ text: typeof text === "string" ? text : JSON.stringify(text) }] } }] });
@@ -123,8 +123,8 @@ test("missing, empty, extra and malformed scenes are automatically repaired from
   t.after(() => { if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey; });
   const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
   const invalid = [
-    { variants: [{ ...completeDraft().variants[0], scenes: ["Each tooth in this digital model."] }] },
-    { variants: [{ ...completeDraft().variants[0], scenes: ["Each tooth in this digital model.", ""] }] },
+    { variants: [{ ...completeDraft().variants[0], scenes: ["See each tooth in this digital model."] }] },
+    { variants: [{ ...completeDraft().variants[0], scenes: ["See each tooth in this digital model.", ""] }] },
     { variants: [{ ...completeDraft().variants[0], scenes: [...completeDraft().variants[0].scenes, "An extra scene."] }] },
     { variants: [{ ...completeDraft().variants[0], scenes: null }] },
     '{"variants":[',
