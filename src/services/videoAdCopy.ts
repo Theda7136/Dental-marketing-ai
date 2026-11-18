@@ -84,9 +84,11 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
       throw new Error("Reserva la llamada a la acción para el cierre; desarrolla aquí el detalle visible.");
     }
     const observation = observations[i] ?? "";
-    if (/digital|pantalla|screen|modelo|model|yeso|plaster|\bcast\b/i.test(observation) &&
-        !/dient|dental|tooth|teeth|arcada|arch|forma|shape|contorno|outline|borde|edge|mordida|bite/i.test(text)) {
-      throw new Error(`La escena ${i + 1} usa frases genéricas: falta el detalle visual dental concreto, no basta hablar de opciones.`);
+    // A dental observation should inform the copy, but a keyword checklist
+    // cannot reliably judge whether a sentence is specific or natural.
+    if (/^(?:explore|review|discover|discuss|consider|conoce|explora|revisa|descubre|conversemos)(?:mos)?\\b.*\\b(?:options|opciones|possibilities|posibilidades|preferences|preferencias)\\b[.!?]?$/i.test(text.trim()) &&
+        /digital|pantalla|screen|modelo|model|yeso|plaster|\\bcast\\b/i.test(observation)) {
+      throw new Error(`La escena ${i + 1} es demasiado genérica; conecta el texto con el material visual.`);
     }
     // A later source must not inherit an object merely mentioned in an earlier one.
     for (const anchor of anchors) {
