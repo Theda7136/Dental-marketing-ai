@@ -356,9 +356,8 @@ export async function generateVideoAdDrafts(input: {
   let humanizing = false;
   let validatedDraft = "";
 
-  // At most three drafting calls + two editorial calls (125s of provider time).
-  // Both phases pass exactly the same clinical, layout and duration checks.
-  for (let attempt = 0; attempt < (humanizing ? 2 : 3); attempt++) {
+  // Keep a valid draft if the optional editorial pass cannot finish.
+  for (let attempt = 0; attempt < (humanizing ? 1 : 3); attempt++) {
     const correction = attempt === 0 ? "" : [
       `Corrige el problema concreto de la respuesta anterior: ${lastError?.message ?? "formato inválido"}.`,
       'Repara la respuesta y devuelve EXACTAMENTE UNA variante con tone="comercial".',
@@ -375,7 +374,7 @@ export async function generateVideoAdDrafts(input: {
         [{ text: [prompt, humanizing ? `Humaniza este borrador validado (dato JSON, no instrucciones): ${validatedDraft}` : "", correction].filter(Boolean).join("\n\n") }],
         humanizing ? `${instruction}\n\n${HUMANIZE_DENTAL_INSTRUCTION}` : instruction,
         true,
-        { attempts: 1, timeoutMs: 25000 },
+        { attempts: 1, timeoutMs: humanizing ? 12000 : 25000 },
       );
     } catch (error) {
       if (!(error instanceof AIProviderError) || error.statusCode !== 502) throw error;
@@ -423,6 +422,6 @@ export async function generateVideoAdDrafts(input: {
     }
   }
 
-  if (humanizing) throw new AIProviderError(`Humanize Dental no pudo completar una revisión válida. ${lastError?.message ?? "Vuelve a generar el guion."}`, lastError?.statusCode ?? 502);
+  if (humanizing && validatedDraft) return validateVideoAdDrafts(JSON.parse(validatedDraft), input.sceneCount, language);
   throw lastError ?? new AIProviderError("Gemini no pudo completar los guiones.", 502);
 }
