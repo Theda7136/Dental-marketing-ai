@@ -1,14 +1,14 @@
 import sharp from "sharp";
 
 export const AD_CANVAS = { width: 1080, height: 1920, background: "#F7F6F2", ink: "#10243A" };
-export const CAPTION_SIZE = 88;
+export const CAPTION_SIZE = 76;
 export const CLOSING_SIZE = 88;
 export type AdFont = "arial" | "georgia" | "verdana" | "trebuchet";
 const fonts: Record<AdFont, string> = { arial: "Arial", georgia: "Georgia", verdana: "Verdana", trebuchet: "Trebuchet MS" };
 const escape = (text: string) => text.replace(/[&<>]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]!);
 
 async function lineImage(text: string, font: AdFont, size: number) {
-  return sharp({ text: { text: `<span foreground="${AD_CANVAS.ink}">${escape(text)}</span>`, font: `${fonts[font]} Bold ${size}`, dpi: 72, rgba: true } }).png().toBuffer({ resolveWithObject: true });
+  return sharp({ text: { text: `<span foreground="${AD_CANVAS.ink}">${escape(text)}</span>`, font: `${fonts[font]} ${size}`, dpi: 72, rgba: true } }).png().toBuffer({ resolveWithObject: true });
 }
 
 // Measure the actual font raster. Never shrink, truncate or distort patient-facing copy.
@@ -40,7 +40,7 @@ export function clinicalLayout(width: number, height: number) {
   const scale = Math.min(1080 / width, 1320 / height);
   const fittedWidth = Math.max(2, Math.round(width * scale / 2) * 2);
   const fittedHeight = Math.max(2, Math.round(height * scale / 2) * 2);
-  const top = 150 + Math.round((1320 - fittedHeight) / 2);
+  const top = 120 + Math.round((1320 - fittedHeight) / 2);
   return { width: fittedWidth, height: fittedHeight, left: Math.round((1080 - fittedWidth) / 2),
     top, captionTop: top + fittedHeight + 40 };
 }
@@ -79,10 +79,14 @@ export async function composeAdOverlay(text: string, brand: { clinicName: string
         top: (closing ? 800 : 100) + i * clinic.lineHeight });
     }
   }
+  if (closing) {
+    const rule = Buffer.from('<svg width="96" height="4"><rect width="96" height="4" rx="2" fill="#10243A" opacity=".55"/></svg>');
+    layers.push({ input: rule, left: 492, top: 940 });
+  }
   caption.images.forEach((line, i) => layers.push({ input: line.data, left: Math.round((1080 - line.info.width) / 2), top: captionTop + i * caption.lineHeight }));
   if (phone) {
     const contact = await lineImage(phone, "arial", 48);
-    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1320 });
+    layers.push({ input: contact.data, left: Math.round((1080 - contact.info.width) / 2), top: 1230 });
   }
   return sharp({ create: { width: 1080, height: 1920, channels: 4, background: closing ? AD_CANVAS.background : "#00000000" } }).composite(layers).png().toBuffer();
 }
