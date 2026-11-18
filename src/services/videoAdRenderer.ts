@@ -180,7 +180,7 @@ export async function renderVideoAd(scenes: AdScene[], brand: AdBrand, style: Vi
         dimensions = await sharp(preview).metadata();
       }
       const layout = clinicalLayout(dimensions.width!, dimensions.height!);
-      await writeFile(overlay, await composeAdOverlay(scene.heading, brand, captionFont, layout.captionTop));
+      await writeFile(overlay, await composeAdOverlay(scene.heading, brand, captionFont, layout.captionTop, false, undefined, layout));
 
       const videoFilter = sceneFilter(scene.kind, scene.seconds, index, style, index === timedScenes.length - 1, layout);
 
