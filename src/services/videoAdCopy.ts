@@ -34,16 +34,6 @@ export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
 }
 
 
-const genericCopy = [
-  /explor(?:e|ing) digital shapes|review(?:ing)? your personali[sz]ed options/i,
-  /explor(?:ar|ando|emos) formas digitales|revis(?:ar|ando|emos) tus opciones personali[sz]adas/i,
-  /advanced digital tools|herramientas digitales avanzadas/i,
-  /advanced (?:digital )?(?:technology|planning)/i,
-  /personalized approach|natural[- ]looking finish|quality materials/i,
-  /tecnolog[ií]a avanzada|dise[nñ]o personalizado|materiales de (?:alta )?calidad|resultados precisos/i,
-  /transform(?:a|amos|ing)? (?:tu|your) (?:sonrisa|smile)|sonrisa de tus sue[nñ]os|smile of your dreams/i,
-  /instalaciones equipadas para ti|an[aá]lisis cl[ií]nico profesional/i,
-];
 const unsupportedClaims = [
   /\b(?:you have|you suffer from|tienes|padeces)\b.*\b(?:cavit|caries|disease|enfermedad|gingivitis|periodontitis)/i,
   /\b(?:cures?|corrects?|restores?|eliminates?|cura|corrige|restaura|elimina)\b.*\b(?:teeth|smile|bite|dientes|sonrisa|mordida)/i,
