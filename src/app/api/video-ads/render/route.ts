@@ -181,7 +181,7 @@ export async function POST(request: Request) {
         "Content-Disposition": 'attachment; filename="video-publicitario.mp4"',
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
-        "X-Video-Ad-Renderer": "verified-voice-coverage-v3",
+        "X-Video-Ad-Renderer": "verified-voice-coverage-v4",
         "X-Video-Ad-Duration": String(targetSeconds),
         "X-Video-Ad-Narration": encodeURIComponent(JSON.stringify(spokenSegments)),
       },

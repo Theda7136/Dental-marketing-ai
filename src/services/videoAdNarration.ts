@@ -45,6 +45,10 @@ export async function generateVideoAdNarration(
   }
   const { pcm } = compactNarration(await generateGeminiNarration(text, voice, language));
   if (pcm.length / 48000 > 60) throw new Error("Acorta el guion: la narración supera 60 segundos.");
+  // Reject insufficient audio before requesting alignment. An incomplete short
+  // synthesis cannot align every scene and would otherwise mask the measured
+  // duration error, preventing the single bounded script repair.
+  checkDuration({ pcm, starts: [] });
   if (segments.length === 1) return checkDuration({ pcm, starts: [0] });
   // Gemini TTS does not return alignment. Analyze the actual generated audio,
   // never estimate scene boundaries from character counts or requested duration.

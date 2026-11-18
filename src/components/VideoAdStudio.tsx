@@ -299,6 +299,9 @@ export default function VideoAdStudio() {
         const details = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(details?.error ?? "No fue posible crear el video.");
       }
+      if (response.headers.get("X-Video-Ad-Renderer") !== "verified-voice-coverage-v4") {
+        throw new Error("El servidor usa una versión antigua del generador. Actualiza el servidor y recarga esta página antes de exportar.");
+      }
       const blob = await response.blob();
       if (!blob.size) throw new Error("El servidor devolvió un video vacío.");
       const url = URL.createObjectURL(blob);

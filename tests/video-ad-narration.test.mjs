@@ -246,6 +246,43 @@ test("measured short voice is rewritten once, resynthesized and aligned to the n
   assert.equal(result.pcm.length / 48000, 25);
 });
 
+test("Gemini repairs five-second synthesis before alignment can mask insufficient coverage", async t => {
+  const original = ["Short scene.", "Message us on WhatsApp."];
+  const revised = ["Expanded narration for the entire scene.", original[1]];
+  let syntheses = 0, alignments = 0, repairs = 0;
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    alignments++;
+    assert.equal(syntheses, 2, "short audio must not reach alignment");
+    assert.match(JSON.parse(options.body).contents[0].parts[1].text, /Expanded narration/);
+    return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ segments: [
+      { text: revised[0], start: 0, end: 23 }, { text: revised[1], start: 23, end: 25 },
+    ] }) }] } }] });
+  });
+  const { generateMeasuredVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
+    "./geminiNarration": { generateGeminiNarration: async text => {
+      syntheses++;
+      assert.equal(text, (syntheses === 1 ? original : revised).join("\n"));
+      return tone(syntheses === 1 ? 5 : 25);
+    } },
+  });
+  try {
+    const result = await generateMeasuredVideoAdNarration(original, "gemini", "Kore", "en-US", 30, async (_, seconds) => {
+      repairs++;
+      assert.equal(seconds, 5);
+      return revised;
+    });
+    assert.deepEqual(result.segments, revised);
+    assert.equal(syntheses, 2);
+    assert.equal(alignments, 1);
+    assert.equal(repairs, 1);
+  } finally {
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+  }
+});
+
 test("persistent five-second voice cannot loop or produce an export after repair", async () => {
   let calls = 0, repairs = 0;
   const { generateMeasuredVideoAdNarration } = loadTs(new URL("../src/services/videoAdNarration.ts", import.meta.url), {
