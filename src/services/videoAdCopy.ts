@@ -70,6 +70,21 @@ export function narrativeFingerprint(text: string): Set<string> {
   return new Set((normalized.match(/[\p{L}\p{N}]+/gu) ?? []).filter(word => !stop.has(word)));
 }
 
+const prematureCallToAction = /\b(?:whatsapp|agenda(?:r|mos)?|agendar|reserva(?:r)?|book(?:ing)?|contact us|cont[aá]ctanos|message us|escr[ií]benos|solicita (?:una? )?cita)\b/i;
+
+export function validateSceneCallToActions(scenes: string[], narration: string[]): void {
+  for (const [index, scene] of scenes.entries()) {
+    if (prematureCallToAction.test(scene)) {
+      throw new Error(`La escena ${index + 1} incluye una llamada a la acción anticipada. Reserva la invitación para el cierre.`);
+    }
+  }
+  for (const [index, spokenText] of narration.entries()) {
+    if (prematureCallToAction.test(spokenText)) {
+      throw new Error(`La narración de la escena ${index + 1} incluye una llamada a la acción anticipada. Reserva la invitación para el cierre.`);
+    }
+  }
+}
+
 export function validateVisualNarrative(scenes: string[], observations: string[]): void {
   if (observations.length !== scenes.length) throw new Error("Las observaciones no coinciden con las escenas.");
   const normalized = scenes.map(text => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim());
@@ -86,9 +101,7 @@ export function validateVisualNarrative(scenes: string[], observations: string[]
   });
   scenes.forEach((text, i) => {
     validateCommercialText(text);
-    if (/\b(?:whatsapp|agenda|reserva|book|contact us|cont[aá]ctanos|message us)\b/i.test(text)) {
-      throw new Error("Reserva la llamada a la acción para el cierre; desarrolla aquí el detalle visible.");
-    }
+    validateSceneCallToActions([text], []);
   });
 }
 
