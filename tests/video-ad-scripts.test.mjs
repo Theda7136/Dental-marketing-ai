@@ -383,7 +383,7 @@ test("premature CTAs in narration and humanized captions trigger bounded repairs
     });
     const drafts = await generateVideoAdDrafts(input);
     assert.deepEqual(drafts, completeDraft().variants);
-    assert.equal(calls, invalidStage === 1 ? 3 : 4);
+    assert.equal(calls, 3);
     mock.mock.restore();
   }
 });
