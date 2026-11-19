@@ -22,13 +22,13 @@ export function normalizeVideoAdCopy(draft: AdNarrative): AdNarrative {
     throw new Error("El guion contiene instrucciones de producción en lugar de texto publicitario.");
   }
 
-  const scenes = draft.scenes.map((caption, index) => {
-    if (!looksLikeProductionInstruction(caption)) return caption;
-    if (draft.scenes.length === 1) return draft.opening;
-    if (index === 0) return draft.opening;
-    if (index === draft.scenes.length - 1) return draft.closing;
-    return draft.message;
-  });
+  // Never replace a scene with the closing CTA: that manufactures the very
+  // duplication rejected downstream and loses the scene's visual reference.
+  // Let the bounded generation retry repair the original production direction.
+  if (draft.scenes.some(looksLikeProductionInstruction)) {
+    throw new Error("El guion contiene instrucciones de producción en lugar de texto publicitario.");
+  }
+  const scenes = draft.scenes;
 
   return { ...draft, scenes };
 }

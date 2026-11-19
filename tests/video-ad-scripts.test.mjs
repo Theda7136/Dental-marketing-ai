@@ -54,13 +54,13 @@ test("production directions are not accepted as ad captions", async () => {
   examples.forEach(line => assert.equal(looksLikeProductionInstruction(line), true));
   assert.equal(looksLikeProductionInstruction("Solicita información sobre tu valoración."), false);
 
-  const draft = normalizeVideoAdCopy({
+  const draft = {
     opening: "¿Quieres conocer el diseño de sonrisa?",
     message: "Conoce las opciones con orientación profesional.",
     closing: "Solicita información sobre tu valoración.",
     scenes: examples,
-  });
-  assert.deepEqual(draft.scenes, [draft.opening, draft.message, draft.closing]);
+  };
+  assert.throws(() => normalizeVideoAdCopy(draft), /instrucciones de producción/);
   assert.throws(() => normalizeVideoAdCopy({
     ...draft, opening: "Imagen de la fachada de la clínica",
   }), /instrucciones de producción/);
@@ -336,4 +336,27 @@ test("Gemini repairs short or unsafe narration while retaining short captions", 
     assert.equal(calls, 3);
     mock.mock.restore();
   }
+});
+
+test("production directions in the final scene are repaired without copying the closing CTA", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    calls++;
+    const draft = completeDraft();
+    if (calls === 1) draft.variants[0].scenes[1] = "Call to action with WhatsApp icon.";
+    if (calls === 2) {
+      const correction = JSON.parse(options.body).contents[0].parts[0].text;
+      assert.match(correction, /instrucciones de producción/);
+      assert.doesNotMatch(correction, /Reserva la llamada/);
+    }
+    return modelResponse(draft);
+  });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  const [draft] = await generateVideoAdDrafts(input);
+  assert.deepEqual(draft.scenes, completeDraft().variants[0].scenes);
+  assert.ok(draft.scenes.every(scene => scene !== draft.closing));
+  assert.equal(calls, 3);
 });
