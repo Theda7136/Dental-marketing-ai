@@ -1,7 +1,7 @@
 import { CLOSING_SIZE, layoutAdCaption, validateClosingCopy } from "./videoAdLayout";
 import { HUMANIZE_DENTAL_INSTRUCTION } from "./humanizeDental";
 import { clinicalGuardrails } from "@/config/clinicalGuardrails";
-import { normalizeVideoAdCopy, validateCommercialText, validateVisualNarrative, validateNarrationScript, narrationWordBudget } from "./videoAdCopy";
+import { normalizeVideoAdCopy, validateCommercialText, validateVisualNarrative, validateNarrationScript, narrationWordBudget, validateSceneCallToActions } from "./videoAdCopy";
 import {
   generateDentalVariants as generateWithGrok,
   type DentalPost,
@@ -434,6 +434,7 @@ export async function generateVideoAdDrafts(input: {
       const drafts = validateVideoAdDrafts(parsed, input.sceneCount, language);
       for (const draft of drafts) {
         try {
+          validateSceneCallToActions(draft.scenes, draft.narration);
           validateNarrationScript(draft.narration, input.sceneCount, draft.closing, input.duration, language);
           draft.narration.forEach(text => clinicalGuardrails.validate(text));
           validateVisualNarrative(draft.scenes, input.visualDescriptions!);
