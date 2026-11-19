@@ -444,7 +444,9 @@ export default function VideoAdStudio() {
           <div className="ad-studio-panel-heading"><div><h3>Configurar anuncio</h3><p>Define el enfoque de la pieza</p></div></div>
           <label className="ad-studio-field">Idioma del anuncio<select value={language} onChange={event => { setLanguage(event.target.value as "es-CO" | "en-US"); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }}><option value="es-CO">Español · Colombia</option><option value="en-US">English · United States</option></select></label>
           <label className="ad-studio-field">Procedimiento<select value={treatment} onChange={event => { setTreatment(event.target.value); setVariants([]); setSelectedTone(null); setScenes([]); clearRender(); }} >{treatments.map(value => <option key={value}>{value}</option>)}</select></label>
-          <label className="ad-studio-field">Fuente de subtítulos
+          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(Math.max(previous.length, value - 6) / previous.length) + (index < Math.max(previous.length, value - 6) % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
+          <details className="ad-studio-script"><summary>Estilo y música opcionales</summary>
+<label className="ad-studio-field">Fuente de subtítulos
             <select value={captionFont} onChange={event => { setCaptionFont(event.target.value); clearRender(); }}>
               <option value="arial">Arial · Moderna</option>
               <option value="georgia">Georgia · Elegante</option>
@@ -471,10 +473,10 @@ export default function VideoAdStudio() {
               <input id="ad-music-volume" type="range" min="5" max="50" step="1" value={musicVolume} onChange={event => { setMusicVolume(Number(event.target.value)); clearRender(); }} />
               <button type="button" onClick={() => { setMusicFile(null); if (musicInput.current) musicInput.current.value = ""; clearRender(); }}>Quitar música</button>
             </>}
-            <small>La duración elegida incluye escenas, pausas y cierre, sin acelerar la voz. Usa una pista con licencia comercial. Si activas la narración, la música baja de volumen automáticamente.</small>
+            <small>Usa música con licencia comercial. Con narración, el volumen se reduce automáticamente.</small>
           </div>
-          <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(Math.max(previous.length, value - 6) / previous.length) + (index < Math.max(previous.length, value - 6) % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
-          <div className="ad-studio-script">
+          </details>
+<div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
             <p className="ad-studio-hint">Genera un guion basado en el material autorizado y la información confirmada.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
