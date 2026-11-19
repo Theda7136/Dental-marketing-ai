@@ -396,6 +396,7 @@ export async function generateVideoAdDrafts(input: {
   for (let attempt = 0; attempt < (humanizing ? 2 : 3); attempt++) {
     const correction = attempt === 0 ? "" : [
       `Corrige el problema concreto de la respuesta anterior: ${lastError?.message ?? "formato inválido"}.`,
+      `Comprueba el número TOTAL de palabras de narration + closing antes de responder: para ${input.duration} segundos deben ser entre ${narrationWordBudget(input.duration).minimum} y ${narrationWordBudget(input.duration).maximum}, incluyendo las palabras del cierre. Si te excedes, acorta narration sin tocar closing ni los subtítulos scenes; si faltan palabras, amplía narration con contexto seguro. No agregues promesas ni afirmaciones clínicas.`,
       "Si el problema es una llamada a la acción anticipada, elimina de TODAS las escenas y de TODA la narración las invitaciones a escribir, reservar, agendar, contactar o usar WhatsApp. El ÚNICO llamado a la acción debe permanecer en closing, que se reproduce al final. Reescribe cada escena y cada segmento de narration con información contextual o preguntas sobre el elemento visual confirmado, sin inventar hechos clínicos.",
       'Repara la respuesta y devuelve EXACTAMENTE UNA variante con tone="comercial".',
       `Cada variante debe incluir EXACTAMENTE ${input.sceneCount} textos en scenes y ${input.sceneCount} en narration, uno por cada archivo adjunto y en el mismo orden.`,
