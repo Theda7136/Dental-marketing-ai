@@ -476,17 +476,18 @@ export default function VideoAdStudio() {
           <div className="ad-studio-field"><span>Duración objetivo</span><div className="ad-studio-choices">{[15,30,60].map(value => <button key={value} type="button" aria-pressed={duration === value} onClick={() => { setDuration(value); setScenes(previous => previous.map((scene, index) => ({ ...scene, seconds: Math.floor(Math.max(previous.length, value - 6) / previous.length) + (index < Math.max(previous.length, value - 6) % previous.length ? 1 : 0) }))); clearRender(); }}>{value} s</button>)}</div></div>
           <div className="ad-studio-script">
             <h3>Guiones con Gemini</h3>
-            <p>Gemini analizará fotografías y un fotograma representativo de cada video para adaptar los subtítulos. No incluyas datos personales en las notas.</p>
+            <p className="ad-studio-hint">Genera un guion basado en el material autorizado y la información confirmada.</p>
             <label className="ad-studio-field">Información confirmada de la clínica (opcional)<textarea rows={3} maxLength={600} placeholder="Ej.: ofrecemos valoración inicial. No incluyas datos personales." value={clinicContext} onChange={event => setClinicContext(event.target.value)} /></label>
             <label className="ad-studio-consent"><input type="checkbox" checked={visionConsent} onChange={event => { setVisionConsent(event.target.checked); setVariants([]); setSelectedTone(null); }} /> <span>Confirmo que tengo autorización para analizar con Gemini las fotografías y fotogramas de los videos, y para utilizarlos en publicidad.</span></label>
-            <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Narración con IA. ElevenLabs ofrece voces más naturales; requiere una cuenta y créditos disponibles.</span></label>
-            {narrationEnabled && <p>La voz se mide antes de exportar. Si queda corta, se amplía el guion y se sintetiza una vez más; puede consumir créditos adicionales. El editor mostrará la locución utilizada.</p>}
+            <label className="ad-studio-consent"><input type="checkbox" checked={narrationEnabled} onChange={event => { setNarrationEnabled(event.target.checked); clearRender(); }} /> <span>Incluir narración con IA</span></label>
+            
             {narrationEnabled && <label className="ad-studio-field">Motor de narración
               <select value={narrationProvider} onChange={event => { setNarrationProvider(event.target.value as "gemini" | "elevenlabs"); clearRender(); }}>
                 <option value="elevenlabs">ElevenLabs · Voz natural</option>
                 <option value="gemini">Gemini · Voz alternativa</option>
               </select>
             </label>}
+            {narrationEnabled && <small role="note">La duración de la voz se valida antes de exportar. Si es necesario regenerarla, puede consumir créditos adicionales.</small>}
             {narrationEnabled && narrationProvider === "gemini" && <label className="ad-studio-field">Voz de la narración
               <select value={narrationVoice} onChange={event => { setNarrationVoice(event.target.value); clearRender(); }}>
                 <option value="Kore">Kore · Serena</option>
@@ -496,13 +497,13 @@ export default function VideoAdStudio() {
             </label>}
 
             {variants.length === 0 && <button type="button" className="ad-studio-primary" disabled={generatingScripts || assets.length === 0 || !visionConsent} onClick={generateScripts}>{generatingScripts ? "Preparando anuncio..." : "Generar guion publicitario con IA"}</button>}
-            <p className="ad-studio-hint">Humanize Dental revisa automáticamente la naturalidad del guion y la conexión entre escenas. Gemini genera el texto y analiza las imágenes. ElevenLabs o Gemini generan la voz al crear el video, según el motor seleccionado.</p>
-            {generatingScripts && <p role="status" className="ad-studio-hint">Preparando el guion y revisándolo con Humanize Dental para que suene natural y conectado.</p>}
+
+            {generatingScripts && <p role="status" className="ad-studio-hint">Generando y revisando el guion...</p>}
             {scriptError && <p role="alert" className="ad-studio-error">{scriptError}</p>}
-            {variants.length > 0 && <div className="ad-studio-hint"><strong>Guion revisado con Humanize Dental.</strong> Puedes editar los textos en «Guion por escenas» antes de generar el video.</div>}
+            {variants.length > 0 && <p className="ad-studio-hint">Guion listo. Revísalo en «Guion por escenas» antes de exportar.</p>}
           </div>
           {error && <p role="alert" className="ad-studio-error">{error}</p>}
-          <p className="ad-studio-hint">El estilo publicitario se aplica automáticamente al MP4. Las imágenes clínicas originales se mantienen intactas. El video se renderiza en el servidor, pero no se guarda ni publica automáticamente.</p>
+          <p className="ad-studio-hint">Las imágenes clínicas originales se mantienen intactas. El MP4 no se guarda ni publica automáticamente.</p>
         </aside>
       </div>
     </section>
