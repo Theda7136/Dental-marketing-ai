@@ -360,3 +360,30 @@ test("production directions in the final scene are repaired without copying the 
   assert.ok(draft.scenes.every(scene => scene !== draft.closing));
   assert.equal(calls, 3);
 });
+
+test("premature CTAs in narration and humanized captions trigger bounded repairs", async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "test-key";
+  t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  const { generateVideoAdDrafts } = loadTs(new URL("../src/services/aiProvider.ts", import.meta.url), { "./grokService": {} });
+  for (const invalidStage of [1, 2]) {
+    let calls = 0;
+    const mock = t.mock.method(globalThis, "fetch", async (_url, options) => {
+      calls++;
+      const draft = completeDraft();
+      if (calls === invalidStage) {
+        if (invalidStage === 1) draft.variants[0].narration[0] = "Book your consultation today. " + draft.variants[0].narration[0];
+        else draft.variants[0].scenes[1] = "Message us on WhatsApp.";
+      }
+      if (calls === invalidStage + 1) {
+        const prompt = JSON.parse(options.body).contents[0].parts[0].text;
+        assert.match(prompt, /llamada a la acción anticipada/);
+      }
+      return modelResponse(draft);
+    });
+    const drafts = await generateVideoAdDrafts(input);
+    assert.deepEqual(drafts, completeDraft().variants);
+    assert.equal(calls, invalidStage === 1 ? 3 : 4);
+    mock.mock.restore();
+  }
+});
